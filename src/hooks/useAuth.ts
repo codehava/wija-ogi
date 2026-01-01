@@ -81,6 +81,45 @@ export function useIsOwner(familyId: string | null) {
 }
 
 /**
+ * Hook to check if user is a super admin (can see all families)
+ * Super admin is determined by checking the superadmins collection in Firestore
+ */
+export function useIsSuperAdmin() {
+    const { user } = useAuth();
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function checkSuperAdmin() {
+            if (!user) {
+                setIsSuperAdmin(false);
+                setLoading(false);
+                return;
+            }
+
+            try {
+                // Check if user is in superadmins collection
+                const { doc, getDoc } = await import('firebase/firestore');
+                const { db } = await import('@/lib/firebase/config');
+                const superAdminRef = doc(db, 'superadmins', user.uid);
+                const superAdminSnap = await getDoc(superAdminRef);
+
+                setIsSuperAdmin(superAdminSnap.exists());
+            } catch (err) {
+                console.error('Error checking super admin:', err);
+                setIsSuperAdmin(false);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        checkSuperAdmin();
+    }, [user]);
+
+    return { isSuperAdmin, loading };
+}
+
+/**
  * Hook to check if user is member of a family
  */
 export function useIsMember(familyId: string | null) {
@@ -188,15 +227,16 @@ export function useRequireGuest() {
  * Role permission matrix
  */
 export const PERMISSIONS = {
-    VIEW_TREE: ['owner', 'admin', 'editor', 'viewer'],
-    CREATE_PERSON: ['owner', 'admin', 'editor'],
-    EDIT_PERSON: ['owner', 'admin', 'editor'],
-    DELETE_PERSON: ['owner', 'admin'],
-    MANAGE_RELATIONSHIPS: ['owner', 'admin', 'editor'],
-    INVITE_MEMBERS: ['owner', 'admin'],
-    REMOVE_MEMBERS: ['owner', 'admin'],
-    EDIT_FAMILY_SETTINGS: ['owner'],
-    DELETE_FAMILY: ['owner']
+    VIEW_TREE: ['superadmin', 'owner', 'admin', 'editor', 'viewer'],
+    VIEW_ALL_FAMILIES: ['superadmin'],
+    CREATE_PERSON: ['superadmin', 'owner', 'admin', 'editor'],
+    EDIT_PERSON: ['superadmin', 'owner', 'admin', 'editor'],
+    DELETE_PERSON: ['superadmin', 'owner', 'admin'],
+    MANAGE_RELATIONSHIPS: ['superadmin', 'owner', 'admin', 'editor'],
+    INVITE_MEMBERS: ['superadmin', 'owner', 'admin'],
+    REMOVE_MEMBERS: ['superadmin', 'owner', 'admin'],
+    EDIT_FAMILY_SETTINGS: ['superadmin', 'owner'],
+    DELETE_FAMILY: ['superadmin', 'owner']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

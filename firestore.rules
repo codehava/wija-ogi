@@ -61,5 +61,18 @@ service cloud.firestore {
     match /exports/{exportId} {
       allow read, write: if isAuthenticated();
     }
+    
+    // Super Admins collection - read for auth check, write restricted
+    match /superadmins/{userId} {
+      allow read: if isAuthenticated();
+      // Only existing super admins can add/remove super admins
+      allow write: if isAuthenticated() && exists(/databases/$(database)/documents/superadmins/$(request.auth.uid));
+    }
+    
+    // Collection Group rule for members - enables querying all memberships for a user
+    // This is required for the home page to show all families where user is a member
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated();
+    }
   }
 }

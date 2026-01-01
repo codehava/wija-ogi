@@ -9,7 +9,7 @@ import { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFamilyTree } from '@/hooks/useFirestore';
-import { useCanEdit } from '@/hooks/useAuth';
+import { useCanEdit, useIsAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput } from '@/types';
 import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild } from '@/lib/services/persons';
@@ -29,6 +29,7 @@ export default function FamilyPage() {
 
     const { user } = useAuth();
     const { hasRole: canEdit } = useCanEdit(familyId);
+    const { hasRole: isAdmin } = useIsAdmin(familyId);
     const {
         family,
         persons,
@@ -277,6 +278,24 @@ export default function FamilyPage() {
                                 <span>👥 {family.stats.personCount} anggota</span>
                                 <span>🌳 {stats.totalGenerations} generasi</span>
                             </div>
+
+                            {/* Admin Menu */}
+                            {isAdmin && (
+                                <div className="flex items-center gap-2">
+                                    <Link
+                                        href={`/family/${familyId}/team`}
+                                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition flex items-center gap-1"
+                                    >
+                                        👥 Tim
+                                    </Link>
+                                    <Link
+                                        href={`/family/${familyId}/settings`}
+                                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition flex items-center gap-1"
+                                    >
+                                        ⚙️ Pengaturan
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

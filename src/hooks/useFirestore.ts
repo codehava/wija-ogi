@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { Family, Person, Relationship } from '@/types';
 import { getFamily, getUserFamilies, getFamilyMembers } from '@/lib/services/families';
@@ -55,12 +55,15 @@ export function useFamily(familyId: string | null) {
 
 /**
  * Hook to fetch user's families with realtime updates
+ * Includes: owned families + families where user is a member
+ * Super admins can see ALL families
  */
 export function useUserFamilies() {
     const { user } = useAuth();
     const [families, setFamilies] = useState<Family[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -71,38 +74,112 @@ export function useUserFamilies() {
 
         setLoading(true);
 
-        // Use realtime listener for families where user is owner
-        const q = query(
-            collection(db, 'families'),
-            where('ownerId', '==', user.uid),
-            orderBy('updatedAt', 'desc')
-        );
+        const fetchFamilies = async () => {
+            try {
+                // Check if super admin
+                const superAdminRef = doc(db, 'superadmins', user.uid);
+                const superAdminSnap = await getDoc(superAdminRef);
+                const isSuper = superAdminSnap.exists();
+                setIsSuperAdmin(isSuper);
 
-        const unsubscribe = onSnapshot(
-            q,
-            (snapshot) => {
-                const data = snapshot.docs.map(doc => doc.data() as Family);
-                setFamilies(data);
+                if (isSuper) {
+                    // Super admin: get all families
+                    const q = query(
+                        collection(db, 'families'),
+                        orderBy('updatedAt', 'desc')
+                    );
+
+                    const unsubscribe = onSnapshot(q, (snapshot) => {
+                        const data = snapshot.docs.map(doc => doc.data() as Family);
+                        setFamilies(data);
+                        setLoading(false);
+                        setError(null);
+                    }, (err) => {
+                        console.error('Error fetching families:', err);
+                        setError(err as Error);
+                        setFamilies([]);
+                        setLoading(false);
+                    });
+
+                    return unsubscribe;
+                }
+
+                // Regular user: get owned families + member families
+                const familyIds = new Set<string>();
+
+                // 1. Get families where user is owner
+                const ownedQuery = query(
+                    collection(db, 'families'),
+                    where('ownerId', '==', user.uid)
+                );
+                const ownedSnapshot = await getDocs(ownedQuery);
+                ownedSnapshot.docs.forEach(doc => familyIds.add(doc.id));
+
+                // 2. Get families where user is a member (check each family's members subcollection)
+                // We need to query collection group for members
+                const { collectionGroup } = await import('firebase/firestore');
+                const membersQuery = query(
+                    collectionGroup(db, 'members'),
+                    where('userId', '==', user.uid)
+                );
+                const membersSnapshot = await getDocs(membersQuery);
+                membersSnapshot.docs.forEach(memberDoc => {
+                    // The parent of members subcollection is the family
+                    const familyId = memberDoc.ref.parent.parent?.id;
+                    if (familyId) familyIds.add(familyId);
+                });
+
+                // 3. Fetch all family documents
+                const familyPromises = Array.from(familyIds).map(async (familyId) => {
+                    const familyDoc = await getDoc(doc(db, 'families', familyId));
+                    if (familyDoc.exists()) {
+                        return familyDoc.data() as Family;
+                    }
+                    return null;
+                });
+
+                const familyResults = await Promise.all(familyPromises);
+                const validFamilies = familyResults
+                    .filter((f): f is Family => f !== null)
+                    .sort((a, b) => {
+                        // Sort by updatedAt descending
+                        const aTime = a.updatedAt?.seconds || 0;
+                        const bTime = b.updatedAt?.seconds || 0;
+                        return bTime - aTime;
+                    });
+
+                setFamilies(validFamilies);
                 setLoading(false);
                 setError(null);
-            },
-            (err) => {
+
+                // Return empty unsubscribe for non-realtime mode
+                return () => { };
+            } catch (err) {
                 console.error('Error fetching families:', err);
                 setError(err as Error);
                 setFamilies([]);
                 setLoading(false);
+                return () => { };
             }
-        );
+        };
 
-        return () => unsubscribe();
+        let unsubscribe: (() => void) | undefined;
+        fetchFamilies().then(unsub => {
+            unsubscribe = unsub;
+        });
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, [user]);
 
     const refresh = useCallback(async () => {
-        // Refresh is automatic with realtime listener
-        // This is kept for API compatibility
+        // Trigger a re-fetch by updating state
+        // For now, this is a no-op as we fetch on mount
     }, []);
 
-    return { families, loading, error, refresh };
+    return { families, loading, error, refresh, isSuperAdmin };
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────

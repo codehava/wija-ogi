@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MemberRole } from '@/types';
+import { MemberRole, Invitation } from '@/types';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
@@ -42,6 +42,8 @@ export function InviteMemberForm({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [invitationLink, setInvitationLink] = useState('');
+    const [copied, setCopied] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,7 +67,7 @@ export function InviteMemberForm({
             }
 
             // Create invitation
-            await createInvitation({
+            const invitation = await createInvitation({
                 familyId,
                 familyName,
                 email,
@@ -74,13 +76,12 @@ export function InviteMemberForm({
                 invitedByName: inviterName
             });
 
+            // Generate invitation link
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+            setInvitationLink(`${baseUrl}/invite/${invitation.invitationId}`);
+
             setSuccess(true);
             onSuccess?.();
-
-            // Reset after delay
-            setTimeout(() => {
-                handleClose();
-            }, 2000);
 
         } catch (err) {
             console.error('Failed to create invitation:', err);
@@ -90,11 +91,23 @@ export function InviteMemberForm({
         }
     };
 
+    const handleCopyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(invitationLink);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
+
     const handleClose = () => {
         setEmail('');
         setRole('viewer');
         setError('');
         setSuccess(false);
+        setInvitationLink('');
+        setCopied(false);
         onClose();
     };
 
@@ -154,17 +167,56 @@ export function InviteMemberForm({
                             Batal
                         </Button>
                         <Button type="submit" loading={loading} className="flex-1">
-                            📧 Kirim Undangan
+                            📧 Buat Undangan
                         </Button>
                     </ModalFooter>
                 </form>
             ) : (
                 <ModalBody>
-                    <div className="py-8 text-center">
+                    <div className="py-4 text-center">
                         <div className="text-6xl mb-4">✅</div>
-                        <h3 className="text-lg font-semibold text-stone-800 mb-2">Undangan Terkirim!</h3>
-                        <p className="text-stone-600">
-                            Email undangan telah dikirim ke <strong>{email}</strong>
+                        <h3 className="text-lg font-semibold text-stone-800 mb-2">Undangan Dibuat!</h3>
+                        <p className="text-stone-600 mb-4">
+                            Bagikan link berikut kepada <strong>{email}</strong>
+                        </p>
+
+                        {/* Invitation Link */}
+                        <div className="bg-stone-100 rounded-lg p-3 mb-4">
+                            <div className="text-xs text-stone-500 mb-1">Link Undangan:</div>
+                            <div className="text-sm font-mono text-stone-700 break-all">
+                                {invitationLink}
+                            </div>
+                        </div>
+
+                        {/* Copy Button */}
+                        <Button onClick={handleCopyLink} className="w-full mb-4">
+                            {copied ? '✅ Tersalin!' : '📋 Salin Link'}
+                        </Button>
+
+                        {/* Share Options */}
+                        <div className="flex gap-2">
+                            <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Hai! Kamu diundang bergabung ke keluarga "${familyName}" di WIJA.\n\nKlik link berikut untuk bergabung:\n${invitationLink}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1"
+                            >
+                                <Button variant="secondary" className="w-full">
+                                    📱 WhatsApp
+                                </Button>
+                            </a>
+                            <a
+                                href={`mailto:${email}?subject=Undangan bergabung keluarga ${familyName}&body=${encodeURIComponent(`Hai!\n\nKamu diundang bergabung ke keluarga "${familyName}" di WIJA.\n\nKlik link berikut untuk bergabung:\n${invitationLink}`)}`}
+                                className="flex-1"
+                            >
+                                <Button variant="secondary" className="w-full">
+                                    📧 Email
+                                </Button>
+                            </a>
+                        </div>
+
+                        <p className="text-xs text-stone-500 mt-4">
+                            Link akan kadaluarsa dalam 7 hari
                         </p>
                     </div>
                 </ModalBody>

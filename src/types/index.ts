@@ -10,7 +10,7 @@ import { Timestamp } from 'firebase/firestore';
 // ─────────────────────────────────────────────────────────────────────────────────
 
 export type Gender = 'male' | 'female' | 'other' | 'unknown';
-export type MemberRole = 'owner' | 'admin' | 'editor' | 'viewer';
+export type MemberRole = 'superadmin' | 'owner' | 'admin' | 'editor' | 'viewer';
 export type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'trial';
 export type ScriptMode = 'latin' | 'lontara' | 'both';

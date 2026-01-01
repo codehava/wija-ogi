@@ -24,8 +24,8 @@ export interface FamilyTreeProps {
 }
 
 // Layout constants
-const NODE_WIDTH = 180;
-const NODE_HEIGHT = 100;
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 120;
 
 interface NodePosition {
     x: number;
@@ -987,7 +987,7 @@ export function FamilyTree({
                                             </div>
                                         )}
                                         {(scriptMode === 'lontara' || scriptMode === 'both') && person.lontaraName && (
-                                            <div className="text-xs text-teal-700 font-lontara leading-tight mt-0.5 break-words line-clamp-1">
+                                            <div className="text-base text-teal-700 font-lontara leading-normal mt-1 break-words">
                                                 {person.lontaraName.first}
                                             </div>
                                         )}
