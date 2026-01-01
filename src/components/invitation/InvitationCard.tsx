@@ -68,6 +68,7 @@ export function InvitationCard({
     const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
     const roleLabels = {
+        superadmin: '🛡️ Super Admin',
         owner: '👑 Owner',
         admin: '⚙️ Admin',
         editor: '✏️ Editor',
