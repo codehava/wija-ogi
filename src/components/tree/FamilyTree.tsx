@@ -278,6 +278,59 @@ function calculateDagreLayout(persons: Person[]): Map<string, NodePosition> {
         resolveCollisions();
     }
 
+    // FINAL PASS: Sort children by birth date AFTER all collision resolution
+    // This ensures children are properly ordered: oldest (left) to youngest (right)
+    const processedFinalGroups = new Set<string>();
+
+    persons.forEach(person => {
+        if (person.relationships.childIds.length === 0) return;
+
+        // Create unique key for parent group
+        const groupKey = person.relationships.spouseIds.length > 0
+            ? [person.personId, ...person.relationships.spouseIds].sort().join('-')
+            : person.personId;
+
+        if (processedFinalGroups.has(groupKey)) return;
+        processedFinalGroups.add(groupKey);
+
+        // Get children with birth dates
+        const childrenData = person.relationships.childIds
+            .map(id => {
+                const child = persons.find(p => p.personId === id);
+                const pos = posMap.get(id);
+                return {
+                    id,
+                    pos,
+                    birthDate: child?.birthDate || ''
+                };
+            })
+            .filter(c => c.pos !== undefined);
+
+        if (childrenData.length < 2) return; // No need to sort if 0 or 1 child
+
+        // Sort by birth date: oldest first (earliest date = smaller string)
+        // Empty birthDate goes to end
+        const sortedChildren = [...childrenData].sort((a, b) => {
+            if (!a.birthDate && !b.birthDate) return 0;
+            if (!a.birthDate) return 1;
+            if (!b.birthDate) return -1;
+            return a.birthDate.localeCompare(b.birthDate);
+        });
+
+        // Get current X positions sorted left to right
+        const xPositions = childrenData
+            .map(c => c.pos!.x)
+            .sort((a, b) => a - b);
+
+        // Assign X positions to children in birth date order
+        sortedChildren.forEach((child, index) => {
+            const currentPos = posMap.get(child.id);
+            if (currentPos) {
+                posMap.set(child.id, { x: xPositions[index], y: currentPos.y });
+            }
+        });
+    });
+
     return posMap;
 }
 
