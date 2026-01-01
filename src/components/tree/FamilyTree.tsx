@@ -151,8 +151,20 @@ function calculateDagreLayout(persons: Person[]): Map<string, NodePosition> {
     });
 
     // Post-process: Center children under their parents, sorted by birth date (oldest first on left)
+    // Track processed parent groups to avoid duplicate processing
+    const processedParentGroups = new Set<string>();
+
     persons.forEach(person => {
         if (person.relationships.childIds.length === 0) return;
+
+        // Create a unique key for this parent group (single parent or couple)
+        const parentGroupKey = person.relationships.spouseIds.length > 0
+            ? [person.personId, ...person.relationships.spouseIds].sort().join('-')
+            : person.personId;
+
+        // Skip if already processed this parent group
+        if (processedParentGroups.has(parentGroupKey)) return;
+        processedParentGroups.add(parentGroupKey);
 
         const parentPos = posMap.get(person.personId);
         if (!parentPos) return;
@@ -173,7 +185,7 @@ function calculateDagreLayout(persons: Person[]): Map<string, NodePosition> {
                 return {
                     id,
                     pos: posMap.get(id),
-                    birthDate: childPerson?.birthDate
+                    birthDate: childPerson?.birthDate || null
                 };
             })
             .filter(c => c.pos !== undefined);
@@ -181,21 +193,26 @@ function calculateDagreLayout(persons: Person[]): Map<string, NodePosition> {
         if (childrenWithData.length === 0) return;
 
         // Sort children by birth date (oldest first = earliest date = left side)
-        // Children without birthDate go to the end
+        // Children without birthDate go to the end (right side)
         childrenWithData.sort((a, b) => {
+            // Both have no date - keep original order
             if (!a.birthDate && !b.birthDate) return 0;
-            if (!a.birthDate) return 1; // No date goes to end
+            // No date goes to the end (right side)
+            if (!a.birthDate) return 1;
             if (!b.birthDate) return -1;
-            return a.birthDate.localeCompare(b.birthDate); // Earlier dates first
+            // Compare dates - earlier date (older) should come first (left)
+            // Date format is YYYY-MM-DD, so string comparison works
+            if (a.birthDate < b.birthDate) return -1;
+            if (a.birthDate > b.birthDate) return 1;
+            return 0;
         });
 
-        // Re-arrange children positions based on sorted order
-        // Get the leftmost X position and spacing from current layout
+        // Get sorted X positions from smallest to largest (left to right)
         const sortedXPositions = childrenWithData
             .map(c => c.pos!.x)
             .sort((a, b) => a - b);
 
-        // Assign positions based on sorted order (oldest to youngest, left to right)
+        // Assign positions based on sorted order (oldest gets leftmost position)
         childrenWithData.forEach((child, index) => {
             const pos = posMap.get(child.id);
             if (pos) {
