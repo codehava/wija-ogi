@@ -136,6 +136,7 @@ export default function TeamPage() {
     }
 
     const roleLabels: Record<MemberRole, string> = {
+        superadmin: '🛡️ Super Admin',
         owner: '👑 Owner',
         admin: '⚙️ Admin',
         editor: '✏️ Editor',
