@@ -589,53 +589,57 @@ export function FamilyTree({
 
     return (
         <div className="relative h-full bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden">
-            {/* Controls */}
-            <div
-                className="controls-panel absolute top-4 right-4 z-30 flex gap-1.5 bg-white rounded-lg shadow p-1.5 border border-stone-200 print:hidden"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button onClick={handleZoomIn} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom in">+</button>
-                <button onClick={handleZoomOut} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom out">−</button>
-                <button onClick={handleZoomReset} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600" title="Reset view">↺</button>
-                <div className="w-px bg-stone-200 mx-0.5"></div>
-                {/* Direct PDF Export Button */}
-                <button
-                    type="button"
-                    onClick={handleExportPDF}
-                    disabled={isExporting}
-                    className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border cursor-pointer select-none transition-colors ${isExporting
-                        ? 'bg-blue-100 text-blue-400 border-blue-200 cursor-wait'
-                        : 'hover:bg-blue-50 text-blue-600 border-blue-200'
-                        }`}
-                    title="Export ke file PDF"
-                >
-                    {isExporting ? '⏳' : '📥'} PDF
-                </button>
-                <div className="w-px bg-stone-200 mx-0.5"></div>
-                <button
-                    onClick={handleAutoArrange}
-                    disabled={isArranging}
-                    className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border transition-colors ${isArranging
-                        ? 'bg-teal-100 text-teal-700 border-teal-300 cursor-wait'
-                        : 'hover:bg-teal-50 text-teal-600 border-teal-200'
-                        }`}
-                    title="Auto rapikan layout"
-                    type="button"
-                >
-                    {isArranging ? '⏳ Merapikan...' : '✨ Rapihkan'}
-                </button>
-            </div>
-
-            {/* Add Button */}
-            {editable && onAddPerson && (
-                <div className="absolute top-4 left-4 z-30">
-                    <button onClick={onAddPerson} className="px-4 py-2 bg-teal-500 text-white rounded-lg shadow-lg flex items-center gap-2 hover:bg-teal-600 transition text-sm font-medium">
+            {/* All Controls - Left Side (won't shift when sidebar appears) */}
+            <div className="absolute top-4 left-4 z-30 flex gap-2 print:hidden">
+                {/* Add Button */}
+                {editable && onAddPerson && (
+                    <button
+                        onClick={onAddPerson}
+                        className="px-4 py-2 bg-teal-500 text-white rounded-lg shadow-lg flex items-center gap-2 hover:bg-teal-600 transition text-sm font-medium"
+                    >
                         <span className="text-lg leading-none">+</span>
                         <span>Tambah Anggota</span>
                     </button>
+                )}
+
+                {/* Zoom & Tools Panel */}
+                <div
+                    className="controls-panel flex gap-1.5 bg-white rounded-lg shadow p-1.5 border border-stone-200"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button onClick={handleZoomIn} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom in">+</button>
+                    <button onClick={handleZoomOut} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom out">−</button>
+                    <button onClick={handleZoomReset} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600" title="Reset view">↺</button>
+                    <div className="w-px bg-stone-200 mx-0.5"></div>
+                    {/* Direct PDF Export Button */}
+                    <button
+                        type="button"
+                        onClick={handleExportPDF}
+                        disabled={isExporting}
+                        className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border cursor-pointer select-none transition-colors ${isExporting
+                            ? 'bg-blue-100 text-blue-400 border-blue-200 cursor-wait'
+                            : 'hover:bg-blue-50 text-blue-600 border-blue-200'
+                            }`}
+                        title="Export ke file PDF"
+                    >
+                        {isExporting ? '⏳' : '📥'} PDF
+                    </button>
+                    <div className="w-px bg-stone-200 mx-0.5"></div>
+                    <button
+                        onClick={handleAutoArrange}
+                        disabled={isArranging}
+                        className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border transition-colors ${isArranging
+                            ? 'bg-teal-100 text-teal-700 border-teal-300 cursor-wait'
+                            : 'hover:bg-teal-50 text-teal-600 border-teal-200'
+                            }`}
+                        title="Auto rapikan layout"
+                        type="button"
+                    >
+                        {isArranging ? '⏳ Merapikan...' : '✨ Rapihkan'}
+                    </button>
                 </div>
-            )}
+            </div>
 
             {/* Info */}
             <div className="absolute bottom-4 left-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200">
