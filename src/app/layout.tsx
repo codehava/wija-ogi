@@ -12,6 +12,13 @@ export const metadata: Metadata = {
     description: 'Aplikasi Pohon Keluarga Digital dengan Aksara Lontara',
     keywords: ['family tree', 'pohon keluarga', 'silsilah', 'lontara', 'bugis', 'aksara'],
     authors: [{ name: 'WIJA Team' }],
+    icons: {
+        icon: [
+            { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+            { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+        ],
+        apple: '/apple-touch-icon.png',
+    },
     openGraph: {
         title: 'WIJA - Warisan Jejak Keluarga',
         description: 'Aplikasi Pohon Keluarga Digital dengan Aksara Lontara',
@@ -27,6 +34,10 @@ export default function RootLayout({
     return (
         <html lang="id">
             <head>
+                {/* Favicons */}
+                <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+                <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+                <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
                 {/* Noto Sans Buginese font for Lontara script */}
                 <link
                     href="https://fonts.googleapis.com/css2?family=Noto+Sans+Buginese&display=swap"
