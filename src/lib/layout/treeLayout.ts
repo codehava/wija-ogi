@@ -6,12 +6,12 @@ interface NodePosition {
     y: number;
 }
 
-// Layout Constants
+// Layout Constants - REDUCED for compact view
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 130;
-const SPOUSE_GAP = 30;
-const RANK_SEP = 220;
-const NODE_SEP = 150;
+const SPOUSE_GAP = 25;    // Gap between spouses
+const RANK_SEP = 160;     // Vertical gap (was 220)
+const NODE_SEP = 80;      // Horizontal gap (was 150)
 
 export function calculateTreeLayout(persons: Person[], collapsedIds: Set<string> = new Set()): Map<string, NodePosition> {
     const posMap = new Map<string, NodePosition>();

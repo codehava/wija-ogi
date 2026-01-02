@@ -17,6 +17,7 @@ import { createRelationship } from '@/lib/services/relationships';
 import { FamilyTree } from '@/components/tree/FamilyTree';
 import { PersonCard } from '@/components/person/PersonCard';
 import { PersonForm } from '@/components/person/PersonForm';
+import { SidebarEditForm } from '@/components/person/SidebarEditForm';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
@@ -48,6 +49,7 @@ export default function FamilyPage() {
     const [scriptMode, setScriptMode] = useState<ScriptMode>('both');
     const [formLoading, setFormLoading] = useState(false);
     const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+    const [isEditingSidebar, setIsEditingSidebar] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
 
     // Relationship form state
@@ -76,10 +78,10 @@ export default function FamilyPage() {
         }
     }, [familyId, isSuperAdmin]);
 
-    // Handle edit person
+    // Handle edit person - now uses sidebar instead of modal
     const handleEditPerson = useCallback((person: Person) => {
         setEditingPerson(person);
-        setShowPersonForm(true);
+        setIsEditingSidebar(true);
     }, []);
 
     // Handle save person (create or update)
@@ -91,6 +93,9 @@ export default function FamilyPage() {
             if (editingPerson) {
                 // Update existing person
                 await updatePerson(familyId, editingPerson.personId, data, user.uid);
+                // Clear sidebar edit mode
+                setIsEditingSidebar(false);
+                setEditingPerson(null);
                 // Update selected person if it was the one being edited
                 if (selectedPerson?.personId === editingPerson.personId) {
                     setSelectedPerson(null);
@@ -346,30 +351,64 @@ export default function FamilyPage() {
 
                 {/* Sidebar - Selected Person */}
                 {selectedPerson && (
-                    <div className="w-80 bg-white border-l border-stone-200 shadow-lg overflow-y-auto animate-slide-in-right">
+                    <div className={`${isEditingSidebar ? 'w-96' : 'w-80'} bg-white border-l border-stone-200 shadow-lg overflow-y-auto animate-slide-in-right transition-all`}>
                         <div className="p-4">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-stone-800">Detail Anggota</h3>
+                                <h3 className="font-semibold text-stone-800">
+                                    {isEditingSidebar ? '✏️ Edit Anggota' : 'Detail Anggota'}
+                                </h3>
                                 <button
-                                    onClick={() => setSelectedPerson(null)}
+                                    onClick={() => {
+                                        if (isEditingSidebar) {
+                                            setIsEditingSidebar(false);
+                                            setEditingPerson(null);
+                                        } else {
+                                            setSelectedPerson(null);
+                                        }
+                                    }}
                                     className="p-1 hover:bg-stone-100 rounded-lg transition"
                                 >
                                     ✕
                                 </button>
                             </div>
 
-                            <PersonCard
-                                person={selectedPerson}
-                                scriptMode={scriptMode}
-                                generation={personGenerations.get(selectedPerson.personId)}
-                                showActions={canEdit}
-                                onEdit={() => handleEditPerson(selectedPerson)}
-                                onAddRelationship={() => {
-                                    setRelationType('spouse');
-                                    setTargetPersonId('');
-                                    setShowRelationshipModal(true);
-                                }}
-                            />
+                            {isEditingSidebar && editingPerson ? (
+                                <SidebarEditForm
+                                    onSave={handleSavePerson}
+                                    onCancel={() => {
+                                        setIsEditingSidebar(false);
+                                        setEditingPerson(null);
+                                    }}
+                                    loading={formLoading}
+                                    initialData={{
+                                        firstName: editingPerson.firstName,
+                                        lastName: editingPerson.lastName || '',
+                                        middleName: editingPerson.middleName || '',
+                                        gender: editingPerson.gender,
+                                        birthDate: editingPerson.birthDate,
+                                        birthPlace: editingPerson.birthPlace,
+                                        deathDate: editingPerson.deathDate,
+                                        deathPlace: editingPerson.deathPlace,
+                                        isLiving: editingPerson.isLiving,
+                                        occupation: editingPerson.occupation,
+                                        biography: editingPerson.biography,
+                                        isRootAncestor: editingPerson.isRootAncestor
+                                    }}
+                                />
+                            ) : (
+                                <PersonCard
+                                    person={selectedPerson}
+                                    scriptMode={scriptMode}
+                                    generation={personGenerations.get(selectedPerson.personId)}
+                                    showActions={canEdit}
+                                    onEdit={() => handleEditPerson(selectedPerson)}
+                                    onAddRelationship={() => {
+                                        setRelationType('spouse');
+                                        setTargetPersonId('');
+                                        setShowRelationshipModal(true);
+                                    }}
+                                />
+                            )}
 
                             {/* Existing Relationships */}
                             <div className="mt-4 pt-4 border-t border-stone-200">
