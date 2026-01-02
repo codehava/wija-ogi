@@ -126,7 +126,7 @@ export function PersonForm({
             isOpen={isOpen}
             onClose={onClose}
             title={isEditing ? '✏️ Edit Anggota' : '➕ Tambah Anggota'}
-            size="lg"
+            size="xl"
         >
             <form onSubmit={handleSubmit}>
                 <ModalBody className="space-y-6">
