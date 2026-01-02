@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pohon Keluarga</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            max-width: 320px;
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.95);
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #f3f4f6;
+            transform: translateY(-2px);
+        }
+
+        .zoom-info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #374151;
+            z-index: 1000;
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .canvas-container:active {
+            cursor: grabbing;
+        }
+
+        .tree-canvas {
+            position: absolute;
+            transform-origin: 0 0;
+        }
+
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: url(#lineGradient);
+            stroke-width: 2.5;
+            opacity: 0.8;
+        }
+
+        .connection-line.spouse {
+            stroke: #f472b6;
+            stroke-width: 2;
+            stroke-dasharray: 6, 4;
+        }
+
+        .node {
+            position: absolute;
+            width: 150px;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            z-index: 100;
+        }
+
+        .node.male {
+            background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 2px solid #0ea5e9;
+        }
+
+        .node.female {
+            background: linear-gradient(145deg, #fce7f3 0%, #fbcfe8 100%);
+            border: 2px solid #ec4899;
+        }
+
+        .node.collapsed::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            background: #fbbf24;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .node-avatar {
+            font-size: 22px;
+        }
+
+        .node-name {
+            font-weight: 600;
+            font-size: 12px;
+            color: #1f2937;
+            line-height: 1.3;
+            flex: 1;
+        }
+
+        .node-info {
+            font-size: 10px;
+            color: #6b7280;
+            margin-top: 2px;
+            padding-left: 30px;
+        }
+
+        .node-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .node-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .node-btn.expand {
+            background: #fbbf24;
+            color: #1f2937;
+        }
+
+        .node-btn.add {
+            background: #10b981;
+            color: white;
+        }
+
+        .node-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .child-count {
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 2px solid white;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        .modal h3 {
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .legend-color.male {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 2px solid #0ea5e9;
+        }
+
+        .legend-color.female {
+            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+            border: 2px solid #ec4899;
+        }
+
+        .stats {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <button class="btn btn-primary" onclick="addRootPerson()">
+                ➕ Tambah Leluhur
+            </button>
+            <button class="btn btn-secondary" onclick="zoomIn()">🔍+</button>
+            <button class="btn btn-secondary" onclick="zoomOut()">🔍-</button>
+            <button class="btn btn-secondary" onclick="resetView()">🎯 Reset</button>
+            <button class="btn btn-secondary" onclick="expandAll()">📂 Expand</button>
+            <button class="btn btn-secondary" onclick="collapseAll()">📁 Collapse</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span>Total Anggota:</span>
+                <span class="stat-value" id="totalMembers">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Generasi:</span>
+                <span class="stat-value" id="totalGenerations">0</span>
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+            <div class="tree-canvas" id="treeCanvas">
+                <svg class="connections" id="connections">
+                    <defs>
+                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#94a3b8;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#64748b;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <div id="nodesContainer"></div>
+            </div>
+        </div>
+
+        <div class="zoom-info">
+            Zoom: <span id="zoomLevel">100</span>% | Scroll = zoom, Drag = geser
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color male"></div>
+                <span>Laki-laki</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color female"></div>
+                <span>Perempuan</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Anggota -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <h3 id="modalTitle">➕ Tambah Anggota Keluarga</h3>
+            <div class="form-group">
+                <label>Nama Lengkap</label>
+                <input type="text" id="inputName" placeholder="Masukkan nama...">
+            </div>
+            <div class="form-group">
+                <label>Jenis Kelamin</label>
+                <select id="inputGender">
+                    <option value="male">Laki-laki</option>
+                    <option value="female">Perempuan</option>
+                </select>
+            </div>
+            <div class="form-group" id="relationGroup">
+                <label>Hubungan</label>
+                <select id="inputRelation">
+                    <option value="child">Anak</option>
+                    <option value="spouse">Pasangan</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Info Tambahan (opsional)</label>
+                <input type="text" id="inputInfo" placeholder="Tahun lahir, pekerjaan, dll...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+                <button class="btn btn-primary" onclick="confirmAdd()">Tambah</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== KONFIGURASI ====================
+        const CONFIG = {
+            NODE_WIDTH: 150,
+            NODE_HEIGHT: 90,
+            
+            // RULES: Jarak minimum agar tidak bertumpuk
+            MIN_HORIZONTAL_GAP: 30,      // Jarak minimum antar node horizontal
+            VERTICAL_GAP: 130,           // Jarak vertikal antar generasi
+            SPOUSE_GAP: 15,              // Jarak antara pasangan
+            SIBLING_GAP: 40,             // Jarak antar saudara kandung
+            FAMILY_GROUP_GAP: 60,        // Jarak antar kelompok keluarga berbeda
+            
+            PADDING: 150,
+            INITIAL_ZOOM: 0.75,
+            MIN_ZOOM: 0.15,
+            MAX_ZOOM: 2,
+        };
+
+        // ==================== DATA ====================
+        let familyData = {
+            nodes: [],
+            nextId: 1
+        };
+
+        let viewState = {
+            zoom: CONFIG.INITIAL_ZOOM,
+            panX: 0,
+            panY: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0
+        };
+
+        let currentParentId = null;
+        let positions = {};
+
+        // ==================== SAMPLE DATA ====================
+        function initSampleData() {
+            familyData.nodes = [
+                // Generasi 0 - Leluhur
+                { id: 1, name: "Leluhur Lelugur", gender: "male", info: "Generasi 1", parentId: null, spouseId: 2, generation: 0, collapsed: false },
+                { id: 2, name: "Nenek Leluhur", gender: "female", info: "Generasi 1", parentId: null, spouseId: 1, generation: 0, collapsed: false },
+                { id: 3, name: "Kakek Kakek", gender: "male", info: "Generasi 1 (Tanpa Pasangan)", parentId: null, spouseId: null, generation: 0, collapsed: false },
+                
+                // Generasi 1 - Anak dari Leluhur (id 1)
+                { id: 4, name: "Ivan Fan", gender: "male", info: "Generasi 2", parentId: 1, spouseId: null, generation: 1, collapsed: false },
+                { id: 5, name: "Nyonya Meneer", gender: "female", info: "Generasi 2", parentId: 1, spouseId: null, generation: 1, collapsed: false },
+                
+                // Generasi 1 - Anak dari Kakek Kakek (id 3) - ORANG TUA TUNGGAL
+                { id: 10, name: "Anak Kakek 1", gender: "male", info: "Anak tunggal", parentId: 3, spouseId: null, generation: 1, collapsed: false },
+                { id: 11, name: "Anak Kakek 2", gender: "female", info: "Anak tunggal", parentId: 3, spouseId: null, generation: 1, collapsed: false },
+                
+                // Generasi 2 - Anak dari Nyonya Meneer (id 5)
+                { id: 6, name: "Anak Pertama", gender: "male", info: "Generasi 3", parentId: 5, spouseId: null, generation: 2, collapsed: false },
+                { id: 7, name: "Anak Kedua", gender: "female", info: "Generasi 3", parentId: 5, spouseId: null, generation: 2, collapsed: false },
+                { id: 8, name: "Ignatius Rachmat", gender: "male", info: "Generasi 3", parentId: 5, spouseId: null, generation: 2, collapsed: false },
+                
+                // Generasi 3 - Anak dari Anak Kedua (id 7)
+                { id: 9, name: "Muhammad Fankar Umran", gender: "male", info: "Generasi 4", parentId: 7, spouseId: null, generation: 3, collapsed: false },
+                
+                // Generasi 2 - Anak dari Anak Kakek 1 (id 10)
+                { id: 12, name: "Cucu Kakek A", gender: "male", info: "Generasi 3", parentId: 10, spouseId: null, generation: 2, collapsed: false },
+                { id: 13, name: "Cucu Kakek B", gender: "female", info: "Generasi 3", parentId: 10, spouseId: null, generation: 2, collapsed: false },
+            ];
+            familyData.nextId = 14;
+        }
+
+        // ==================== LAYOUT ALGORITHM (IMPROVED) ====================
+        
+        /**
+         * RULES:
+         * 1. Setiap node tidak boleh bertumpuk (overlap)
+         * 2. Orang tua (tunggal atau berpasangan) harus centered di atas anak-anaknya
+         * 3. Pasangan berdekatan
+         * 4. Saudara kandung bersebelahan dengan gap yang konsisten
+         * 5. Kelompok keluarga berbeda memiliki gap lebih besar
+         */
+        
+        function calculateLayout() {
+            const nodes = familyData.nodes;
+            if (nodes.length === 0) return {};
+
+            positions = {};
+            
+            // Step 1: Identifikasi root families (leluhur tanpa parent)
+            const rootNodes = nodes.filter(n => !n.parentId && !isSpouseOf(n));
+            
+            // Step 2: Hitung lebar subtree untuk setiap node (bottom-up)
+            const subtreeWidths = {};
+            
+            function getSubtreeWidth(nodeId) {
+                if (subtreeWidths[nodeId] !== undefined) return subtreeWidths[nodeId];
+                
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return 0;
+                
+                // Jika collapsed, hanya lebar node sendiri + spouse
+                if (node.collapsed) {
+                    let width = CONFIG.NODE_WIDTH;
+                    if (node.spouseId) {
+                        width += CONFIG.SPOUSE_GAP + CONFIG.NODE_WIDTH;
+                    }
+                    subtreeWidths[nodeId] = width;
+                    return width;
+                }
+                
+                // Cari semua anak langsung
+                const children = getDirectChildren(nodeId);
+                
+                if (children.length === 0) {
+                    // Leaf node
+                    let width = CONFIG.NODE_WIDTH;
+                    if (node.spouseId) {
+                        width += CONFIG.SPOUSE_GAP + CONFIG.NODE_WIDTH;
+                    }
+                    subtreeWidths[nodeId] = width;
+                    return width;
+                }
+                
+                // Hitung total lebar anak-anak
+                let childrenTotalWidth = 0;
+                children.forEach((child, idx) => {
+                    childrenTotalWidth += getSubtreeWidth(child.id);
+                    if (idx < children.length - 1) {
+                        childrenTotalWidth += CONFIG.SIBLING_GAP;
+                    }
+                });
+                
+                // Lebar node ini + spouse
+                let selfWidth = CONFIG.NODE_WIDTH;
+                if (node.spouseId) {
+                    selfWidth += CONFIG.SPOUSE_GAP + CONFIG.NODE_WIDTH;
+                }
+                
+                // Ambil yang lebih besar: lebar anak atau lebar diri sendiri
+                subtreeWidths[nodeId] = Math.max(childrenTotalWidth, selfWidth);
+                return subtreeWidths[nodeId];
+            }
+            
+            // Hitung semua subtree widths
+            rootNodes.forEach(root => getSubtreeWidth(root.id));
+            
+            // Step 3: Posisikan node (top-down)
+            function positionSubtree(nodeId, centerX, y) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (!node) return;
+                
+                const subtreeWidth = subtreeWidths[nodeId] || CONFIG.NODE_WIDTH;
+                
+                // Posisi node ini
+                let nodeX = centerX - CONFIG.NODE_WIDTH / 2;
+                
+                // Jika punya spouse, adjust agar couple centered
+                if (node.spouseId) {
+                    const coupleWidth = CONFIG.NODE_WIDTH * 2 + CONFIG.SPOUSE_GAP;
+                    nodeX = centerX - coupleWidth / 2;
+                    
+                    // Posisi spouse
+                    const spouse = nodes.find(n => n.id === node.spouseId);
+                    if (spouse && !positions[spouse.id]) {
+                        positions[spouse.id] = {
+                            x: nodeX + CONFIG.NODE_WIDTH + CONFIG.SPOUSE_GAP,
+                            y: y
+                        };
+                    }
+                }
+                
+                positions[nodeId] = { x: nodeX, y: y };
+                
+                // Posisikan anak-anak jika tidak collapsed
+                if (!node.collapsed) {
+                    const children = getDirectChildren(nodeId);
+                    
+                    if (children.length > 0) {
+                        // Hitung total lebar anak
+                        let childrenTotalWidth = 0;
+                        children.forEach((child, idx) => {
+                            childrenTotalWidth += subtreeWidths[child.id] || CONFIG.NODE_WIDTH;
+                            if (idx < children.length - 1) {
+                                childrenTotalWidth += CONFIG.SIBLING_GAP;
+                            }
+                        });
+                        
+                        // Mulai dari kiri
+                        let childX = centerX - childrenTotalWidth / 2;
+                        
+                        children.forEach(child => {
+                            const childSubtreeWidth = subtreeWidths[child.id] || CONFIG.NODE_WIDTH;
+                            const childCenterX = childX + childSubtreeWidth / 2;
+                            
+                            positionSubtree(child.id, childCenterX, y + CONFIG.VERTICAL_GAP + CONFIG.NODE_HEIGHT);
+                            
+                            childX += childSubtreeWidth + CONFIG.SIBLING_GAP;
+                        });
+                    }
+                }
+            }
+            
+            // Posisikan setiap root family
+            let currentX = CONFIG.PADDING;
+            
+            rootNodes.forEach((root, idx) => {
+                const subtreeWidth = subtreeWidths[root.id] || CONFIG.NODE_WIDTH;
+                const centerX = currentX + subtreeWidth / 2;
+                
+                positionSubtree(root.id, centerX, CONFIG.PADDING);
+                
+                currentX += subtreeWidth + CONFIG.FAMILY_GROUP_GAP;
+            });
+            
+            return positions;
+        }
+        
+        // Helper: Cek apakah node adalah spouse dari node lain yang sudah diproses
+        function isSpouseOf(node) {
+            return familyData.nodes.some(n => n.spouseId === node.id && n.id < node.id);
+        }
+        
+        // Helper: Ambil anak langsung dari sebuah node (termasuk dari spouse)
+        function getDirectChildren(parentId) {
+            const node = familyData.nodes.find(n => n.id === parentId);
+            if (!node) return [];
+            
+            // Anak dari node ini atau dari spouse-nya
+            const parentIds = [parentId];
+            if (node.spouseId) parentIds.push(node.spouseId);
+            
+            return familyData.nodes.filter(n => parentIds.includes(n.parentId))
+                                   .sort((a, b) => a.id - b.id);
+        }
+        
+        // Helper: Hitung jumlah semua keturunan
+        function countDescendants(nodeId) {
+            const children = getDirectChildren(nodeId);
+            let count = children.length;
+            children.forEach(child => {
+                count += countDescendants(child.id);
+            });
+            return count;
+        }
+
+        // ==================== RENDERING ====================
+        function render() {
+            positions = calculateLayout();
+            if (!positions || Object.keys(positions).length === 0) return;
+
+            const nodesContainer = document.getElementById('nodesContainer');
+            const connectionsEl = document.getElementById('connections');
+            
+            // Clear
+            nodesContainer.innerHTML = '';
+            
+            // Keep defs, clear paths
+            const defs = connectionsEl.querySelector('defs');
+            connectionsEl.innerHTML = '';
+            connectionsEl.appendChild(defs);
+
+            // Calculate canvas size
+            let maxX = 0, maxY = 0;
+            Object.values(positions).forEach(pos => {
+                maxX = Math.max(maxX, pos.x + CONFIG.NODE_WIDTH);
+                maxY = Math.max(maxY, pos.y + CONFIG.NODE_HEIGHT);
+            });
+
+            connectionsEl.setAttribute('width', maxX + CONFIG.PADDING * 2);
+            connectionsEl.setAttribute('height', maxY + CONFIG.PADDING * 2);
+
+            // Draw connections
+            familyData.nodes.forEach(node => {
+                if (!positions[node.id]) return;
+                const pos = positions[node.id];
+
+                // Line to parent
+                if (node.parentId) {
+                    const parent = familyData.nodes.find(n => n.id === node.parentId);
+                    if (parent && positions[parent.id]) {
+                        // Cari titik tengah parent (atau couple)
+                        let parentCenterX = positions[parent.id].x + CONFIG.NODE_WIDTH / 2;
+                        if (parent.spouseId && positions[parent.spouseId]) {
+                            parentCenterX = (positions[parent.id].x + positions[parent.spouseId].x + CONFIG.NODE_WIDTH) / 2;
+                        }
+                        
+                        drawCurvedLine(
+                            parentCenterX,
+                            positions[parent.id].y + CONFIG.NODE_HEIGHT,
+                            pos.x + CONFIG.NODE_WIDTH / 2,
+                            pos.y
+                        );
+                    }
+                }
+
+                // Spouse connection
+                if (node.spouseId && positions[node.spouseId] && node.id < node.spouseId) {
+                    const spousePos = positions[node.spouseId];
+                    drawSpouseLine(
+                        pos.x + CONFIG.NODE_WIDTH,
+                        pos.y + CONFIG.NODE_HEIGHT / 2,
+                        spousePos.x,
+                        spousePos.y + CONFIG.NODE_HEIGHT / 2
+                    );
+                }
+            });
+
+            // Draw nodes
+            familyData.nodes.forEach(node => {
+                if (!positions[node.id]) return;
+                renderNode(node, positions[node.id]);
+            });
+
+            // Update stats
+            document.getElementById('totalMembers').textContent = familyData.nodes.length;
+            const maxGen = Math.max(...familyData.nodes.map(n => n.generation)) + 1;
+            document.getElementById('totalGenerations').textContent = maxGen;
+        }
+
+        function drawCurvedLine(x1, y1, x2, y2) {
+            const svg = document.getElementById('connections');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // Smooth bezier curve
+            const midY = (y1 + y2) / 2;
+            const controlY1 = y1 + (y2 - y1) * 0.4;
+            const controlY2 = y2 - (y2 - y1) * 0.4;
+            
+            const d = `M ${x1} ${y1} C ${x1} ${controlY1}, ${x2} ${controlY2}, ${x2} ${y2}`;
+            
+            path.setAttribute('d', d);
+            path.setAttribute('class', 'connection-line');
+            svg.appendChild(path);
+        }
+
+        function drawSpouseLine(x1, y1, x2, y2) {
+            const svg = document.getElementById('connections');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+            path.setAttribute('class', 'connection-line spouse');
+            svg.appendChild(path);
+        }
+
+        function renderNode(node, pos) {
+            const container = document.getElementById('nodesContainer');
+            
+            const div = document.createElement('div');
+            div.className = `node ${node.gender}`;
+            div.style.left = pos.x + 'px';
+            div.style.top = pos.y + 'px';
+            
+            const childCount = getDirectChildren(node.id).length;
+            const descendantCount = countDescendants(node.id);
+            
+            div.innerHTML = `
+                <div class="node-header">
+                    <span class="node-avatar">${node.gender === 'male' ? '👨' : '👩'}</span>
+                    <span class="node-name">${node.name}</span>
+                </div>
+                ${node.info ? `<div class="node-info">${node.info}</div>` : ''}
+                <div class="node-actions">
+                    ${childCount > 0 ? `
+                        <button class="node-btn expand" onclick="event.stopPropagation(); toggleCollapse(${node.id})">
+                            ${node.collapsed ? `📂 ${descendantCount}` : '📁'}
+                        </button>
+                    ` : ''}
+                    <button class="node-btn add" onclick="event.stopPropagation(); openAddModal(${node.id})">+ Tambah</button>
+                </div>
+                ${node.collapsed && descendantCount > 0 ? `<div class="child-count">${descendantCount} tersembunyi</div>` : ''}
+            `;
+            
+            container.appendChild(div);
+        }
+
+        // ==================== INTERACTIONS ====================
+        function toggleCollapse(nodeId) {
+            const node = familyData.nodes.find(n => n.id === nodeId);
+            if (node) {
+                node.collapsed = !node.collapsed;
+                render();
+            }
+        }
+
+        function openAddModal(parentId) {
+            currentParentId = parentId;
+            const parent = familyData.nodes.find(n => n.id === parentId);
+            
+            document.getElementById('modalTitle').textContent = `➕ Tambah ke: ${parent ? parent.name : 'Root'}`;
+            document.getElementById('relationGroup').style.display = parentId ? 'block' : 'none';
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputInfo').value = '';
+            document.getElementById('inputName').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').classList.remove('active');
+            currentParentId = null;
+        }
+
+        function confirmAdd() {
+            const name = document.getElementById('inputName').value.trim();
+            const gender = document.getElementById('inputGender').value;
+            const relation = document.getElementById('inputRelation').value;
+            const info = document.getElementById('inputInfo').value.trim();
+
+            if (!name) {
+                alert('Mohon masukkan nama!');
+                return;
+            }
+
+            const parent = familyData.nodes.find(n => n.id === currentParentId);
+
+            if (currentParentId && relation === 'spouse') {
+                // Add as spouse
+                if (parent.spouseId) {
+                    alert('Orang ini sudah memiliki pasangan!');
+                    return;
+                }
+                
+                const newNode = {
+                    id: familyData.nextId++,
+                    name,
+                    gender,
+                    info,
+                    parentId: null,
+                    spouseId: currentParentId,
+                    generation: parent.generation,
+                    collapsed: false
+                };
+                
+                parent.spouseId = newNode.id;
+                familyData.nodes.push(newNode);
+            } else {
+                // Add as child or root
+                const newGeneration = parent ? parent.generation + 1 : 0;
+                
+                const newNode = {
+                    id: familyData.nextId++,
+                    name,
+                    gender,
+                    info,
+                    parentId: currentParentId,
+                    spouseId: null,
+                    generation: newGeneration,
+                    collapsed: false
+                };
+                familyData.nodes.push(newNode);
+            }
+
+            closeModal();
+            render();
+        }
+
+        function addRootPerson() {
+            currentParentId = null;
+            document.getElementById('modalTitle').textContent = '➕ Tambah Leluhur Baru';
+            document.getElementById('relationGroup').style.display = 'none';
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputInfo').value = '';
+            document.getElementById('inputName').focus();
+        }
+
+        function expandAll() {
+            familyData.nodes.forEach(node => node.collapsed = false);
+            render();
+        }
+
+        function collapseAll() {
+            familyData.nodes.forEach(node => {
+                if (getDirectChildren(node.id).length > 0) {
+                    node.collapsed = true;
+                }
+            });
+            render();
+        }
+
+        // ==================== ZOOM & PAN ====================
+        function updateTransform() {
+            const canvas = document.getElementById('treeCanvas');
+            canvas.style.transform = `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.zoom})`;
+            document.getElementById('zoomLevel').textContent = Math.round(viewState.zoom * 100);
+        }
+
+        function zoomIn() {
+            viewState.zoom = Math.min(CONFIG.MAX_ZOOM, viewState.zoom + 0.1);
+            updateTransform();
+        }
+
+        function zoomOut() {
+            viewState.zoom = Math.max(CONFIG.MIN_ZOOM, viewState.zoom - 0.1);
+            updateTransform();
+        }
+
+        function resetView() {
+            viewState.zoom = CONFIG.INITIAL_ZOOM;
+            viewState.panX = 50;
+            viewState.panY = 50;
+            updateTransform();
+        }
+
+        // Mouse handlers
+        const container = document.getElementById('canvasContainer');
+
+        container.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.node')) return;
+            viewState.isDragging = true;
+            viewState.startX = e.clientX - viewState.panX;
+            viewState.startY = e.clientY - viewState.panY;
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!viewState.isDragging) return;
+            viewState.panX = e.clientX - viewState.startX;
+            viewState.panY = e.clientY - viewState.startY;
+            updateTransform();
+        });
+
+        container.addEventListener('mouseup', () => viewState.isDragging = false);
+        container.addEventListener('mouseleave', () => viewState.isDragging = false);
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.08 : 0.08;
+            viewState.zoom = Math.max(CONFIG.MIN_ZOOM, Math.min(CONFIG.MAX_ZOOM, viewState.zoom + delta));
+            updateTransform();
+        });
+
+        // Touch support
+        let lastTouchDistance = 0;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                viewState.isDragging = true;
+                viewState.startX = e.touches[0].clientX - viewState.panX;
+                viewState.startY = e.touches[0].clientY - viewState.panY;
+            } else if (e.touches.length === 2) {
+                lastTouchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1 && viewState.isDragging) {
+                viewState.panX = e.touches[0].clientX - viewState.startX;
+                viewState.panY = e.touches[0].clientY - viewState.startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const distance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const delta = (distance - lastTouchDistance) * 0.005;
+                viewState.zoom = Math.max(CONFIG.MIN_ZOOM, Math.min(CONFIG.MAX_ZOOM, viewState.zoom + delta));
+                lastTouchDistance = distance;
+                updateTransform();
+            }
+        });
+
+        container.addEventListener('touchend', () => viewState.isDragging = false);
+
+        // ==================== INIT ====================
+        initSampleData();
+        render();
+        resetView();
+    </script>
+</body>
+</html>

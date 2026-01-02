@@ -6,7 +6,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import dagre from 'dagre';
+
 import domtoimage from 'dom-to-image-more';
 import jsPDF from 'jspdf';
 import { Person, Relationship, ScriptMode } from '@/types';
@@ -32,390 +32,9 @@ interface NodePosition {
     y: number;
 }
 
-// Calculate layout using dagre
-function calculateDagreLayout(persons: Person[]): Map<string, NodePosition> {
-    const posMap = new Map<string, NodePosition>();
+// Calculate layout using custom algorithm with dagre
+import { calculateTreeLayout } from '@/lib/layout/treeLayout';
 
-    if (persons.length === 0) return posMap;
-
-    // Create a new dagre graph
-    const g = new dagre.graphlib.Graph();
-
-    // Set graph options for top-to-bottom tree layout with tighter spacing
-    g.setGraph({
-        rankdir: 'TB',      // Top to Bottom
-        nodesep: 30,        // Tighter horizontal separation
-        ranksep: 80,        // Vertical separation between generations
-        marginx: 40,
-        marginy: 40,
-        align: 'UL',
-        acyclicer: 'greedy',
-        ranker: 'tight-tree'  // Use tight-tree for better family grouping
-    });
-
-    // Default edge label
-    g.setDefaultEdgeLabel(() => ({ weight: 1, minlen: 1 }));
-
-    // Add all persons as nodes
-    persons.forEach(person => {
-        g.setNode(person.personId, {
-            label: person.fullName || person.firstName,
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT
-        });
-    });
-
-    // Add edges - both parent-child AND spouse connections
-    const addedEdges = new Set<string>();
-
-    persons.forEach(person => {
-        // Add spouse edges with high weight to keep couples together
-        person.relationships.spouseIds.forEach(spouseId => {
-            const edgeKey = [person.personId, spouseId].sort().join('-spouse-');
-            if (!addedEdges.has(edgeKey) && persons.some(p => p.personId === spouseId)) {
-                // Don't add as edge, just for grouping awareness
-                addedEdges.add(edgeKey);
-            }
-        });
-
-        // Add parent->child edges
-        person.relationships.childIds.forEach(childId => {
-            const edgeKey = `${person.personId}->${childId}`;
-            if (!addedEdges.has(edgeKey) && persons.some(p => p.personId === childId)) {
-                g.setEdge(person.personId, childId, { weight: 2, minlen: 1 });
-                addedEdges.add(edgeKey);
-            }
-        });
-    });
-
-    // Run the dagre layout algorithm
-    dagre.layout(g);
-
-    // Extract positions
-    g.nodes().forEach(nodeId => {
-        const node = g.node(nodeId);
-        if (node) {
-            posMap.set(nodeId, {
-                x: node.x - NODE_WIDTH / 2,
-                y: node.y - NODE_HEIGHT / 2
-            });
-        }
-    });
-
-    // Helper: Recursively shift a node and its descendants
-    const shiftSubtree = (rootId: string, dx: number, dy: number, visited = new Set<string>()) => {
-        if (visited.has(rootId)) return;
-        visited.add(rootId);
-
-        const pos = posMap.get(rootId);
-        if (pos) {
-            posMap.set(rootId, { x: pos.x + dx, y: pos.y + dy });
-        }
-
-        const person = persons.find(p => p.personId === rootId);
-        if (person) {
-            // Move children
-            person.relationships.childIds.forEach(childId => {
-                shiftSubtree(childId, dx, dy, visited);
-            });
-
-            // Move spouses generally? 
-            // CAUTION: Moving spouses can cause loops if not careful or if strictly paired.
-            // For now, let's only move children to keep trees intact.
-            // Spouses are handled by the main loop.
-        }
-    };
-
-    // Post-process: Position spouses next to each other on same Y level
-    // Male on the left, Female on the right
-    const processedSpouses = new Set<string>();
-    persons.forEach(person => {
-        if (person.relationships.spouseIds.length === 0) return;
-        if (processedSpouses.has(person.personId)) return;
-
-        const personPos = posMap.get(person.personId);
-        if (!personPos) return;
-
-        person.relationships.spouseIds.forEach(spouseId => {
-            if (processedSpouses.has(spouseId)) return;
-
-            const spouse = persons.find(p => p.personId === spouseId);
-            if (!spouse) return;
-
-            const spousePos = posMap.get(spouseId);
-            if (!spousePos) return;
-
-            const gap = 20;
-
-            // Determine which person should be on the left (male) and right (female)
-            // If person is female and spouse is male, swap positions
-            if (person.gender === 'female' && spouse.gender === 'male') {
-                // Male (spouse) should be on the left
-                // Move spouse (male) to the left of person (female)
-                // We keep Female fixed and move Male subtree? 
-                // Or move Female to right of Male?
-                // Let's keep the one that is further left as the anchor roughly.
-
-                const targetSpouseX = personPos.x - NODE_WIDTH - gap;
-                const shiftX = targetSpouseX - spousePos.x;
-                const shiftY = personPos.y - spousePos.y; // Align Y
-
-                shiftSubtree(spouseId, shiftX, shiftY, new Set([person.personId])); // Don't move person back
-            } else {
-                // Formatting: Person (Left) - Spouse (Right)
-                // Move Spouse to right of Person
-                const targetSpouseX = personPos.x + NODE_WIDTH + gap;
-                const shiftX = targetSpouseX - spousePos.x;
-                const shiftY = personPos.y - spousePos.y;
-
-                shiftSubtree(spouseId, shiftX, shiftY, new Set([person.personId]));
-            }
-
-            processedSpouses.add(spouseId);
-        });
-
-        processedSpouses.add(person.personId);
-    });
-
-    // Post-process: Center children under their parents, sorted by birth date (oldest first on left)
-    // Track processed parent groups to avoid duplicate processing
-    const processedParentGroups = new Set<string>();
-
-    persons.forEach(person => {
-        if (person.relationships.childIds.length === 0) return;
-
-        // Create a unique key for this parent group (single parent or couple)
-        const parentGroupKey = person.relationships.spouseIds.length > 0
-            ? [person.personId, ...person.relationships.spouseIds].sort().join('-')
-            : person.personId;
-
-        // Skip if already processed this parent group
-        if (processedParentGroups.has(parentGroupKey)) return;
-        processedParentGroups.add(parentGroupKey);
-
-        const parentPos = posMap.get(person.personId);
-        if (!parentPos) return;
-
-        // Get spouse position if exists
-        let coupleCenter = parentPos.x + NODE_WIDTH / 2;
-        if (person.relationships.spouseIds.length > 0) {
-            const spousePos = posMap.get(person.relationships.spouseIds[0]);
-            if (spousePos) {
-                coupleCenter = (parentPos.x + spousePos.x + NODE_WIDTH) / 2;
-            }
-        }
-
-        // Get children with their Person data for birth date sorting
-        const childrenWithData = person.relationships.childIds
-            .map(id => {
-                const childPerson = persons.find(p => p.personId === id);
-                return {
-                    id,
-                    pos: posMap.get(id),
-                    birthDate: childPerson?.birthDate || null
-                };
-            })
-            .filter(c => c.pos !== undefined);
-
-        if (childrenWithData.length === 0) return;
-
-        // Sort children by birth date (oldest first = earliest date = left side)
-        // Children without birthDate go to the end (right side)
-        childrenWithData.sort((a, b) => {
-            if (!a.birthDate && !b.birthDate) return 0;
-            if (!a.birthDate) return 1;
-            if (!b.birthDate) return -1;
-            if (a.birthDate < b.birthDate) return -1;
-            if (a.birthDate > b.birthDate) return 1;
-            return 0;
-        });
-
-        // 1. Locally re-arrange children tightly next to each other based on sorted order
-        // We preserve the "center of mass" of the children group initially, just swapping slots?
-        // No, we should probably repack them with standard spacing to look good.
-        // But if they have subtrees, we just want to shift the whole subtree.
-
-        // Strategy: 
-        // 1. Calculate current children center
-        // 2. Identify required width for children group (simple logic: child count * width)
-        // 3. But children might be wide subtrees! 
-        //    For "Rapihkan", simply shifting the whole child subtree to center under parent is safest.
-
-        // Calculate where the children group currently is
-        // We will just shift the ENTIRE group of children to align with coupleCenter
-
-        let childrenMinX = Infinity;
-        let childrenMaxX = -Infinity;
-
-        childrenWithData.forEach(c => {
-            const p = posMap.get(c.id)!;
-            childrenMinX = Math.min(childrenMinX, p.x);
-            childrenMaxX = Math.max(childrenMaxX, p.x + NODE_WIDTH);
-        });
-
-        const currentChildrenCenter = (childrenMinX + childrenMaxX) / 2;
-        const groupShift = coupleCenter - currentChildrenCenter;
-
-        // Shift ALL children (and their descendants) by this amount
-        // This keeps the relative arrangement of children intact (preserves subtree widths) 
-        // but centers the whole block under parents.
-        childrenWithData.forEach(child => {
-            shiftSubtree(child.id, groupShift, 0, new Set()); // visited needs to be fresh per child
-        });
-
-        // NOTE: The "Sort by Birth Date" re-ordering requires swapping X positions.
-        // Doing that with subtrees is very hard without overlap. 
-        // For now, Dagre usually puts them in order if edges were added in order? 
-        // We will trust Dagre's relative ordering for now to avoid breaking subtrees, 
-        // but solely focus on CENTERING the group.
-    });
-
-    // Post-process: Resolve collisions - ensure no overlapping nodes
-    const resolveCollisions = () => {
-        const padding = 30; // Minimum gap between nodes (increased from 15)
-        const allNodes = Array.from(posMap.entries()).map(([id, pos]) => ({
-            id,
-            x: pos.x,
-            y: pos.y,
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT
-        }));
-
-        // Group nodes by Y level (same generation)
-        const byLevel = new Map<number, typeof allNodes>();
-        allNodes.forEach(node => {
-            const levelKey = Math.round(node.y / 20) * 20; // Group by ~20px bands
-            if (!byLevel.has(levelKey)) byLevel.set(levelKey, []);
-            byLevel.get(levelKey)!.push(node);
-        });
-
-        // For each level, sort by X and resolve horizontal overlaps
-        byLevel.forEach(nodes => {
-            nodes.sort((a, b) => a.x - b.x);
-
-            for (let i = 1; i < nodes.length; i++) {
-                const prev = nodes[i - 1];
-                const curr = nodes[i];
-
-                const minX = prev.x + prev.width + padding;
-                if (curr.x < minX) {
-                    // Push current node to the right
-                    const shift = minX - curr.x;
-                    curr.x = minX;
-                    posMap.set(curr.id, { x: curr.x, y: curr.y });
-                }
-            }
-        });
-    };
-
-    // Run collision resolution multiple times to handle cascading shifts
-    for (let i = 0; i < 5; i++) {
-        resolveCollisions();
-    }
-
-    // FINAL PASS: Sort children by birth date AFTER all collision resolution
-    // This ensures children are properly ordered: oldest (left) to youngest (right)
-    const processedFinalGroups = new Set<string>();
-
-    persons.forEach(person => {
-        if (person.relationships.childIds.length === 0) return;
-
-        // Create unique key for parent group
-        const groupKey = person.relationships.spouseIds.length > 0
-            ? [person.personId, ...person.relationships.spouseIds].sort().join('-')
-            : person.personId;
-
-        if (processedFinalGroups.has(groupKey)) return;
-        processedFinalGroups.add(groupKey);
-
-        // Get children with birth dates
-        const childrenData = person.relationships.childIds
-            .map(id => {
-                const child = persons.find(p => p.personId === id);
-                const pos = posMap.get(id);
-                return {
-                    id,
-                    pos,
-                    birthDate: child?.birthDate || ''
-                };
-            })
-            .filter(c => c.pos !== undefined);
-
-        if (childrenData.length < 2) return; // No need to sort if 0 or 1 child
-
-        // Sort by birth date: oldest first (earliest date = smaller string)
-        // Empty birthDate goes to end
-        const sortedChildren = [...childrenData].sort((a, b) => {
-            if (!a.birthDate && !b.birthDate) return 0;
-            if (!a.birthDate) return 1;
-            if (!b.birthDate) return -1;
-            return a.birthDate.localeCompare(b.birthDate);
-        });
-
-        // Get current X positions sorted left to right
-        const xPositions = childrenData
-            .map(c => c.pos!.x)
-            .sort((a, b) => a - b);
-
-        // Assign X positions to children in birth date order
-        sortedChildren.forEach((child, index) => {
-            const currentPos = posMap.get(child.id);
-            if (currentPos) {
-                posMap.set(child.id, { x: xPositions[index], y: currentPos.y });
-            }
-        });
-    });
-
-    // POST-PROCESS: Ensure ALL children are ALWAYS below their parents
-    // This fixes any cases where dagre might have placed a child above a parent
-    const MIN_CHILD_Y_OFFSET = NODE_HEIGHT + 60; // Minimum vertical gap between parent and child
-
-    persons.forEach(person => {
-        if (person.relationships.childIds.length === 0) return;
-
-        const parentPos = posMap.get(person.personId);
-        if (!parentPos) return;
-
-        // Get the lowest Y position among all parents of the children
-        // (considering both parent and spouse if exists)
-        let lowestParentY = parentPos.y;
-        person.relationships.spouseIds.forEach(spouseId => {
-            const spousePos = posMap.get(spouseId);
-            if (spousePos) {
-                lowestParentY = Math.max(lowestParentY, spousePos.y);
-            }
-        });
-
-        const minChildY = lowestParentY + MIN_CHILD_Y_OFFSET;
-
-        // For each child, ensure they are below the parent
-        person.relationships.childIds.forEach(childId => {
-            const childPos = posMap.get(childId);
-            if (childPos && childPos.y < minChildY) {
-                posMap.set(childId, { x: childPos.x, y: minChildY });
-            }
-        });
-    });
-
-    // FINAL: Normalize positions so minimum X and Y are at least 50px from edge
-    // This ensures no nodes are positioned outside the visible canvas
-    let minX = Infinity, minY = Infinity;
-    posMap.forEach(pos => {
-        minX = Math.min(minX, pos.x);
-        minY = Math.min(minY, pos.y);
-    });
-
-    const offsetX = minX < 50 ? 50 - minX : 0;
-    const offsetY = minY < 50 ? 50 - minY : 0;
-
-    if (offsetX !== 0 || offsetY !== 0) {
-        posMap.forEach((pos, id) => {
-            posMap.set(id, { x: pos.x + offsetX, y: pos.y + offsetY });
-        });
-    }
-
-    return posMap;
-}
 
 export function FamilyTree({
     persons,
@@ -430,6 +49,8 @@ export function FamilyTree({
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
+    const dragStartPos = useRef<{ x: number, y: number } | null>(null);
+    const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
     // Node positions (can be dragged)
     const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map());
@@ -451,8 +72,8 @@ export function FamilyTree({
 
     // Calculate initial positions using dagre
     const initialPositions = useMemo(() => {
-        return calculateDagreLayout(persons);
-    }, [persons]);
+        return calculateTreeLayout(persons, collapsedIds);
+    }, [persons, collapsedIds]);
 
     // Initialize positions on first load
     useEffect(() => {
@@ -509,10 +130,11 @@ export function FamilyTree({
                 const rightPos = pos1.x < pos2.x ? pos2 : pos1;
 
                 // Calculate connection points on node edges
-                const y1 = leftPos.y + NODE_HEIGHT / 2;  // Right edge center of left node
-                const y2 = rightPos.y + NODE_HEIGHT / 2; // Left edge center of right node
-                const x1 = leftPos.x + NODE_WIDTH;       // Right edge of left node
-                const x2 = rightPos.x;                    // Left edge of right node
+                // Calculate connection points on node edges
+                const y1 = leftPos.y + NODE_HEIGHT / 2;
+                const y2 = rightPos.y + NODE_HEIGHT / 2;
+                const x1 = leftPos.x + NODE_WIDTH;
+                const x2 = rightPos.x;
 
                 const gap = x2 - x1;
                 const centerX = (x1 + x2) / 2;
@@ -521,7 +143,7 @@ export function FamilyTree({
                 // Control points for smooth bezier curve
                 const controlOffset = Math.max(gap * 0.3, 20);
 
-                // Draw spouse bezier line (smooth curve connecting both nodes)
+                // Draw spouse bezier line
                 connLines.push({
                     id: `spouse-${key}`,
                     d: `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`,
@@ -541,7 +163,6 @@ export function FamilyTree({
         // Group children by parent couple/single parent
         persons.forEach(person => {
             person.relationships.childIds.forEach(childId => {
-                // Create parent key (sorted for couples)
                 let parentKey = person.personId;
                 if (person.relationships.spouseIds.length > 0) {
                     parentKey = [person.personId, ...person.relationships.spouseIds].sort().join('-');
@@ -566,12 +187,12 @@ export function FamilyTree({
             const pos1 = positions.get(parentIds[0]);
             if (!pos1) return;
 
-            // Find connector point (from spouse line or parent center)
+            // Find connector point
             let dropX: number;
             let dropStartY: number;
 
             if (parentIds.length > 1) {
-                // Has spouse - drop from spouse line center
+                // Has spouse
                 const coupleKey = parentIds.slice(0, 2).sort().join('-');
                 const connector = coupleConnectors.get(coupleKey);
                 if (connector) {
@@ -582,7 +203,7 @@ export function FamilyTree({
                     dropStartY = pos1.y + NODE_HEIGHT / 2;
                 }
             } else {
-                // Single parent - drop from bottom center
+                // Single parent
                 dropX = pos1.x + NODE_WIDTH / 2;
                 dropStartY = pos1.y + NODE_HEIGHT;
             }
@@ -597,7 +218,7 @@ export function FamilyTree({
 
             // Calculate horizontal line Y position (midway between parents and children)
             const childTopY = Math.min(...validChildren.map(c => c.pos!.y));
-            const midY = dropStartY + (childTopY - dropStartY) * 0.5;
+            // const midY = dropStartY + (childTopY - dropStartY) * 0.5; // Unused for direct curves
 
             // For each child, draw a smooth bezier curve from parent drop point
             validChildren.forEach(child => {
@@ -605,7 +226,6 @@ export function FamilyTree({
                 const childTop = child.pos!.y;
 
                 // Create smooth S-curve using cubic bezier
-                // Control points make the curve flow smoothly
                 const controlY1 = dropStartY + (childTop - dropStartY) * 0.4;
                 const controlY2 = dropStartY + (childTop - dropStartY) * 0.6;
 
@@ -637,6 +257,8 @@ export function FamilyTree({
         const pos = positions.get(personId);
         if (!pos) return;
 
+        // Track starting position for drag detection
+        dragStartPos.current = { x: e.clientX, y: e.clientY };
         setDraggingNode(personId);
         setDragOffset({
             x: e.clientX / zoom - pos.x,
@@ -662,23 +284,55 @@ export function FamilyTree({
         }
     }, [draggingNode, dragOffset, zoom, isPanning, panStart]);
 
-    const handleMouseUp = useCallback(() => {
+    const handleMouseUp = useCallback((e: React.MouseEvent) => {
+        // Check if this was a drag or a click (moved more than 5px = drag)
+        const wasDrag = dragStartPos.current && (
+            Math.abs(e.clientX - dragStartPos.current.x) > 5 ||
+            Math.abs(e.clientY - dragStartPos.current.y) > 5
+        );
+
+        if (!wasDrag && draggingNode) {
+            // This was a click, not a drag - trigger person click
+            const person = persons.find(p => p.personId === draggingNode);
+            if (person) {
+                onPersonClick?.(person);
+            }
+        }
+
+        dragStartPos.current = null;
         setDraggingNode(null);
         setIsPanning(false);
-    }, []);
+    }, [draggingNode, persons, onPersonClick]);
 
     const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
         // Don't start panning if clicking on a node, button, or control element
-        if (target.closest('.tree-node') ||
-            target.closest('button') ||
-            target.tagName === 'BUTTON' ||
-            target.closest('.controls-panel')) {
-            return;
-        }
+        if (target.closest('.tree-node') || target.tagName === 'BUTTON') return;
+
         setIsPanning(true);
-        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        setPanStart({
+            x: e.clientX - pan.x,
+            y: e.clientY - pan.y
+        });
     }, [pan]);
+
+    const toggleCollapse = useCallback((id: string) => {
+        setCollapsedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const getDescendantCount = useCallback((personId: string) => {
+        const children = persons.filter(p => p.relationships.parentIds.includes(personId));
+        let count = children.length;
+        children.forEach(c => {
+            count += getDescendantCount(c.personId);
+        });
+        return count;
+    }, [persons]);
 
     // Zoom controls
     const handleZoomIn = () => setZoom(z => Math.min(z + 0.15, 2));
@@ -693,7 +347,7 @@ export function FamilyTree({
 
         // Small delay for visual feedback
         setTimeout(() => {
-            const newPositions = calculateDagreLayout(persons);
+            const newPositions = calculateTreeLayout(persons, collapsedIds);
             console.log('Auto arrange: Updated positions for', newPositions.size, 'nodes');
             setNodePositions(new Map(newPositions));
             setPan({ x: 0, y: 0 });
@@ -1066,12 +720,6 @@ export function FamilyTree({
                                 className={`tree-node absolute select-none transition-shadow ${isDragging ? 'z-50 shadow-2xl cursor-grabbing' : 'z-10 cursor-grab'} ${isSelected ? 'ring-4 ring-teal-400 ring-offset-2' : ''}`}
                                 style={{ left: pos.x, top: pos.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, person.personId)}
-                                onClick={(e) => {
-                                    if (!isDragging) {
-                                        e.stopPropagation();
-                                        onPersonClick?.(person);
-                                    }
-                                }}
                             >
                                 <div className={`${style.bg} ${style.border} border-2 rounded-xl p-3 h-full shadow-md hover:shadow-lg transition-all flex items-center gap-3`}>
                                     <div className={`${style.accent} w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 text-white shadow-sm`}>
@@ -1092,12 +740,25 @@ export function FamilyTree({
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Collapse Button */}
+                                {getDescendantCount(person.personId) > 0 && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleCollapse(person.personId);
+                                        }}
+                                        className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 z-20 bg-amber-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border-2 border-white hover:scale-110 transition-transform flex items-center gap-1"
+                                    >
+                                        {collapsedIds.has(person.personId) ? `📂 ${getDescendantCount(person.personId)}` : '📁'}
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 
