@@ -26,6 +26,7 @@ export interface FamilyTreeProps {
 // Layout constants
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 130;
+const CANVAS_PADDING = 150; // Padding around the tree
 
 interface NodePosition {
     x: number;
@@ -49,6 +50,7 @@ export function FamilyTree({
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [hasAutoFitted, setHasAutoFitted] = useState(false);
     const dragStartPos = useRef<{ x: number, y: number } | null>(null);
     const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
@@ -241,15 +243,56 @@ export function FamilyTree({
         return connLines;
     }, [persons, positions, personsMap]);
 
-    // Canvas size
+    // Canvas size - dynamically calculated based on actual node positions
     const canvasSize = useMemo(() => {
-        let maxX = 800, maxY = 500;
+        if (positions.size === 0) {
+            return { width: 800, height: 600 };
+        }
+
+        let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
         positions.forEach(pos => {
-            maxX = Math.max(maxX, pos.x + NODE_WIDTH + 100);
-            maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 100);
+            minX = Math.min(minX, pos.x);
+            minY = Math.min(minY, pos.y);
+            maxX = Math.max(maxX, pos.x + NODE_WIDTH);
+            maxY = Math.max(maxY, pos.y + NODE_HEIGHT);
         });
-        return { width: maxX, height: maxY };
+
+        // Add padding around the tree for comfortable viewing
+        const width = maxX + CANVAS_PADDING * 2;
+        const height = maxY + CANVAS_PADDING * 2;
+
+        return { width, height };
     }, [positions]);
+
+    // Auto-fit zoom on first load for large trees
+    useEffect(() => {
+        if (!hasAutoFitted && positions.size > 0 && containerRef.current) {
+            const container = containerRef.current;
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+
+            // Calculate the zoom level needed to fit the entire tree
+            const zoomX = containerWidth / canvasSize.width;
+            const zoomY = containerHeight / canvasSize.height;
+            const fitZoom = Math.min(zoomX, zoomY, 1); // Cap at 1 (100%)
+
+            // Only auto-fit if tree is larger than viewport
+            if (fitZoom < 0.9) {
+                // Use a slightly lower zoom to leave some margin
+                const targetZoom = Math.max(fitZoom * 0.95, 0.1);
+                setZoom(targetZoom);
+
+                // Center the tree
+                const scaledWidth = canvasSize.width * targetZoom;
+                const scaledHeight = canvasSize.height * targetZoom;
+                const centerX = (containerWidth - scaledWidth) / 2;
+                const centerY = (containerHeight - scaledHeight) / 2;
+                setPan({ x: Math.max(0, centerX), y: Math.max(0, centerY) });
+            }
+
+            setHasAutoFitted(true);
+        }
+    }, [hasAutoFitted, positions.size, canvasSize, containerRef]);
 
     // Node drag handlers
     const handleNodeMouseDown = useCallback((e: React.MouseEvent, personId: string) => {
@@ -334,10 +377,40 @@ export function FamilyTree({
         return count;
     }, [persons]);
 
-    // Zoom controls
-    const handleZoomIn = () => setZoom(z => Math.min(z + 0.15, 2));
-    const handleZoomOut = () => setZoom(z => Math.max(z - 0.15, 0.4));
+    // Zoom controls - extended range for large trees
+    const handleZoomIn = () => setZoom(z => Math.min(z + 0.15, 3)); // Up to 300% for details
+    const handleZoomOut = () => setZoom(z => Math.max(z - 0.15, 0.05)); // Down to 5% for overview
     const handleZoomReset = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+
+    // Fit to screen function
+    const handleFitToScreen = useCallback(() => {
+        if (!containerRef.current || positions.size === 0) return;
+
+        const container = containerRef.current;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+
+        const zoomX = containerWidth / canvasSize.width;
+        const zoomY = containerHeight / canvasSize.height;
+        const fitZoom = Math.min(zoomX, zoomY, 1) * 0.95;
+        const targetZoom = Math.max(fitZoom, 0.05);
+
+        setZoom(targetZoom);
+
+        // Center the tree
+        const scaledWidth = canvasSize.width * targetZoom;
+        const scaledHeight = canvasSize.height * targetZoom;
+        const centerX = (containerWidth - scaledWidth) / 2;
+        const centerY = (containerHeight - scaledHeight) / 2;
+        setPan({ x: Math.max(0, centerX), y: Math.max(0, centerY) });
+    }, [positions.size, canvasSize]);
+
+    // Mouse wheel zoom handler
+    const handleWheel = useCallback((e: React.WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(z => Math.max(0.05, Math.min(3, z + delta)));
+    }, []);
 
     // Auto arrange using dagre - with visual feedback
     const [isArranging, setIsArranging] = useState(false);
@@ -610,7 +683,8 @@ export function FamilyTree({
                 >
                     <button onClick={handleZoomIn} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom in">+</button>
                     <button onClick={handleZoomOut} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600 font-bold" title="Zoom out">−</button>
-                    <button onClick={handleZoomReset} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600" title="Reset view">↺</button>
+                    <button onClick={handleZoomReset} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600" title="Reset 100%">↺</button>
+                    <button onClick={handleFitToScreen} className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded text-stone-600" title="Fit to screen">⊡</button>
                     <div className="w-px bg-stone-200 mx-0.5"></div>
                     {/* Direct PDF Export Button */}
                     <button
@@ -643,8 +717,8 @@ export function FamilyTree({
 
             {/* Info */}
             <div className="absolute bottom-4 left-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200">
-                <div className="text-stone-600 font-medium">{Math.round(zoom * 100)}%</div>
-                <div className="text-stone-400">Drag node = geser • Drag canvas = pan</div>
+                <div className="text-stone-600 font-medium">{Math.round(zoom * 100)}% • {persons.length} anggota</div>
+                <div className="text-stone-400">Scroll = zoom • Drag canvas = pan • Drag node = geser</div>
             </div>
 
             {/* Legend */}
@@ -669,6 +743,7 @@ export function FamilyTree({
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
             >
                 <div
                     className="tree-content"
