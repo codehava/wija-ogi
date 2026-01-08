@@ -234,7 +234,8 @@ export default function FamilyPage() {
     // Handle position change (save to Firestore when node is dragged)
     const handlePositionChange = useCallback(async (personId: string, position: { x: number; y: number }) => {
         try {
-            await updatePersonPosition(familyId, personId, position);
+            // Set fixed=true to indicate this position was manually set by user
+            await updatePersonPosition(familyId, personId, { ...position, fixed: true });
         } catch (err) {
             console.error('Failed to save position:', err);
         }

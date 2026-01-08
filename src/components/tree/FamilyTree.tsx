@@ -100,13 +100,12 @@ export function FamilyTree({
             const initialMap = new Map<string, NodePosition>();
 
             // Check if most persons have saved positions (meaning tree was arranged before)
+            // Use position.fixed flag - set to true when user manually drags a node
             const personsWithSavedPos = persons.filter(p =>
-                p.position && p.position.x !== undefined && p.position.y !== undefined &&
-                // Exclude random default positions (usually around 100-500 range with high randomness)
-                !(p.position.x > 100 && p.position.x < 500 && p.position.y > 100 && p.position.y < 400)
+                p.position && p.position.fixed === true
             );
 
-            const useSavedPositions = personsWithSavedPos.length > persons.length * 0.3; // If >30% have saved positions
+            const useSavedPositions = personsWithSavedPos.length > 0; // If any person has fixed position, use saved positions
 
             persons.forEach(p => {
                 if (useSavedPositions && savedPositions.has(p.personId)) {
