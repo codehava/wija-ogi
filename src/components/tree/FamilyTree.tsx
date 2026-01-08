@@ -735,8 +735,8 @@ export function FamilyTree({
 
     return (
         <div className="relative h-full bg-gradient-to-br from-stone-100 to-stone-50 overflow-hidden">
-            {/* All Controls - Left Side (won't shift when sidebar appears) */}
-            <div className="absolute top-4 left-4 z-30 flex gap-2 print:hidden">
+            {/* All Controls - Fixed Position (won't move during pan) */}
+            <div className="fixed top-20 left-4 z-30 flex gap-2 print:hidden">
                 {/* Add Button */}
                 {editable && onAddPerson && (
                     <button
@@ -788,14 +788,14 @@ export function FamilyTree({
                 </div>
             </div>
 
-            {/* Info */}
-            <div className="absolute bottom-4 left-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200">
+            {/* Info - Fixed Position */}
+            <div className="fixed bottom-4 left-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200 print:hidden">
                 <div className="text-stone-600 font-medium">{Math.round(zoom * 100)}% • {persons.length} anggota</div>
                 <div className="text-stone-400">Scroll/geser = pan • Drag canvas = geser • Drag node = pindah</div>
             </div>
 
-            {/* Legend */}
-            <div className="absolute bottom-4 right-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200">
+            {/* Legend - Fixed Position */}
+            <div className="fixed bottom-4 right-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200 print:hidden">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
                         <div className="w-4 h-0.5 bg-pink-400"></div>
