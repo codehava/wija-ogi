@@ -65,8 +65,22 @@ const SKIP_CLUSTER = new Set(['mb', 'mp', 'nt', 'nd', 'nr', 'rm', 'bt']);
 // Kluster yang konsonan pertama dapat vokal /a/ (v3)
 const VOKAL_A_CLUSTER = new Set(['lt', 'bd']);
 
-// Kluster yang konsonan pertama dapat vokal /e/ (v3)
-const VOKAL_E_CLUSTER = new Set(['hm', 'mr']);
+// Kluster yang konsonan pertama dapat vokal pepet /ə/ (v3.1)
+// Untuk nama-nama Indonesia/Arab yang umum mengandung kluster konsonan
+const PEPET_CLUSTER = new Set([
+    'hm', 'mr',           // Ahmad, Umran
+    'sm', 'sr',           // Ismail, Isra
+    'br', 'bl',           // Ibrahim, Subli
+    'dr', 'dl',           // Badri, -
+    'kr', 'kl',           // Sukri, -
+    'tr', 'tl',           // Putra, -
+    'gr', 'gl',           // Agri, -
+    'pr', 'pl',           // Apri, -
+    'fr', 'fl',           // Afri (→ Apri), -
+    'hr',                 // Bahri
+    'wr',                 // -
+    'nr', 'nl',           // Anri, -
+]);
 
 // Konsonan akhir yang diabaikan (v3 - expanded list)
 const SKIP_AKHIR = new Set(['n', 'm', 'l', 'd', 't', 'k', 'b', 'p', 'g', 'h', 'c', 'j', 'w', 'y']);
@@ -259,12 +273,12 @@ export function transliterateLatin(text: string): TransliterationResult {
             continue;
         }
 
-        // 8. Kluster dengan konsonan pertama dapat /e/: hm, mr
-        if (VOKAL_E_CLUSTER.has(twoChars) && remaining.length >= 2) {
+        // 8. Kluster dengan konsonan pertama dapat vokal pepet /ə/
+        if (PEPET_CLUSTER.has(twoChars) && remaining.length >= 2) {
             const first = twoChars[0];
-            const aksara = KONSONAN[first] + getVokalDiakritik('e');
+            const aksara = KONSONAN[first] + getVokalDiakritik('ə');
             result += aksara;
-            details.push({ latin: first + 'e', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /e/` });
+            details.push({ latin: first + 'ə', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /ə/` });
             i++;
             continue;
         }
