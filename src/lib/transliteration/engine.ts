@@ -92,7 +92,7 @@ const PEPET_CLUSTER = new Set([
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
 // Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang, Mesin, Dewa
 // NOTE: Untuk memaksa e-taling, gunakan 'é' (misal: Déwa)
-const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge']);
+const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge', 'nre']);
 
 // Konsonan akhir yang diabaikan (sesuai standar Lontara Bugis)
 // Hanya konsonan yang TIDAK dilafalkan di akhir kata dalam bahasa Bugis
@@ -262,7 +262,7 @@ export function transliterateLatin(text: string): TransliterationResult {
             continue;
         }
 
-        // 5. Pranasal 2 huruf: nk, nc, nj
+        // 5. Pranasal 2 huruf: nk, nc, nj, mp, nr
         for (const [pattern, aksara] of Object.entries(PRANASAL)) {
             if (pattern.length === 2 && remaining.startsWith(pattern)) {
                 let latinPart = pattern;
@@ -271,13 +271,24 @@ export function transliterateLatin(text: string): TransliterationResult {
 
                 if (isVokal(charAfter(2))) {
                     const v = charAfter(2);
-                    lontara += getVokalDiakritik(v);
-                    latinPart += v;
+                    const afterVowel = charAfter(3);
+
+                    // Check for pepet: pranasal + e + consonant → pepet
+                    if (v === 'e' && isKonsonan(afterVowel)) {
+                        lontara += getVokalDiakritik('ə');  // Use pepet
+                        latinPart += 'ə';
+                        details.push({ latin: latinPart, lontara, type: 'cluster', note: `${pattern}+e+konsonan → pepet` });
+                    } else {
+                        lontara += getVokalDiakritik(v);
+                        latinPart += v;
+                        details.push({ latin: latinPart, lontara, type: 'cluster' });
+                    }
                     consumed++;
+                } else {
+                    details.push({ latin: latinPart, lontara, type: 'cluster' });
                 }
 
                 result += lontara;
-                details.push({ latin: latinPart, lontara, type: 'cluster' });
                 i += consumed;
                 break;
             }
