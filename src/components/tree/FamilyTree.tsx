@@ -812,6 +812,10 @@ export function FamilyTree({
             <div
                 ref={containerRef}
                 className={`w-full h-full ${isPanning ? 'cursor-grabbing' : draggingNode ? 'cursor-move' : 'cursor-grab'}`}
+                style={{
+                    overscrollBehavior: 'none',  // Prevent browser back/forward gesture
+                    touchAction: 'none'           // Prevent touch gestures
+                }}
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
