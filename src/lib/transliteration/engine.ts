@@ -154,6 +154,7 @@ export function transliterateLatin(text: string): TransliterationResult {
     const details: TransliterationDetail[] = [];
     let result = '';
     let i = 0;
+    let lastVowel = 'a';  // Track last vowel for harmony (default 'a')
 
     while (i < input.length) {
         const remaining = input.slice(i);
@@ -331,6 +332,12 @@ export function transliterateLatin(text: string): TransliterationResult {
                 const aksara = KONSONAN[konsonan];
                 const lontara = aksara + getVokalDiakritik(nextChar);
                 result += lontara;
+                // Track last vowel for harmony
+                if (['a', 'i', 'u', 'e', 'o'].includes(nextChar)) {
+                    lastVowel = nextChar;
+                } else if (nextChar === 'é') {
+                    lastVowel = 'e';  // é counts as 'e'
+                }
                 details.push({ latin: konsonan + nextChar, lontara, type: 'consonant' });
                 i += 2;
                 continue;
@@ -345,11 +352,14 @@ export function transliterateLatin(text: string): TransliterationResult {
                     continue;
                 }
 
-                // Konsonan yang dapat /a/ di akhir kata (r, s)
+                // Konsonan yang dapat vokal harmoni di akhir kata (r, s)
+                // Mengikuti vokal suku kata sebelumnya: Yunus → Yunusu, Aris → Arisi
                 if (VOKAL_AKHIR.has(konsonan)) {
                     const aksara = KONSONAN[konsonan];
-                    result += aksara;
-                    details.push({ latin: konsonan + 'a', lontara: aksara, type: 'consonant', note: `${konsonan} akhir dapat /a/` });
+                    const harmonicVowel = lastVowel;  // Use last vowel for harmony
+                    const lontara = aksara + getVokalDiakritik(harmonicVowel);
+                    result += lontara;
+                    details.push({ latin: konsonan + harmonicVowel, lontara: lontara, type: 'consonant', note: `${konsonan} akhir harmoni vokal /${harmonicVowel}/` });
                     i++;
                     continue;
                 }
