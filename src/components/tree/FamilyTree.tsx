@@ -472,11 +472,15 @@ export function FamilyTree({
         setPan({ x: Math.max(0, centerX), y: Math.max(0, centerY) });
     }, [positions.size, canvasSize]);
 
-    // Mouse wheel zoom handler
+    // Mouse wheel/trackpad handler - PAN instead of zoom
+    // Zoom is controlled only by buttons
     const handleWheel = useCallback((e: React.WheelEvent) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setZoom(z => Math.max(0.05, Math.min(3, z + delta)));
+        // Use deltaX and deltaY to pan the view
+        setPan(p => ({
+            x: p.x - e.deltaX,
+            y: p.y - e.deltaY
+        }));
     }, []);
 
     // Auto arrange using dagre - with visual feedback
