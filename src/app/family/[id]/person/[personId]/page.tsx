@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFamilyTree } from '@/hooks/useFirestore';
@@ -13,6 +13,7 @@ import { useCanEdit } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput } from '@/types';
 import { updatePerson, deletePerson } from '@/lib/services/persons';
+import { uploadPersonPhoto, deletePersonPhoto } from '@/lib/services/photos';
 import { PersonForm } from '@/components/person/PersonForm';
 import { PersonNode } from '@/components/person/PersonNode';
 import { DualScriptDisplay } from '@/components/aksara/DualScriptDisplay';
@@ -37,6 +38,8 @@ export default function PersonDetailPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
     const [scriptMode, setScriptMode] = useState<ScriptMode>('both');
+    const [photoUploading, setPhotoUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Get current person
     const person = useMemo(() => {
@@ -115,6 +118,44 @@ export default function PersonDetailPage() {
         }
     };
 
+    // Handle photo upload
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        setPhotoUploading(true);
+        try {
+            // Upload and compress photo
+            const photoUrl = await uploadPersonPhoto(familyId, personId, file);
+            // Update person with new photo URL
+            await updatePerson(familyId, personId, { photoUrl } as any, user.uid);
+        } catch (err: any) {
+            console.error('Failed to upload photo:', err);
+            alert(err.message || 'Gagal mengunggah foto');
+        } finally {
+            setPhotoUploading(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    // Handle photo delete
+    const handlePhotoDelete = async () => {
+        if (!user || !person?.photoUrl) return;
+
+        setPhotoUploading(true);
+        try {
+            await deletePersonPhoto(familyId, personId);
+            await updatePerson(familyId, personId, { photoUrl: '' } as any, user.uid);
+        } catch (err) {
+            console.error('Failed to delete photo:', err);
+        } finally {
+            setPhotoUploading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-100 via-teal-50 to-cyan-50">
@@ -161,12 +202,43 @@ export default function PersonDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {/* Avatar */}
-                        <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-5xl">
-                            {person.photoUrl ? (
-                                <img src={person.photoUrl} alt={person.fullName} className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                genderIcon
+                        {/* Avatar - Clickable for photo upload */}
+                        <div className="relative group">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                                disabled={!canEdit || photoUploading}
+                            />
+                            <div
+                                className={`w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-5xl overflow-hidden ${canEdit ? 'cursor-pointer hover:ring-4 hover:ring-white/50 transition' : ''}`}
+                                onClick={() => canEdit && fileInputRef.current?.click()}
+                            >
+                                {photoUploading ? (
+                                    <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                                ) : person.photoUrl ? (
+                                    <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+                                ) : (
+                                    genderIcon
+                                )}
+                            </div>
+                            {/* Upload hint on hover */}
+                            {canEdit && !photoUploading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                                    <span className="text-white text-xl">📷</span>
+                                </div>
+                            )}
+                            {/* Delete photo button */}
+                            {canEdit && person.photoUrl && !photoUploading && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handlePhotoDelete(); }}
+                                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition shadow"
+                                    title="Hapus foto"
+                                >
+                                    ✕
+                                </button>
                             )}
                         </div>
 

@@ -872,10 +872,34 @@ export function FamilyTree({
                                 return (
                                     <div className="relative flex-shrink-0" style={{ width: shapeSize, height: shapeSize }}>
                                         <svg width={shapeSize} height={shapeSize} viewBox="0 0 50 50" className="drop-shadow-md">
+                                            <defs>
+                                                <clipPath id={`triangle-clip-${person.personId}`}>
+                                                    <polygon points="25,45 5,10 45,10" />
+                                                </clipPath>
+                                            </defs>
+                                            {person.photoUrl ? (
+                                                <image
+                                                    href={person.photoUrl}
+                                                    x="0"
+                                                    y="0"
+                                                    width="50"
+                                                    height="50"
+                                                    clipPath={`url(#triangle-clip-${person.personId})`}
+                                                    preserveAspectRatio="xMidYMid slice"
+                                                />
+                                            ) : (
+                                                <polygon
+                                                    points="25,45 5,10 45,10"
+                                                    fill="#ec4899"
+                                                    stroke="#db2777"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            {/* Border on top of image */}
                                             <polygon
                                                 points="25,45 5,10 45,10"
-                                                fill="#ec4899"
-                                                stroke="#db2777"
+                                                fill="none"
+                                                stroke={person.photoUrl ? "#db2777" : "none"}
                                                 strokeWidth="2"
                                             />
                                         </svg>
@@ -888,10 +912,18 @@ export function FamilyTree({
                                         'bg-gray-500 border-gray-600';
                                 return (
                                     <div
-                                        className={`rounded-full flex-shrink-0 border-2 flex items-center justify-center text-white text-lg drop-shadow-md ${bgColor}`}
+                                        className={`rounded-full flex-shrink-0 border-2 overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-md ${bgColor}`}
                                         style={{ width: shapeSize, height: shapeSize }}
                                     >
-                                        {person.gender === 'male' ? '♂' : '●'}
+                                        {person.photoUrl ? (
+                                            <img
+                                                src={person.photoUrl}
+                                                alt={person.firstName}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            person.gender === 'male' ? '♂' : '●'
+                                        )}
                                     </div>
                                 );
                             }
