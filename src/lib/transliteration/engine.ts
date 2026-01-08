@@ -82,6 +82,10 @@ const PEPET_CLUSTER = new Set([
     'nr', 'nl',           // Anri, -
 ]);
 
+// Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
+// Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang
+const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'ge', 'le', 'me', 'ne', 're', 'we']);
+
 // Konsonan akhir yang diabaikan (v3 - expanded list)
 const SKIP_AKHIR = new Set(['n', 'm', 'l', 'd', 't', 'k', 'b', 'p', 'g', 'h', 'c', 'j', 'w', 'y']);
 
@@ -290,6 +294,21 @@ export function transliterateLatin(text: string): TransliterationResult {
 
             // 9a. Diikuti vokal → konsonan + diakritik
             if (isVokal(nextChar)) {
+                // Special case: Auto-detect pepet for prefixes like Se-, Be-, De-, etc.
+                // If pattern is [consonant] + 'e' + [consonant], use pepet (ə) instead of e
+                const twoCharPrefix = konsonan + nextChar;
+                const afterVowel = charAfter(2);
+
+                if (nextChar === 'e' && PEPET_PREFIX.has(twoCharPrefix) && isKonsonan(afterVowel)) {
+                    // Use pepet for this 'e' since it's followed by consonant
+                    const aksara = KONSONAN[konsonan];
+                    const lontara = aksara + getVokalDiakritik('ə');
+                    result += lontara;
+                    details.push({ latin: konsonan + 'ə', lontara, type: 'consonant', note: `'e' dalam ${twoCharPrefix}+konsonan → pepet` });
+                    i += 2;
+                    continue;
+                }
+
                 const aksara = KONSONAN[konsonan];
                 const lontara = aksara + getVokalDiakritik(nextChar);
                 result += lontara;
