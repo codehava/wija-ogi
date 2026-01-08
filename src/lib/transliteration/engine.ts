@@ -86,9 +86,9 @@ const PEPET_CLUSTER = new Set([
 
 // Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
-// Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang
-// NOTE: 'de' dihapus karena Dewa/Dewi menggunakan e-taling
-const PEPET_PREFIX = new Set(['se', 'be', 'ke', 'te', 'pe']);
+// Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang, Mesin, Dewa
+// NOTE: Untuk memaksa e-taling, gunakan 'é' (misal: Déwa)
+const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge']);
 
 // Konsonan akhir yang diabaikan (sesuai standar Lontara Bugis)
 // Hanya konsonan yang TIDAK dilafalkan di akhir kata dalam bahasa Bugis
