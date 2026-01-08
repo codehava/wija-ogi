@@ -315,6 +315,32 @@ export async function updatePersonPosition(
 }
 
 /**
+ * Update ALL person positions in batch (more efficient for save-all)
+ */
+export async function updateAllPersonPositions(
+    familyId: string,
+    positions: Map<string, { x: number; y: number }>
+): Promise<void> {
+    const { writeBatch } = await import('firebase/firestore');
+    const batch = writeBatch(db);
+
+    positions.forEach((position, personId) => {
+        const personRef = getPersonRef(familyId, personId);
+        batch.update(personRef, {
+            position: {
+                x: position.x,
+                y: position.y,
+                fixed: true  // All positions are now fixed since user arranged them
+            },
+            updatedAt: serverTimestamp()
+        });
+    });
+
+    await batch.commit();
+    console.log(`Saved positions for ${positions.size} persons`);
+}
+
+/**
  * Update person relationships
  */
 export async function updatePersonRelationships(

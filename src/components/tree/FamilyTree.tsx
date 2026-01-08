@@ -23,6 +23,7 @@ export interface FamilyTreeProps {
     familyName?: string;
     familyId?: string; // Required to save positions
     onPositionChange?: (personId: string, position: { x: number; y: number }) => void;
+    onAllPositionsChange?: (positions: Map<string, { x: number; y: number }>) => void; // Save all positions at once
 }
 
 // Layout constants
@@ -49,7 +50,8 @@ export function FamilyTree({
     onAddPerson,
     familyName = 'Pohon Keluarga',
     familyId,
-    onPositionChange
+    onPositionChange,
+    onAllPositionsChange
 }: FamilyTreeProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState(1);
@@ -385,11 +387,17 @@ export function FamilyTree({
             Math.abs(e.clientY - dragStartPos.current.y) > 5
         );
 
-        if (wasDrag && draggingNode && onPositionChange) {
-            // Save position to Firestore after drag
-            const newPos = nodePositions.get(draggingNode);
-            if (newPos) {
-                onPositionChange(draggingNode, { x: newPos.x, y: newPos.y });
+        if (wasDrag && draggingNode) {
+            // Save ALL positions to Firestore after drag (not just the dragged node)
+            if (onAllPositionsChange) {
+                // Save all current positions
+                onAllPositionsChange(nodePositions);
+            } else if (onPositionChange) {
+                // Fallback: save only the dragged node position
+                const newPos = nodePositions.get(draggingNode);
+                if (newPos) {
+                    onPositionChange(draggingNode, { x: newPos.x, y: newPos.y });
+                }
             }
         }
 
@@ -404,7 +412,7 @@ export function FamilyTree({
         dragStartPos.current = null;
         setDraggingNode(null);
         setIsPanning(false);
-    }, [draggingNode, persons, onPersonClick, nodePositions, onPositionChange]);
+    }, [draggingNode, persons, onPersonClick, nodePositions, onPositionChange, onAllPositionsChange]);
 
     const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -917,19 +925,6 @@ export function FamilyTree({
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Collapse Button */}
-                                {getDescendantCount(person.personId) > 0 && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleCollapse(person.personId);
-                                        }}
-                                        className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 z-20 bg-amber-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border-2 border-white hover:scale-110 transition-transform flex items-center gap-1"
-                                    >
-                                        {collapsedIds.has(person.personId) ? `📂 ${getDescendantCount(person.personId)}` : '📁'}
-                                    </button>
-                                )}
                             </div>
                         );
                     })}

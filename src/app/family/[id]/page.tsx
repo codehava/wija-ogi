@@ -12,7 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useCanEdit, useIsAdmin, useIsSuperAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput } from '@/types';
-import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild, regenerateAllLontaraNames, updatePersonPosition } from '@/lib/services/persons';
+import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild, regenerateAllLontaraNames, updatePersonPosition, updateAllPersonPositions } from '@/lib/services/persons';
 import { createRelationship } from '@/lib/services/relationships';
 import { FamilyTree } from '@/components/tree/FamilyTree';
 import { PersonCard } from '@/components/person/PersonCard';
@@ -242,6 +242,15 @@ export default function FamilyPage() {
         }
     }, [familyId]);
 
+    // Handle ALL positions change (save all positions when any node is dragged)
+    const handleAllPositionsChange = useCallback(async (positions: Map<string, { x: number; y: number }>) => {
+        try {
+            await updateAllPersonPositions(familyId, positions);
+        } catch (err) {
+            console.error('Failed to save all positions:', err);
+        }
+    }, [familyId]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-teal-50 to-cyan-50">
@@ -365,6 +374,7 @@ export default function FamilyPage() {
                         familyName={family?.displayName || family?.name || 'Pohon Keluarga'}
                         familyId={familyId}
                         onPositionChange={handlePositionChange}
+                        onAllPositionsChange={handleAllPositionsChange}
                     />
                 </div>
 
