@@ -791,7 +791,7 @@ export function FamilyTree({
             {/* Info */}
             <div className="absolute bottom-4 left-4 z-30 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200">
                 <div className="text-stone-600 font-medium">{Math.round(zoom * 100)}% • {persons.length} anggota</div>
-                <div className="text-stone-400">Scroll = zoom • Drag canvas = pan • Drag node = geser</div>
+                <div className="text-stone-400">Scroll/geser = pan • Drag canvas = geser • Drag node = pindah</div>
             </div>
 
             {/* Legend */}
