@@ -21,6 +21,7 @@ import { SidebarEditForm } from '@/components/person/SidebarEditForm';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { transliterateLatin } from '@/lib/transliteration/engine';
 
 export default function FamilyPage() {
@@ -602,7 +603,7 @@ export default function FamilyPage() {
                         ]}
                     />
 
-                    <Select
+                    <SearchableSelect
                         label={
                             relationType === 'spouse'
                                 ? 'Pilih Pasangan'
@@ -611,14 +612,14 @@ export default function FamilyPage() {
                                     : 'Pilih Orang Tua'
                         }
                         value={targetPersonId}
-                        onChange={(e) => setTargetPersonId(e.target.value)}
-                        options={[
-                            { value: '', label: '-- Pilih anggota keluarga --' },
-                            ...availablePersons.map(p => ({
+                        onChange={(value) => setTargetPersonId(value)}
+                        placeholder="Ketik nama untuk mencari..."
+                        options={
+                            availablePersons.map(p => ({
                                 value: p.personId,
-                                label: p.fullName
+                                label: [p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ') || p.fullName
                             }))
-                        ]}
+                        }
                     />
 
                     {/* Marriage Order - only for spouse relationships */}
