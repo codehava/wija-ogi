@@ -453,7 +453,8 @@ export async function addSpouse(
 
 /**
  * Add parent-child relationship (bidirectional)
- * AUTO-LINKS child to both parents if parent has a spouse
+ * Each parent must be added manually - no auto-linking to spouses
+ * This allows correct handling of polygamous relationships (1 person with multiple spouses)
  */
 export async function addParentChild(
     familyId: string,
@@ -479,29 +480,10 @@ export async function addParentChild(
         });
     }
 
-    // AUTO-LINK: Also connect child to parent's spouse (the other parent)
-    for (const spouseId of parent.relationships.spouseIds) {
-        const spouse = await getPerson(familyId, spouseId);
-        if (!spouse) continue;
-
-        // Add child to spouse's children if not already there
-        if (!spouse.relationships.childIds.includes(childId)) {
-            await updateDoc(getPersonRef(familyId, spouseId), {
-                'relationships.childIds': [...spouse.relationships.childIds, childId]
-            });
-        }
-
-        // Refetch child to get updated parentIds
-        const updatedChild = await getPerson(familyId, childId);
-        if (!updatedChild) continue;
-
-        // Add spouse to child's parents if not already there and has room (max 2)
-        if (!updatedChild.relationships.parentIds.includes(spouseId) && updatedChild.relationships.parentIds.length < 2) {
-            await updateDoc(getPersonRef(familyId, childId), {
-                'relationships.parentIds': [...updatedChild.relationships.parentIds, spouseId]
-            });
-        }
-    }
+    // NOTE: No auto-linking to spouses
+    // Each parent-child relationship must be set up manually
+    // This is correct for cases where one person has multiple spouses
+    // and children from different spouses should not be auto-linked to all spouses
 }
 
 /**

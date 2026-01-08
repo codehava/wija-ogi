@@ -148,6 +148,7 @@ export interface MarriageDetails {
     place?: string;
     placeLontara?: string;       // Auto-transliterated
     status: MarriageStatus;
+    marriageOrder?: number;      // 1 = first wife, 2 = second wife, etc. (for polygamy)
 }
 
 export interface ParentChildDetails {

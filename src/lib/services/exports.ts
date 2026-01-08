@@ -258,14 +258,26 @@ export function generateTreeSVG(
 
         const genderClass = person.gender === 'male' ? 'node-male' : person.gender === 'female' ? 'node-female' : '';
 
+        // Build full Latin name
+        const fullLatinName = [person.firstName, person.middleName, person.lastName]
+            .filter(Boolean)
+            .join(' ') || person.fullName || person.firstName;
+
+        // Build full Lontara name
+        const fullLontaraName = [
+            person.lontaraName?.first,
+            person.lontaraName?.middle,
+            person.lontaraName?.last
+        ].filter(Boolean).join(' ');
+
         svg += `
       <g transform="translate(${pos.x - nodeWidth / 2}, ${pos.y})">
         <rect class="node-rect ${genderClass}" width="${nodeWidth}" height="${nodeHeight}" />
-        <text class="node-name" x="${nodeWidth / 2}" y="20" text-anchor="middle">${escapeXml(person.firstName)}</text>
+        <text class="node-name" x="${nodeWidth / 2}" y="20" text-anchor="middle">${escapeXml(fullLatinName)}</text>
     `;
 
         if (scriptMode === 'lontara' || scriptMode === 'both') {
-            svg += `<text class="node-lontara" x="${nodeWidth / 2}" y="35" text-anchor="middle">${escapeXml(person.lontaraName?.first || '')}</text>`;
+            svg += `<text class="node-lontara" x="${nodeWidth / 2}" y="35" text-anchor="middle">${escapeXml(fullLontaraName)}</text>`;
         }
 
         svg += `</g>`;

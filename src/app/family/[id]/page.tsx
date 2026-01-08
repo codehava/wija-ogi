@@ -12,7 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useCanEdit, useIsAdmin, useIsSuperAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput } from '@/types';
-import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild, regenerateAllLontaraNames } from '@/lib/services/persons';
+import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild, regenerateAllLontaraNames, updatePersonPosition } from '@/lib/services/persons';
 import { createRelationship } from '@/lib/services/relationships';
 import { FamilyTree } from '@/components/tree/FamilyTree';
 import { PersonCard } from '@/components/person/PersonCard';
@@ -55,6 +55,7 @@ export default function FamilyPage() {
     // Relationship form state
     const [relationType, setRelationType] = useState<'spouse' | 'parent' | 'child'>('spouse');
     const [targetPersonId, setTargetPersonId] = useState<string>('');
+    const [marriageOrder, setMarriageOrder] = useState<number>(1);
 
     // Handle add person
     const handleAddPerson = useCallback(() => {
@@ -124,7 +125,11 @@ export default function FamilyPage() {
                 await createRelationship(familyId, {
                     type: 'spouse',
                     person1Id: selectedPerson.personId,
-                    person2Id: targetPersonId
+                    person2Id: targetPersonId,
+                    marriage: {
+                        status: 'married',
+                        marriageOrder: marriageOrder
+                    }
                 });
             } else if (relationType === 'parent') {
                 // Selected person is the PARENT of target
@@ -144,6 +149,7 @@ export default function FamilyPage() {
 
             setShowRelationshipModal(false);
             setTargetPersonId('');
+            setMarriageOrder(1);
         } catch (err) {
             console.error('Failed to create relationship:', err);
         } finally {
@@ -224,6 +230,15 @@ export default function FamilyPage() {
             setFormLoading(false);
         }
     }, [familyId, selectedPerson, user, persons]);
+
+    // Handle position change (save to Firestore when node is dragged)
+    const handlePositionChange = useCallback(async (personId: string, position: { x: number; y: number }) => {
+        try {
+            await updatePersonPosition(familyId, personId, position);
+        } catch (err) {
+            console.error('Failed to save position:', err);
+        }
+    }, [familyId]);
 
     if (loading) {
         return (
@@ -346,6 +361,8 @@ export default function FamilyPage() {
                         editable={canEdit}
                         onAddPerson={handleAddPerson}
                         familyName={family?.displayName || family?.name || 'Pohon Keluarga'}
+                        familyId={familyId}
+                        onPositionChange={handlePositionChange}
                     />
                 </div>
 
@@ -582,6 +599,21 @@ export default function FamilyPage() {
                             }))
                         ]}
                     />
+
+                    {/* Marriage Order - only for spouse relationships */}
+                    {relationType === 'spouse' && selectedPerson?.relationships.spouseIds.length > 0 && (
+                        <Select
+                            label="Urutan Istri (untuk poligami)"
+                            value={marriageOrder.toString()}
+                            onChange={(e) => setMarriageOrder(parseInt(e.target.value))}
+                            options={[
+                                { value: '1', label: 'Istri ke-1' },
+                                { value: '2', label: 'Istri ke-2' },
+                                { value: '3', label: 'Istri ke-3' },
+                                { value: '4', label: 'Istri ke-4' }
+                            ]}
+                        />
+                    )}
 
                     {availablePersons.length === 0 && (
                         <p className="text-sm text-stone-500 text-center">

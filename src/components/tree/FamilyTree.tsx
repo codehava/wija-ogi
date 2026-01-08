@@ -21,6 +21,8 @@ export interface FamilyTreeProps {
     editable?: boolean;
     onAddPerson?: () => void;
     familyName?: string;
+    familyId?: string; // Required to save positions
+    onPositionChange?: (personId: string, position: { x: number; y: number }) => void;
 }
 
 // Layout constants
@@ -45,7 +47,9 @@ export function FamilyTree({
     selectedPersonId,
     editable = false,
     onAddPerson,
-    familyName = 'Pohon Keluarga'
+    familyName = 'Pohon Keluarga',
+    familyId,
+    onPositionChange
 }: FamilyTreeProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoom, setZoom] = useState(1);
@@ -56,6 +60,7 @@ export function FamilyTree({
 
     // Node positions (can be dragged)
     const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map());
+    const [isInitialized, setIsInitialized] = useState(false);
 
     // Dragging state
     const [draggingNode, setDraggingNode] = useState<string | null>(null);
@@ -72,41 +77,85 @@ export function FamilyTree({
         return map;
     }, [persons]);
 
-    // Calculate initial positions using dagre
-    const initialPositions = useMemo(() => {
-        return calculateTreeLayout(persons, collapsedIds);
-    }, [persons, collapsedIds]);
+    // Get saved positions from persons data (stored in Firestore)
+    const savedPositions = useMemo(() => {
+        const map = new Map<string, NodePosition>();
+        persons.forEach(p => {
+            // Check if person has a valid saved position (not just default random)
+            if (p.position && p.position.x !== undefined && p.position.y !== undefined) {
+                map.set(p.personId, { x: p.position.x, y: p.position.y });
+            }
+        });
+        return map;
+    }, [persons]);
 
-    // Initialize positions on first load
+    // Calculate layout using dagre (only for persons without saved positions)
+    const calculatedPositions = useMemo(() => {
+        return calculateTreeLayout(persons, collapsedIds, relationships);
+    }, [persons, collapsedIds, relationships]);
+
+    // Initialize positions on first load - prefer saved positions from Firestore
     useEffect(() => {
-        if (nodePositions.size === 0 && initialPositions.size > 0) {
-            setNodePositions(new Map(initialPositions));
+        if (!isInitialized && persons.length > 0) {
+            const initialMap = new Map<string, NodePosition>();
+
+            // Check if most persons have saved positions (meaning tree was arranged before)
+            const personsWithSavedPos = persons.filter(p =>
+                p.position && p.position.x !== undefined && p.position.y !== undefined &&
+                // Exclude random default positions (usually around 100-500 range with high randomness)
+                !(p.position.x > 100 && p.position.x < 500 && p.position.y > 100 && p.position.y < 400)
+            );
+
+            const useSavedPositions = personsWithSavedPos.length > persons.length * 0.3; // If >30% have saved positions
+
+            persons.forEach(p => {
+                if (useSavedPositions && savedPositions.has(p.personId)) {
+                    // Use saved position from Firestore
+                    initialMap.set(p.personId, savedPositions.get(p.personId)!);
+                } else {
+                    // Use calculated position from dagre for new or first-time load
+                    const calcPos = calculatedPositions.get(p.personId);
+                    if (calcPos) {
+                        initialMap.set(p.personId, calcPos);
+                    }
+                }
+            });
+
+            if (initialMap.size > 0) {
+                setNodePositions(initialMap);
+                setIsInitialized(true);
+            }
         }
-    }, [initialPositions, nodePositions.size]);
+    }, [persons, savedPositions, calculatedPositions, isInitialized]);
 
-    // Update positions when persons change (add new persons)
+    // Update positions when new persons are added (use dagre for new persons only)
     useEffect(() => {
+        if (!isInitialized) return;
+
         setNodePositions(prev => {
             const newMap = new Map(prev);
             let hasChange = false;
             persons.forEach(p => {
                 if (!newMap.has(p.personId)) {
-                    const initialPos = initialPositions.get(p.personId);
-                    if (initialPos) {
-                        newMap.set(p.personId, initialPos);
+                    // New person - use saved position if available, otherwise dagre
+                    const savedPos = savedPositions.get(p.personId);
+                    const calcPos = calculatedPositions.get(p.personId);
+                    const pos = savedPos || calcPos;
+                    if (pos) {
+                        newMap.set(p.personId, pos);
                         hasChange = true;
                     }
                 }
             });
             return hasChange ? newMap : prev;
         });
-    }, [persons, initialPositions]);
+    }, [persons, savedPositions, calculatedPositions, isInitialized]);
 
     // Get current positions
     const positions = useMemo(() => {
         if (nodePositions.size > 0) return nodePositions;
-        return initialPositions;
-    }, [nodePositions, initialPositions]);
+        return calculatedPositions;
+    }, [nodePositions, calculatedPositions]);
 
     // Calculate connections based on current positions
     const connections = useMemo(() => {
@@ -160,54 +209,61 @@ export function FamilyTree({
         });
 
         // Second pass: Draw parent-child connections
-        const childrenByParents = new Map<string, string[]>();
+        // Group children by their actual parent pairs (based on child's parentIds)
+        const childrenByParentPair = new Map<string, string[]>();
 
-        // Group children by parent couple/single parent
         persons.forEach(person => {
-            person.relationships.childIds.forEach(childId => {
-                let parentKey = person.personId;
-                if (person.relationships.spouseIds.length > 0) {
-                    parentKey = [person.personId, ...person.relationships.spouseIds].sort().join('-');
-                }
+            // Only process if this person is a child of someone
+            if (person.relationships.parentIds.length > 0) {
+                // Use the child's actual parentIds to create the key
+                const parentKey = [...person.relationships.parentIds].sort().join('-');
 
-                if (!childrenByParents.has(parentKey)) {
-                    childrenByParents.set(parentKey, []);
+                if (!childrenByParentPair.has(parentKey)) {
+                    childrenByParentPair.set(parentKey, []);
                 }
-                const children = childrenByParents.get(parentKey)!;
-                if (!children.includes(childId)) {
-                    children.push(childId);
+                const children = childrenByParentPair.get(parentKey)!;
+                if (!children.includes(person.personId)) {
+                    children.push(person.personId);
                 }
-            });
+            }
         });
 
         // Draw connections for each parent group
-        childrenByParents.forEach((childIds, parentKey) => {
+        childrenByParentPair.forEach((childIds, parentKey) => {
             const parentIds = parentKey.split('-');
-            const firstParent = personsMap.get(parentIds[0]);
-            if (!firstParent) return;
 
-            const pos1 = positions.get(parentIds[0]);
-            if (!pos1) return;
+            // Verify all parents exist in positions
+            const validParentIds = parentIds.filter(pid => positions.has(pid) && personsMap.has(pid));
+            if (validParentIds.length === 0) return;
+
+            const firstParentPos = positions.get(validParentIds[0])!;
 
             // Find connector point
             let dropX: number;
             let dropStartY: number;
 
-            if (parentIds.length > 1) {
-                // Has spouse
-                const coupleKey = parentIds.slice(0, 2).sort().join('-');
+            if (validParentIds.length >= 2) {
+                // Has two parents (couple)
+                const coupleKey = validParentIds.slice(0, 2).sort().join('-');
                 const connector = coupleConnectors.get(coupleKey);
                 if (connector) {
                     dropX = connector.centerX;
                     dropStartY = connector.y;
                 } else {
-                    dropX = pos1.x + NODE_WIDTH / 2;
-                    dropStartY = pos1.y + NODE_HEIGHT / 2;
+                    // Fallback: calculate center between the two parents
+                    const parent2Pos = positions.get(validParentIds[1]);
+                    if (parent2Pos) {
+                        dropX = (firstParentPos.x + parent2Pos.x + NODE_WIDTH) / 2;
+                        dropStartY = Math.max(firstParentPos.y, parent2Pos.y) + NODE_HEIGHT;
+                    } else {
+                        dropX = firstParentPos.x + NODE_WIDTH / 2;
+                        dropStartY = firstParentPos.y + NODE_HEIGHT;
+                    }
                 }
             } else {
                 // Single parent
-                dropX = pos1.x + NODE_WIDTH / 2;
-                dropStartY = pos1.y + NODE_HEIGHT;
+                dropX = firstParentPos.x + NODE_WIDTH / 2;
+                dropStartY = firstParentPos.y + NODE_HEIGHT;
             }
 
             // Get valid children positions
@@ -217,10 +273,6 @@ export function FamilyTree({
                 .sort((a, b) => a.pos!.x - b.pos!.x);
 
             if (validChildren.length === 0) return;
-
-            // Calculate horizontal line Y position (midway between parents and children)
-            const childTopY = Math.min(...validChildren.map(c => c.pos!.y));
-            // const midY = dropStartY + (childTopY - dropStartY) * 0.5; // Unused for direct curves
 
             // For each child, draw a smooth bezier curve from parent drop point
             validChildren.forEach(child => {
@@ -334,6 +386,14 @@ export function FamilyTree({
             Math.abs(e.clientY - dragStartPos.current.y) > 5
         );
 
+        if (wasDrag && draggingNode && onPositionChange) {
+            // Save position to Firestore after drag
+            const newPos = nodePositions.get(draggingNode);
+            if (newPos) {
+                onPositionChange(draggingNode, { x: newPos.x, y: newPos.y });
+            }
+        }
+
         if (!wasDrag && draggingNode) {
             // This was a click, not a drag - trigger person click
             const person = persons.find(p => p.personId === draggingNode);
@@ -345,7 +405,7 @@ export function FamilyTree({
         dragStartPos.current = null;
         setDraggingNode(null);
         setIsPanning(false);
-    }, [draggingNode, persons, onPersonClick]);
+    }, [draggingNode, persons, onPersonClick, nodePositions, onPositionChange]);
 
     const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -420,14 +480,14 @@ export function FamilyTree({
 
         // Small delay for visual feedback
         setTimeout(() => {
-            const newPositions = calculateTreeLayout(persons, collapsedIds);
+            const newPositions = calculateTreeLayout(persons, collapsedIds, relationships);
             console.log('Auto arrange: Updated positions for', newPositions.size, 'nodes');
             setNodePositions(new Map(newPositions));
             setPan({ x: 0, y: 0 });
             setZoom(1);
             setIsArranging(false);
         }, 500);
-    }, [persons]);
+    }, [persons, collapsedIds, relationships]);
 
     // Direct PDF Export handler - using native SVG generation
     const [isExporting, setIsExporting] = useState(false);

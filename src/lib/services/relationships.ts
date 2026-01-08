@@ -70,6 +70,7 @@ export async function createRelationship(
             marriageDetails.place = input.marriage.place;
             marriageDetails.placeLontara = transliterateLatin(input.marriage.place).lontara;
         }
+        if (input.marriage.marriageOrder) marriageDetails.marriageOrder = input.marriage.marriageOrder;
         relationshipData.marriage = marriageDetails;
     }
 

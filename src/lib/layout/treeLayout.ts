@@ -1,5 +1,5 @@
 import dagre from 'dagre';
-import { Person } from '@/types';
+import { Person, Relationship } from '@/types';
 
 interface NodePosition {
     x: number;
@@ -13,7 +13,11 @@ const SPOUSE_GAP = 25;    // Gap between spouses
 const RANK_SEP = 160;     // Vertical gap (was 220)
 const NODE_SEP = 80;      // Horizontal gap (was 150)
 
-export function calculateTreeLayout(persons: Person[], collapsedIds: Set<string> = new Set()): Map<string, NodePosition> {
+export function calculateTreeLayout(
+    persons: Person[],
+    collapsedIds: Set<string> = new Set(),
+    relationships: Relationship[] = []
+): Map<string, NodePosition> {
     const posMap = new Map<string, NodePosition>();
     if (persons.length === 0) return posMap;
 
@@ -89,12 +93,56 @@ export function calculateTreeLayout(persons: Person[], collapsedIds: Set<string>
             }
         }
 
-        // SPOUSE RULE: Male left, Female right
-        members.sort((a, b) => {
-            if (a.gender === 'male' && b.gender !== 'male') return -1;
-            if (a.gender !== 'male' && b.gender === 'male') return 1;
-            return a.personId.localeCompare(b.personId);
-        });
+        // Build a map of spouse relationships for marriageOrder lookup
+        const getMarriageOrder = (personA: Person, personB: Person): number => {
+            // Find the spouse relationship between these two
+            const rel = relationships.find(r =>
+                r.type === 'spouse' &&
+                ((r.person1Id === personA.personId && r.person2Id === personB.personId) ||
+                    (r.person1Id === personB.personId && r.person2Id === personA.personId))
+            );
+            return rel?.marriage?.marriageOrder ?? 1;
+        };
+
+        // Count wives in this cluster
+        const wives = members.filter(m => m.gender === 'female');
+        const husband = members.find(m => m.gender === 'male');
+        const wifeCount = wives.length;
+
+        // SPOUSE LAYOUT RULES:
+        // - 1 wife: [Husband] - [Wife] (standard layout)
+        // - 2 wives: [Wife 1] - [Husband] - [Wife 2] (husband in center)
+        // - 3+ wives: [Husband] - [Wife 1] - [Wife 2] - [Wife 3] (husband left)
+
+        if (wifeCount === 2 && husband) {
+            // Special case: 2 wives - husband in the middle
+            // Sort wives by marriageOrder
+            wives.sort((a, b) => {
+                const orderA = getMarriageOrder(husband, a);
+                const orderB = getMarriageOrder(husband, b);
+                return orderA - orderB;
+            });
+            // Reorder: [Wife 1] - [Husband] - [Wife 2]
+            members.length = 0;
+            members.push(wives[0], husband, wives[1]);
+        } else {
+            // Standard case: husband left, wives sorted by marriageOrder
+            members.sort((a, b) => {
+                // Males first (husband on left)
+                if (a.gender === 'male' && b.gender !== 'male') return -1;
+                if (a.gender !== 'male' && b.gender === 'male') return 1;
+
+                // Both are same gender - if both female, sort by marriageOrder
+                if (a.gender === 'female' && b.gender === 'female' && husband) {
+                    const orderA = getMarriageOrder(husband, a);
+                    const orderB = getMarriageOrder(husband, b);
+                    if (orderA !== orderB) return orderA - orderB;
+                }
+
+                // Fallback to personId for consistent ordering
+                return a.personId.localeCompare(b.personId);
+            });
+        }
 
         const width = (members.length * NODE_WIDTH) + ((members.length - 1) * SPOUSE_GAP);
         clusters.set(clusterId, { members, w: width, h: NODE_HEIGHT });
