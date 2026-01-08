@@ -844,10 +844,10 @@ export function FamilyTree({
                         if (!pos) return null;
 
                         const genderStyles = {
-                            male: { bg: 'bg-gradient-to-br from-blue-50 to-blue-100', border: 'border-blue-400', icon: '👨', accent: 'bg-blue-500' },
-                            female: { bg: 'bg-gradient-to-br from-pink-50 to-pink-100', border: 'border-pink-400', icon: '👩', accent: 'bg-pink-500' },
-                            other: { bg: 'bg-gradient-to-br from-purple-50 to-purple-100', border: 'border-purple-400', icon: '👤', accent: 'bg-purple-500' },
-                            unknown: { bg: 'bg-gradient-to-br from-gray-50 to-gray-100', border: 'border-gray-400', icon: '👤', accent: 'bg-gray-500' }
+                            male: { bg: 'bg-blue-50', border: 'border-blue-400', textColor: 'text-blue-900' },
+                            female: { bg: 'bg-pink-50', border: 'border-pink-400', textColor: 'text-pink-900' },
+                            other: { bg: 'bg-purple-50', border: 'border-purple-400', textColor: 'text-purple-900' },
+                            unknown: { bg: 'bg-gray-50', border: 'border-gray-400', textColor: 'text-gray-900' }
                         };
                         const style = genderStyles[person.gender] || genderStyles.unknown;
                         // Build full name from components
@@ -855,6 +855,39 @@ export function FamilyTree({
                             .filter(Boolean).join(' ') || person.fullName || person.firstName;
                         const isSelected = person.personId === selectedPersonId;
                         const isDragging = draggingNode === person.personId;
+                        const shapeSize = 50;
+
+                        // Render gender shape
+                        const renderShape = () => {
+                            if (person.gender === 'female') {
+                                // Inverted Triangle for female
+                                return (
+                                    <div className="relative flex-shrink-0" style={{ width: shapeSize, height: shapeSize }}>
+                                        <svg width={shapeSize} height={shapeSize} viewBox="0 0 50 50" className="drop-shadow-md">
+                                            <polygon
+                                                points="25,45 5,10 45,10"
+                                                fill="#ec4899"
+                                                stroke="#db2777"
+                                                strokeWidth="2"
+                                            />
+                                        </svg>
+                                    </div>
+                                );
+                            } else {
+                                // Circle for male (and other/unknown)
+                                const bgColor = person.gender === 'male' ? 'bg-blue-500 border-blue-600' :
+                                    person.gender === 'other' ? 'bg-purple-500 border-purple-600' :
+                                        'bg-gray-500 border-gray-600';
+                                return (
+                                    <div
+                                        className={`rounded-full flex-shrink-0 border-2 flex items-center justify-center text-white text-lg drop-shadow-md ${bgColor}`}
+                                        style={{ width: shapeSize, height: shapeSize }}
+                                    >
+                                        {person.gender === 'male' ? '♂' : '●'}
+                                    </div>
+                                );
+                            }
+                        };
 
                         return (
                             <div
@@ -863,13 +896,15 @@ export function FamilyTree({
                                 style={{ left: pos.x, top: pos.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, person.personId)}
                             >
+                                {/* Horizontal layout: Shape on left, text on right */}
                                 <div className={`${style.bg} ${style.border} border-2 rounded-xl p-3 h-full shadow-md hover:shadow-lg transition-all flex items-center gap-3`}>
-                                    <div className={`${style.accent} w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 text-white shadow-sm`}>
-                                        {style.icon}
-                                    </div>
+                                    {/* Gender Shape */}
+                                    {renderShape()}
+
+                                    {/* Names beside shape */}
                                     <div className="flex-1 min-w-0 overflow-hidden">
                                         {(scriptMode === 'latin' || scriptMode === 'both') && (
-                                            <div className="text-sm font-semibold text-stone-800 leading-tight break-words">
+                                            <div className={`text-sm font-semibold leading-tight break-words ${style.textColor || 'text-stone-800'}`}>
                                                 {displayName}
                                             </div>
                                         )}
