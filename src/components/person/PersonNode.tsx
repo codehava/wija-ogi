@@ -43,36 +43,102 @@ export function PersonNode({
         return transliterateLatin(displayName).lontara;
     }, [displayName, person.lontaraNameCustom]);
 
-    // Gender-based styling
-    const genderStyles = {
+    // Gender-based styling - NEW: Circle for male, Triangle for female
+    const genderConfig = {
         male: {
-            bg: 'from-blue-50 to-blue-100',
-            border: 'border-blue-300',
-            avatar: 'bg-blue-500',
-            icon: '👨'
+            shapeColor: 'bg-blue-500',
+            shapeBorder: 'border-blue-600',
+            textColor: 'text-blue-900',
+            bgColor: 'bg-blue-50',
         },
         female: {
-            bg: 'from-pink-50 to-pink-100',
-            border: 'border-pink-300',
-            avatar: 'bg-pink-500',
-            icon: '👩'
+            shapeColor: 'bg-pink-500',
+            shapeBorder: 'border-pink-600',
+            textColor: 'text-pink-900',
+            bgColor: 'bg-pink-50',
         },
         other: {
-            bg: 'from-purple-50 to-purple-100',
-            border: 'border-purple-300',
-            avatar: 'bg-purple-500',
-            icon: '👤'
+            shapeColor: 'bg-purple-500',
+            shapeBorder: 'border-purple-600',
+            textColor: 'text-purple-900',
+            bgColor: 'bg-purple-50',
         },
         unknown: {
-            bg: 'from-gray-50 to-gray-100',
-            border: 'border-gray-300',
-            avatar: 'bg-gray-500',
-            icon: '👤'
+            shapeColor: 'bg-gray-500',
+            shapeBorder: 'border-gray-600',
+            textColor: 'text-gray-900',
+            bgColor: 'bg-gray-50',
         }
     };
 
-    const style = genderStyles[person.gender];
+    const config = genderConfig[person.gender];
     const generationText = generation > 0 ? getGenerationLabel(generation) : null;
+    const shapeSize = compact ? 40 : 50;
+
+    // Render gender shape (circle or triangle)
+    const renderShape = () => {
+        if (person.gender === 'female') {
+            // Inverted Triangle for female
+            return (
+                <div
+                    className="relative flex-shrink-0"
+                    style={{ width: shapeSize, height: shapeSize }}
+                >
+                    <svg
+                        width={shapeSize}
+                        height={shapeSize}
+                        viewBox="0 0 50 50"
+                        className="drop-shadow-md"
+                    >
+                        <polygon
+                            points="25,45 5,10 45,10"
+                            className={clsx('fill-pink-500 stroke-pink-600')}
+                            strokeWidth="2"
+                        />
+                        {person.photoUrl ? (
+                            <clipPath id={`clip-${person.personId}`}>
+                                <polygon points="25,40 10,15 40,15" />
+                            </clipPath>
+                        ) : null}
+                    </svg>
+                    {person.photoUrl && (
+                        <img
+                            src={person.photoUrl}
+                            alt={person.firstName}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{ clipPath: 'polygon(50% 90%, 10% 20%, 90% 20%)' }}
+                        />
+                    )}
+                </div>
+            );
+        } else {
+            // Circle for male (and other/unknown)
+            const colorClass = person.gender === 'male' ? 'bg-blue-500 border-blue-600' :
+                person.gender === 'other' ? 'bg-purple-500 border-purple-600' :
+                    'bg-gray-500 border-gray-600';
+            return (
+                <div
+                    className={clsx(
+                        'rounded-full flex-shrink-0 border-2 overflow-hidden drop-shadow-md',
+                        colorClass
+                    )}
+                    style={{ width: shapeSize, height: shapeSize }}
+                >
+                    {person.photoUrl ? (
+                        <img
+                            src={person.photoUrl}
+                            alt={person.firstName}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white text-lg">
+                            {person.gender === 'male' ? '♂' : '●'}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+    };
 
     return (
         <div
@@ -87,72 +153,56 @@ export function PersonNode({
                 top: person.position.y
             } : undefined}
         >
+            {/* Horizontal layout: Shape on left, text on right */}
             <div className={clsx(
-                'rounded-xl border-2 bg-gradient-to-br shadow-md',
-                style.bg,
-                style.border,
-                compact ? 'p-2 min-w-[100px]' : 'p-3 min-w-[140px]'
+                'flex items-center gap-3 rounded-lg p-2',
+                config.bgColor,
+                'border border-opacity-30',
+                selected ? 'border-teal-500' : 'border-transparent'
             )}>
-                {/* Avatar and Name */}
-                <div className="flex items-center gap-2 mb-2">
-                    <div className={clsx(
-                        'rounded-full flex items-center justify-center text-white font-bold',
-                        style.avatar,
-                        compact ? 'w-8 h-8 text-sm' : 'w-10 h-10 text-lg'
-                    )}>
-                        {person.photoUrl ? (
-                            <img
-                                src={person.photoUrl}
-                                alt={person.firstName}
-                                className="w-full h-full rounded-full object-cover"
-                            />
-                        ) : (
-                            style.icon
-                        )}
-                    </div>
+                {/* Gender Shape */}
+                {renderShape()}
 
-                    <div className="flex-1 min-w-0">
-                        {/* Latin Name */}
-                        {(scriptMode === 'latin' || scriptMode === 'both') && (
-                            <div className={clsx(
-                                'font-semibold text-stone-800 truncate',
-                                compact ? 'text-xs' : 'text-sm'
-                            )}>
-                                {displayName}
-                            </div>
-                        )}
+                {/* Names beside shape */}
+                <div className="flex-1 min-w-0">
+                    {/* Latin Name */}
+                    {(scriptMode === 'latin' || scriptMode === 'both') && (
+                        <div className={clsx(
+                            'font-semibold truncate',
+                            config.textColor,
+                            compact ? 'text-xs' : 'text-sm'
+                        )}>
+                            {displayName}
+                        </div>
+                    )}
 
-                        {/* Lontara Name */}
-                        {(scriptMode === 'lontara' || scriptMode === 'both') && (
-                            <div className={clsx(
-                                'font-lontara text-teal-700 truncate',
-                                compact ? 'text-sm' : 'text-sm'
-                            )}>
-                                {lontaraName}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                    {/* Lontara Name */}
+                    {(scriptMode === 'lontara' || scriptMode === 'both') && (
+                        <div className={clsx(
+                            'font-lontara text-teal-700 truncate',
+                            compact ? 'text-xs' : 'text-sm'
+                        )}>
+                            {lontaraName}
+                        </div>
+                    )}
 
-                {/* Details */}
-                {showDetails && !compact && (
-                    <div className="text-xs text-stone-500 space-y-0.5">
-                        {person.birthDate && (
-                            <div>
-                                🎂 {person.birthDate.split('-')[0]}
-                                {person.deathDate && ` - ${person.deathDate.split('-')[0]}`}
-                            </div>
-                        )}
-
-                        {generationText && (
-                            <div className="flex items-center gap-1">
-                                <span className="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded text-[10px]">
+                    {/* Details */}
+                    {showDetails && !compact && (
+                        <div className="text-xs text-stone-500 mt-1">
+                            {person.birthDate && (
+                                <span>
+                                    {person.birthDate.split('-')[0]}
+                                    {person.deathDate && ` - ${person.deathDate.split('-')[0]}`}
+                                </span>
+                            )}
+                            {generationText && (
+                                <span className="ml-2 bg-teal-100 text-teal-700 px-1 py-0.5 rounded text-[10px]">
                                     {generationText}
                                 </span>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {/* Deceased indicator */}
                 {!person.isLiving && (
