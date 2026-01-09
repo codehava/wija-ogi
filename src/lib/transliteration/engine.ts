@@ -64,47 +64,26 @@ const PUNCTUATION: Record<string, string> = {
 const VOKAL_SET = new Set(['a', 'i', 'u', 'e', 'é', 'o', 'ə']);
 const KONSONAN_SET = new Set(Object.keys(KONSONAN));
 
-// Kluster yang konsonan pertama DIABAIKAN (v3)
-// NOTE: mp dan nr dihapus karena sekarang menggunakan aksara pranasal ᨇ dan ᨋ
-const SKIP_CLUSTER = new Set(['mb', 'nt', 'nd', 'rm', 'bt']);
-
 // Kluster yang konsonan pertama dapat vokal /a/ (v3)
 const VOKAL_A_CLUSTER = new Set(['lt', 'bd']);
-
-// Kluster yang konsonan pertama dapat vokal pepet /ə/ (v3.1)
-// Untuk nama-nama Indonesia/Arab yang umum mengandung kluster konsonan
-const PEPET_CLUSTER = new Set([
-    'hm', 'mr',           // Ahmad, Umran
-    'sm', 'sr',           // Ismail, Isra
-    'br', 'bl',           // Ibrahim, Subli
-    'dr', 'dl',           // Badri, -
-    'kr', 'kl',           // Sukri, -
-    'tr', 'tl',           // Putra, -
-    'gr', 'gl',           // Agri, -
-    'pr', 'pl',           // Apri, -
-    'fr', 'fl',           // Afri (→ Apri), -
-    'hr',                 // Bahri
-    'wr',                 // -
-    'nr', 'nl',           // Anri, -
-]);
 
 // Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
 // Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang, Mesin, Dewa
 // NOTE: Untuk memaksa e-taling, gunakan 'é' (misal: Déwa)
-const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge', 'nre']);
+const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge']);
 
 // Konsonan akhir yang diabaikan (sesuai standar Lontara Bugis)
-// Hanya konsonan yang TIDAK dilafalkan di akhir kata dalam bahasa Bugis
-const SKIP_AKHIR = new Set(['n', 'm', 'k', 't', 'p', 'h', 'd', 'b', 'g']);
+// Konsonan yang TIDAK dilafalkan di akhir kata dalam bahasa Bugis
+const SKIP_AKHIR = new Set(['n', 'm', 'k', 't', 'h', 'd', 'b', 'g']);
 
-// Konsonan akhir yang dapat vokal /e/ (sesuai dialek Bugis)
-// r dan l di akhir kata mendapat vokal /e/: Kahar→Kahare, Khairul→Khairule
-const VOKAL_AKHIR_E = new Set(['r', 'l']);
+// Konsonan akhir yang dapat vokal pepet /ə/ (sesuai dialek Bugis)
+// r dan l di akhir kata mendapat vokal /ə/
+const VOKAL_AKHIR_PEPET = new Set(['r', 'l']);
 
-// Konsonan akhir yang dapat vokal harmoni (s mengikuti vokal sebelumnya)
-// Yunus→Yunusu, Aris→Arisi
-const VOKAL_AKHIR_HARMONI = new Set(['s']);
+// Konsonan akhir yang dapat vokal harmoni (s dan p mengikuti vokal sebelumnya)
+// Yunus→Yunusu, Aris→Arisi, Yusuf→Yusupu
+const VOKAL_AKHIR_HARMONI = new Set(['s', 'p']);
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // HELPER FUNCTIONS
@@ -295,36 +274,35 @@ export function transliterateLatin(text: string): TransliterationResult {
         }
         if (i > 0 && remaining !== input.slice(i)) continue;
 
-        // 6. Kluster dengan konsonan pertama DIABAIKAN: mb, mp, nt, nd, nr, rm, bt
+        // 6. Kluster konsonan di tengah kata → konsonan pertama dapat pepet
         const twoChars = remaining.slice(0, 2);
-        if (SKIP_CLUSTER.has(twoChars) && remaining.length >= 2) {
-            // Skip konsonan pertama, proses konsonan kedua
-            const first = twoChars[0];
-            const second = twoChars[1];
-            details.push({ latin: first, lontara: '', type: 'consonant', note: `${first} sebelum ${second} diabaikan` });
-            i++;
-            continue;
+        if (isKonsonan(twoChars[0]) && isKonsonan(twoChars[1]) && remaining.length >= 2) {
+            // Cek apakah ini bukan pranasal atau nasal yang sudah ditangani
+            const isHandledCluster =
+                Object.keys(PRANASAL).some(p => twoChars.startsWith(p.slice(0, 2))) ||
+                Object.keys(NASAL).some(n => twoChars.startsWith(n));
+
+            if (!isHandledCluster) {
+                // Cek VOKAL_A_CLUSTER dulu
+                if (VOKAL_A_CLUSTER.has(twoChars)) {
+                    const first = twoChars[0];
+                    const aksara = KONSONAN[first];
+                    result += aksara; // dengan vokal inheren /a/
+                    details.push({ latin: first + 'a', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /a/` });
+                    i++;
+                    continue;
+                }
+
+                // Default: konsonan pertama dapat pepet
+                const first = twoChars[0];
+                const aksara = KONSONAN[first] + getVokalDiakritik('ə');
+                result += aksara;
+                details.push({ latin: first + 'ə', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /ə/` });
+                i++;
+                continue;
+            }
         }
 
-        // 7. Kluster dengan konsonan pertama dapat /a/: lt, bd
-        if (VOKAL_A_CLUSTER.has(twoChars) && remaining.length >= 2) {
-            const first = twoChars[0];
-            const aksara = KONSONAN[first];
-            result += aksara; // dengan vokal inheren /a/
-            details.push({ latin: first + 'a', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /a/` });
-            i++;
-            continue;
-        }
-
-        // 8. Kluster dengan konsonan pertama dapat vokal pepet /ə/
-        if (PEPET_CLUSTER.has(twoChars) && remaining.length >= 2) {
-            const first = twoChars[0];
-            const aksara = KONSONAN[first] + getVokalDiakritik('ə');
-            result += aksara;
-            details.push({ latin: first + 'ə', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /ə/` });
-            i++;
-            continue;
-        }
 
         // 9. Konsonan tunggal
         if (isKonsonan(remaining[0])) {
@@ -372,13 +350,13 @@ export function transliterateLatin(text: string): TransliterationResult {
                     continue;
                 }
 
-                // Konsonan r/l yang dapat vokal /e/ di akhir kata
-                // Kahar → Kahare, Khairul → Khairule
-                if (VOKAL_AKHIR_E.has(konsonan)) {
+                // Konsonan r/l yang dapat vokal pepet di akhir kata
+                // Kahar → Kaharə, Khairul → Khairulə
+                if (VOKAL_AKHIR_PEPET.has(konsonan)) {
                     const aksara = KONSONAN[konsonan];
-                    const lontara = aksara + getVokalDiakritik('e');  // Fixed /e/ vowel
+                    const lontara = aksara + getVokalDiakritik('ə');  // Fixed /ə/ pepet vowel
                     result += lontara;
-                    details.push({ latin: konsonan + 'e', lontara: lontara, type: 'consonant', note: `${konsonan} akhir dapat /e/` });
+                    details.push({ latin: konsonan + 'ə', lontara: lontara, type: 'consonant', note: `${konsonan} akhir dapat /ə/` });
                     i++;
                     continue;
                 }
