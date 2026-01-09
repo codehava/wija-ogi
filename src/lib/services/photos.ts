@@ -69,6 +69,8 @@ export async function uploadPersonPhoto(
     personId: string,
     file: File
 ): Promise<string> {
+    console.log('[Photo Upload] Starting upload for', personId);
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
         throw new Error('File harus berupa gambar');
@@ -79,8 +81,12 @@ export async function uploadPersonPhoto(
         throw new Error('Ukuran foto maksimal 10MB');
     }
 
+    console.log('[Photo Upload] Compressing image...');
+
     // Compress the image
     const compressedBlob = await compressImage(file);
+
+    console.log('[Photo Upload] Compressed size:', (compressedBlob.size / 1024).toFixed(0), 'KB');
 
     // Check compressed size
     if (compressedBlob.size > MAX_FILE_SIZE) {
@@ -88,20 +94,40 @@ export async function uploadPersonPhoto(
     }
 
     // Create storage reference
-    const photoRef = ref(storage, `families/${familyId}/persons/${personId}/photo.jpg`);
+    const photoPath = `families/${familyId}/persons/${personId}/photo.jpg`;
+    console.log('[Photo Upload] Uploading to:', photoPath);
 
-    // Upload compressed image
-    await uploadBytes(photoRef, compressedBlob, {
-        contentType: 'image/jpeg',
-        customMetadata: {
-            originalName: file.name,
-            uploadedAt: new Date().toISOString()
+    const photoRef = ref(storage, photoPath);
+
+    try {
+        // Upload compressed image
+        console.log('[Photo Upload] Starting Firebase upload...');
+        await uploadBytes(photoRef, compressedBlob, {
+            contentType: 'image/jpeg',
+            customMetadata: {
+                originalName: file.name,
+                uploadedAt: new Date().toISOString()
+            }
+        });
+        console.log('[Photo Upload] Upload complete, getting URL...');
+
+        // Get download URL
+        const downloadURL = await getDownloadURL(photoRef);
+        console.log('[Photo Upload] Success! URL:', downloadURL);
+        return downloadURL;
+    } catch (error: any) {
+        console.error('[Photo Upload] FAILED:', error.code, error.message);
+
+        // Provide user-friendly error messages
+        if (error.code === 'storage/unauthorized') {
+            throw new Error('Tidak memiliki izin untuk upload. Hubungi admin.');
+        } else if (error.code === 'storage/quota-exceeded') {
+            throw new Error('Storage penuh. Hubungi admin.');
+        } else if (error.code === 'storage/retry-limit-exceeded') {
+            throw new Error('Koneksi terputus. Coba lagi.');
         }
-    });
-
-    // Get download URL
-    const downloadURL = await getDownloadURL(photoRef);
-    return downloadURL;
+        throw error;
+    }
 }
 
 /**
