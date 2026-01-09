@@ -65,7 +65,7 @@ const VOKAL_SET = new Set(['a', 'i', 'u', 'e', 'é', 'o', 'ə']);
 const KONSONAN_SET = new Set(Object.keys(KONSONAN));
 
 // Kluster yang konsonan pertama dapat vokal /a/ (v3)
-const VOKAL_A_CLUSTER = new Set(['lt', 'bd']);
+const VOKAL_A_CLUSTER = new Set(['bd']);
 
 // Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
