@@ -67,6 +67,14 @@ const KONSONAN_SET = new Set(Object.keys(KONSONAN));
 // Kluster yang konsonan pertama dapat vokal /a/ (v3)
 const VOKAL_A_CLUSTER = new Set(['bd']);
 
+// Kluster N khusus
+// Default: n sebelum konsonan dihilangkan, KECUALI:
+// 1. Pranasal (ngk, nk, nc, nj, nr) - sudah ditangani di atas
+// 2. nw: n dapat vokal /u/ (Anwar → Anuwar)
+const N_VOKAL_U_CLUSTER = new Set(['nw']);
+// Kluster 3 konsonan dengan n di depan: ndr, ntr, dll -> skip konsonan tengah, gunakan pranasal
+// Contoh: Indra (ndr) → skip d → nr (pranasal) → Inra
+
 // Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
 // Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang, Mesin, Dewa
@@ -283,11 +291,42 @@ export function transliterateLatin(text: string): TransliterationResult {
                 Object.keys(NASAL).some(n => twoChars.startsWith(n));
 
             if (!isHandledCluster) {
-                // Cek VOKAL_A_CLUSTER dulu
+                // Cek N_VOKAL_U_CLUSTER: n dapat /u/ (nw → nu + w)
+                if (N_VOKAL_U_CLUSTER.has(twoChars)) {
+                    const first = twoChars[0];
+                    const aksara = KONSONAN[first] + getVokalDiakritik('u');
+                    result += aksara;
+                    details.push({ latin: first + 'u', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /u/` });
+                    i++;
+                    continue;
+                }
+
+                // Cek kluster 3 konsonan dengan n di depan: ndr, ntr, dll
+                // Jika konsonan ke-3 membentuk pranasal dengan n (nr), skip konsonan tengah
+                const threeChars = remaining.slice(0, 3);
+                if (twoChars[0] === 'n' && threeChars.length >= 3 && isKonsonan(threeChars[2])) {
+                    const potentialPranasal = 'n' + threeChars[2];
+                    if (PRANASAL[potentialPranasal]) {
+                        // Skip konsonan tengah (misal: ndr → skip d → nr)
+                        const middle = threeChars[1];
+                        details.push({ latin: middle, lontara: '', type: 'consonant', note: `${middle} dihilangkan (kluster n+${middle}+${threeChars[2]})` });
+                        i++;
+                        continue;
+                    }
+                }
+
+                // Default untuk n sebelum konsonan: n dihilangkan
+                if (twoChars[0] === 'n') {
+                    details.push({ latin: 'n', lontara: '', type: 'consonant', note: `n sebelum ${twoChars[1]} dihilangkan` });
+                    i++;
+                    continue;
+                }
+
+                // Cek VOKAL_A_CLUSTER: konsonan pertama dapat /a/
                 if (VOKAL_A_CLUSTER.has(twoChars)) {
                     const first = twoChars[0];
                     const aksara = KONSONAN[first];
-                    result += aksara; // dengan vokal inheren /a/
+                    result += aksara;
                     details.push({ latin: first + 'a', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /a/` });
                     i++;
                     continue;
