@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // WIJA - Root Layout
-// Next.js App Router root layout with AuthProvider
+// Next.js App Router root layout with AuthProvider and ThemeProvider
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="id">
+        <html lang="id" suppressHydrationWarning>
             <head>
                 {/* Favicons */}
                 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -50,9 +51,11 @@ export default function RootLayout({
                 />
             </head>
             <body className="font-sans antialiased">
-                <AuthProvider>
-                    {children}
-                </AuthProvider>
+                <ThemeProvider>
+                    <AuthProvider>
+                        {children}
+                    </AuthProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

@@ -6,7 +6,7 @@ import { HTMLAttributes, forwardRef } from 'react';
 import { clsx } from 'clsx';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-    variant?: 'default' | 'outlined' | 'elevated';
+    variant?: 'default' | 'outlined' | 'elevated' | 'glass';
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
@@ -14,7 +14,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         const variants = {
             default: 'bg-white border border-stone-200 shadow-md',
             outlined: 'bg-white border-2 border-stone-300',
-            elevated: 'bg-white shadow-xl'
+            elevated: 'bg-white shadow-xl',
+            glass: 'glass hover-lift'
         };
 
         return (

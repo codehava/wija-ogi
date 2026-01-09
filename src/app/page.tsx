@@ -7,12 +7,14 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThemeToggle } from '@/contexts/ThemeContext';
 import { useUserFamilies } from '@/hooks/useFirestore';
 import { transliterateLatin } from '@/lib/transliteration/engine';
 import { createFamily } from '@/lib/services/families';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -112,17 +114,21 @@ export default function HomePage() {
                         </div>
 
                         {isAuthenticated && (
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <ThemeToggle />
                                 <span className="text-teal-200 text-sm hidden sm:block">
                                     {user?.email}
                                 </span>
                                 <button
                                     onClick={() => signOut()}
-                                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
+                                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition press-effect"
                                 >
                                     Keluar
                                 </button>
                             </div>
+                        )}
+                        {!isAuthenticated && (
+                            <ThemeToggle />
                         )}
                     </div>
                 </div>
@@ -151,21 +157,21 @@ export default function HomePage() {
                         </div>
 
                         {/* Login Card */}
-                        <div className="card animate-slide-up">
-                            <div className="card-header text-center">
+                        <div className="glass rounded-xl shadow-float animate-slide-up">
+                            <div className="p-4 border-b border-white/20 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-t-xl text-center">
                                 <h2 className="text-xl font-bold">Selamat Datang</h2>
                                 <p className="text-teal-100 text-sm mt-1">
                                     Aplikasi Pohon Keluarga Digital
                                 </p>
                             </div>
-                            <div className="card-body space-y-4 p-4 md:p-6">
-                                <p className="text-center text-stone-600 text-sm md:text-base">
+                            <div className="p-4 md:p-6 space-y-4">
+                                <p className="text-center text-stone-600 dark:text-stone-300 text-sm md:text-base">
                                     Silakan masuk untuk melanjutkan mengelola pohon keluarga Anda.
                                 </p>
 
                                 <button
                                     onClick={() => signInGoogle()}
-                                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-stone-300 rounded-lg hover:bg-stone-50 transition"
+                                    className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 hover:shadow-md transition-all press-effect"
                                 >
                                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -173,15 +179,15 @@ export default function HomePage() {
                                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                                     </svg>
-                                    <span>Masuk dengan Google</span>
+                                    <span className="font-medium">Masuk dengan Google</span>
                                 </button>
 
                                 <div className="relative">
                                     <div className="absolute inset-0 flex items-center">
-                                        <div className="w-full border-t border-stone-300"></div>
+                                        <div className="w-full border-t border-stone-200/50"></div>
                                     </div>
                                     <div className="relative flex justify-center text-sm">
-                                        <span className="px-2 bg-white text-stone-500">atau</span>
+                                        <span className="px-2 bg-white/80 backdrop-blur text-stone-500 rounded">atau</span>
                                     </div>
                                 </div>
 
@@ -193,25 +199,34 @@ export default function HomePage() {
 
                         {/* Features - Responsive Grid */}
                         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white/60 backdrop-blur rounded-xl p-4 border border-teal-200">
-                                <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-                                    <span>📜</span> Aksara Lontara
+                            <div className="glass-subtle rounded-xl p-4 hover-lift stagger-item">
+                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-3">
+                                    <span className="text-xl">📜</span>
+                                </div>
+                                <h3 className="font-semibold text-stone-800">
+                                    Aksara Lontara
                                 </h3>
                                 <p className="text-sm text-stone-600 mt-1">
                                     Dukung aksara tradisional Bugis dengan transliterasi otomatis
                                 </p>
                             </div>
-                            <div className="bg-white/60 backdrop-blur rounded-xl p-4 border border-teal-200">
-                                <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-                                    <span>🌳</span> Pohon Keluarga Dinamis
+                            <div className="glass-subtle rounded-xl p-4 hover-lift stagger-item">
+                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-3">
+                                    <span className="text-xl">🌳</span>
+                                </div>
+                                <h3 className="font-semibold text-stone-800">
+                                    Pohon Keluarga Dinamis
                                 </h3>
                                 <p className="text-sm text-stone-600 mt-1">
                                     Visualisasi pohon keluarga hingga puluhan generasi
                                 </p>
                             </div>
-                            <div className="bg-white/60 backdrop-blur rounded-xl p-4 border border-teal-200">
-                                <h3 className="font-semibold text-stone-800 flex items-center gap-2">
-                                    <span>🔄</span> Real-time Sync
+                            <div className="glass-subtle rounded-xl p-4 hover-lift stagger-item">
+                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center mb-3">
+                                    <span className="text-xl">🔄</span>
+                                </div>
+                                <h3 className="font-semibold text-stone-800">
+                                    Real-time Sync
                                 </h3>
                                 <p className="text-sm text-stone-600 mt-1">
                                     Kolaborasi dengan keluarga secara real-time
@@ -230,25 +245,28 @@ export default function HomePage() {
                         </div>
 
                         {families.length === 0 ? (
-                            <div className="card text-center py-12">
-                                <div className="text-6xl mb-4">🌱</div>
+                            <div className="glass rounded-xl text-center py-12 px-6 shadow-float">
+                                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                    <span className="text-4xl">🌱</span>
+                                </div>
                                 <h3 className="text-xl font-semibold text-stone-800 mb-2">
                                     Belum Ada Keluarga
                                 </h3>
-                                <p className="text-stone-600 mb-6">
-                                    Mulai buat pohon keluarga pertama Anda sekarang
+                                <p className="text-stone-600 mb-6 max-w-sm mx-auto">
+                                    Mulai buat pohon keluarga pertama Anda dan lestarikan warisan keluarga
                                 </p>
-                                <Button onClick={handleOpenCreateModal}>
-                                    Buat Keluarga Baru
+                                <Button onClick={handleOpenCreateModal} className="press-effect">
+                                    ✨ Buat Keluarga Baru
                                 </Button>
                             </div>
                         ) : (
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {families.map((family) => (
+                                {families.map((family, index) => (
                                     <Link
                                         key={family.familyId}
                                         href={`/family/${family.familyId}`}
-                                        className="card hover:shadow-lg transition group"
+                                        className="glass rounded-xl hover-lift group stagger-item"
+                                        style={{ animationDelay: `${index * 50}ms` }}
                                     >
                                         <div className="p-5">
                                             <div className="flex items-start justify-between mb-3">
@@ -258,10 +276,15 @@ export default function HomePage() {
                                                     </h3>
                                                     <p className="text-sm text-stone-500">{family.displayName}</p>
                                                 </div>
-                                                <span className="text-2xl">🌳</span>
+                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
+                                                    <span className="text-lg">🌳</span>
+                                                </div>
                                             </div>
                                             <div className="flex gap-4 text-sm text-stone-600">
-                                                <span>👥 {family.stats.personCount} anggota</span>
+                                                <span className="flex items-center gap-1">
+                                                    <span className="text-stone-400">👥</span>
+                                                    {family.stats.personCount} anggota
+                                                </span>
                                                 <span className="text-teal-600 font-lontara">
                                                     {transliterateLatin(family.name).lontara}
                                                 </span>
