@@ -483,22 +483,40 @@ export function FamilyTree({
         }));
     }, []);
 
-    // Auto arrange using dagre - with visual feedback
+    // Auto arrange using dagre - with visual feedback and auto-save
     const [isArranging, setIsArranging] = useState(false);
 
-    const handleAutoArrange = useCallback(() => {
+    const handleAutoArrange = useCallback(async () => {
+        if (!familyId) {
+            console.warn('Cannot save positions: familyId is not provided');
+            return;
+        }
+
         setIsArranging(true);
 
         // Small delay for visual feedback
-        setTimeout(() => {
-            const newPositions = calculateTreeLayout(persons, collapsedIds, relationships);
-            console.log('Auto arrange: Updated positions for', newPositions.size, 'nodes');
-            setNodePositions(new Map(newPositions));
-            setPan({ x: 0, y: 0 });
-            setZoom(1);
-            setIsArranging(false);
+        setTimeout(async () => {
+            try {
+                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships);
+                console.log('Auto arrange: Updated positions for', newPositions.size, 'nodes');
+
+                // Update local state first for immediate feedback
+                setNodePositions(new Map(newPositions));
+                setPan({ x: 0, y: 0 });
+                setZoom(1);
+
+                // Save ALL positions to Firestore automatically
+                if (onAllPositionsChange) {
+                    await onAllPositionsChange(newPositions);
+                    console.log('✅ Auto arrange: Saved all positions to Firestore');
+                }
+            } catch (error) {
+                console.error('Failed to save arranged positions:', error);
+            } finally {
+                setIsArranging(false);
+            }
         }, 500);
-    }, [persons, collapsedIds, relationships]);
+    }, [persons, collapsedIds, relationships, familyId, onAllPositionsChange]);
 
     // Direct PDF Export handler - using native SVG generation
     const [isExporting, setIsExporting] = useState(false);
