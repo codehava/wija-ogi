@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // WIJA 3 - NextAuth.js v5 Configuration
 // Supports: Google OAuth + Email/Password (Credentials)
+// Uses JWT strategy — no database adapter needed for session management
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -34,14 +34,11 @@ const credentialsSchema = z.object({
 });
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    adapter: DrizzleAdapter(db as any),
+    // No adapter — we handle user creation manually in signIn callback
+    // This avoids table name/column mismatches with DrizzleAdapter
     trustHost: true,
     session: {
         strategy: 'jwt',
-    },
-    pages: {
-        // Login is handled on the home page (/)
     },
     providers: [
         Google({
@@ -114,6 +111,48 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }),
     ],
     callbacks: {
+        async signIn({ user, account }) {
+            // Handle Google OAuth: find or create user in our DB
+            if (account?.provider === 'google' && user.email) {
+                try {
+                    const [existingUser] = await db
+                        .select()
+                        .from(users)
+                        .where(eq(users.email, user.email))
+                        .limit(1);
+
+                    if (existingUser) {
+                        // Update existing user with Google profile info
+                        await db
+                            .update(users)
+                            .set({
+                                name: user.name || existingUser.name,
+                                image: user.image || existingUser.image,
+                                updatedAt: new Date(),
+                            })
+                            .where(eq(users.id, existingUser.id));
+                        // Overwrite the OAuth user.id with our DB user.id
+                        user.id = existingUser.id;
+                    } else {
+                        // Create new user from Google profile
+                        const [newUser] = await db
+                            .insert(users)
+                            .values({
+                                email: user.email,
+                                name: user.name || user.email.split('@')[0],
+                                image: user.image,
+                                emailVerified: new Date(),
+                            })
+                            .returning();
+                        user.id = newUser.id;
+                    }
+                } catch (error) {
+                    console.error('[auth] Error in Google signIn callback:', error);
+                    return false;
+                }
+            }
+            return true;
+        },
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
