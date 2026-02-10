@@ -1,16 +1,16 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════════
-# WIJA 3 - Docker Startup Script
+# WIJA - Docker Startup Script
 # Applies database schema then starts the Next.js server
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -e
 
 echo "🔄 Applying database schema..."
-./node_modules/.bin/drizzle-kit push --force 2>&1 || {
+npx drizzle-kit push --force 2>&1 || {
     echo "⚠️  Schema push failed, but continuing startup..."
 }
 echo "✅ Database schema ready"
 
-echo "🚀 Starting WIJA 3..."
+echo "🚀 Starting WIJA..."
 exec node server.js

@@ -61,11 +61,8 @@ COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/src/db ./src/db
 COPY --from=builder /app/package.json ./
 
-# Install drizzle-kit for migrations (production deps already in standalone)
-RUN npm install drizzle-kit postgres drizzle-orm
-
-# Copy node_modules binaries so start.sh can find drizzle-kit
-ENV PATH="/app/node_modules/.bin:$PATH"
+# Install drizzle-kit globally for migrations (npx will find it)
+RUN npm install -g drizzle-kit drizzle-orm postgres tsx
 
 # Copy startup script
 COPY start.sh ./

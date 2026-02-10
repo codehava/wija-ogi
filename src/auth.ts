@@ -36,6 +36,7 @@ const credentialsSchema = z.object({
 export const { handlers, signIn, signOut, auth } = NextAuth({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     adapter: DrizzleAdapter(db as any),
+    trustHost: true,
     session: {
         strategy: 'jwt',
     },
