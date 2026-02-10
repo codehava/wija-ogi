@@ -7,7 +7,7 @@
 set -e
 
 echo "🔄 Applying database schema..."
-drizzle-kit push --force 2>&1 || {
+./node_modules/.bin/drizzle-kit push --force 2>&1 || {
     echo "⚠️  Schema push failed, but continuing startup..."
 }
 echo "✅ Database schema ready"
