@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Custom Auth Hooks
+// WIJA 3 - Custom Auth Hooks (PostgreSQL / NextAuth)
 // React hooks for authentication and authorization
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { MemberRole } from '@/types';
-import { getFamilyMember, isFamilyMember } from '@/lib/services/families';
+import { familiesApi } from '@/lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // PERMISSION HOOKS
@@ -29,15 +29,13 @@ export function useHasRole(familyId: string | null, roles: MemberRole[]) {
             }
 
             try {
-                const member = await getFamilyMember(familyId, user.uid);
+                const { role } = await familiesApi.getUserRole(familyId);
 
-                if (member) {
-                    setHasRole(roles.includes(member.role));
+                if (role) {
+                    setHasRole(roles.includes(role));
                 } else {
                     // Fallback: check if user is the family owner directly
-                    // This handles cases where member record wasn't created
-                    const { getFamily } = await import('@/lib/services/families');
-                    const family = await getFamily(familyId);
+                    const family = await familiesApi.getFamily(familyId);
 
                     if (family && family.ownerId === user.uid && roles.includes('owner')) {
                         setHasRole(true);
@@ -85,8 +83,8 @@ export function useIsOwner(familyId: string | null) {
 }
 
 /**
- * Hook to check if user is a super admin (can see all families)
- * Super admin is determined by checking the superadmins collection in Firestore
+ * Hook to check if user is a super admin
+ * TODO: Implement via a DB column or admin table
  */
 export function useIsSuperAdmin() {
     const { user } = useAuth();
@@ -102,13 +100,14 @@ export function useIsSuperAdmin() {
             }
 
             try {
-                // Check if user is in superadmins collection
-                const { doc, getDoc } = await import('firebase/firestore');
-                const { db } = await import('@/lib/firebase/config');
-                const superAdminRef = doc(db, 'superadmins', user.uid);
-                const superAdminSnap = await getDoc(superAdminRef);
-
-                setIsSuperAdmin(superAdminSnap.exists());
+                // Check via API endpoint
+                const response = await fetch('/api/users/me/role');
+                if (response.ok) {
+                    const data = await response.json();
+                    setIsSuperAdmin(data.role === 'superadmin');
+                } else {
+                    setIsSuperAdmin(false);
+                }
             } catch (err) {
                 console.error('Error checking super admin:', err);
                 setIsSuperAdmin(false);
@@ -140,7 +139,7 @@ export function useIsMember(familyId: string | null) {
             }
 
             try {
-                const result = await isFamilyMember(familyId, user.uid);
+                const { isMember: result } = await familiesApi.isFamilyMember(familyId);
                 setIsMember(result);
             } catch {
                 setIsMember(false);
@@ -176,8 +175,8 @@ export function useUserRole(familyId: string | null) {
             }
 
             try {
-                const member = await getFamilyMember(familyId, user.uid);
-                setRole(member?.role ?? null);
+                const { role: userRole } = await familiesApi.getUserRole(familyId);
+                setRole(userRole);
             } catch {
                 setRole(null);
             } finally {
@@ -205,7 +204,7 @@ export function useRequireAuth() {
         user,
         loading,
         isAuthenticated,
-        needsAuth: !loading && !isAuthenticated
+        needsAuth: !loading && !isAuthenticated,
     };
 }
 
@@ -219,7 +218,7 @@ export function useRequireGuest() {
         user,
         loading,
         isAuthenticated,
-        needsRedirect: !loading && isAuthenticated
+        needsRedirect: !loading && isAuthenticated,
     };
 }
 
@@ -240,7 +239,7 @@ export const PERMISSIONS = {
     INVITE_MEMBERS: ['superadmin', 'owner', 'admin'],
     REMOVE_MEMBERS: ['superadmin', 'owner', 'admin'],
     EDIT_FAMILY_SETTINGS: ['superadmin', 'owner'],
-    DELETE_FAMILY: ['superadmin', 'owner']
+    DELETE_FAMILY: ['superadmin', 'owner'],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

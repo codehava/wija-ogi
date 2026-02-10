@@ -1,32 +1,28 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Auth Context Provider
-// React context for authentication state management
+// WIJA 3 - Auth Context Provider (NextAuth.js)
+// Replaces Firebase Auth context with NextAuth session
 // ═══════════════════════════════════════════════════════════════════════════════
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { User } from 'firebase/auth';
-import {
-    signInWithEmail,
-    signInWithGoogle,
-    signUpWithEmail,
-    logOut,
-    resetPassword,
-    subscribeToAuthState,
-    updateUserProfile
-} from '@/lib/firebase/auth';
-import { UserProfile, MemberRole } from '@/types';
-import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import React, { createContext, useContext, useCallback, useState } from 'react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import type { UserProfile, MemberRole } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────────
 
+interface AuthUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+}
+
 interface AuthContextValue {
     // State
-    user: User | null;
+    user: AuthUser | null;
     userProfile: UserProfile | null;
     loading: boolean;
     error: string | null;
@@ -60,154 +56,123 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-    const [user, setUser] = useState<User | null>(null);
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { data: session, status } = useSession();
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch or create user profile
-    const fetchUserProfile = useCallback(async (firebaseUser: User) => {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+    const loading = status === 'loading';
 
-        if (userSnap.exists()) {
-            setUserProfile(userSnap.data() as UserProfile);
-        } else {
-            // Create new user profile
-            const newProfile: UserProfile = {
-                userId: firebaseUser.uid,
-                email: firebaseUser.email || '',
-                displayName: firebaseUser.displayName || '',
-                photoUrl: firebaseUser.photoURL || undefined,
-                preferredScript: 'both',
-                preferredTheme: 'light',
-                preferredLanguage: 'id',
-                familyIds: [],
-                createdAt: serverTimestamp() as Timestamp,
-                updatedAt: serverTimestamp() as Timestamp
-            };
-
-            await setDoc(userRef, newProfile);
-            setUserProfile(newProfile);
+    // Map NextAuth session to AuthUser
+    const user: AuthUser | null = session?.user
+        ? {
+            uid: session.user.id || '',
+            email: session.user.email || null,
+            displayName: session.user.name || null,
+            photoURL: session.user.image || null,
         }
-    }, []);
+        : null;
 
-    // Listen to auth state changes
-    useEffect(() => {
-        const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
-            setUser(firebaseUser);
-
-            if (firebaseUser) {
-                try {
-                    await fetchUserProfile(firebaseUser);
-                } catch (err) {
-                    console.error('Error fetching user profile:', err);
-                }
-            } else {
-                setUserProfile(null);
-            }
-
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [fetchUserProfile]);
+    // Build user profile from session
+    const userProfile: UserProfile | null = session?.user
+        ? {
+            userId: session.user.id || '',
+            email: session.user.email || '',
+            displayName: session.user.name || '',
+            photoUrl: session.user.image || undefined,
+            preferredScript: 'both',
+            preferredTheme: 'light',
+            preferredLanguage: 'id',
+            familyIds: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }
+        : null;
 
     // Auth methods
     const signIn = useCallback(async (email: string, password: string) => {
         try {
             setError(null);
-            setLoading(true);
-            await signInWithEmail(email, password);
-        } catch (err: any) {
-            setError(err.message || 'Failed to sign in');
+            const result = await nextAuthSignIn('credentials', {
+                email,
+                password,
+                action: 'login',
+                redirect: false,
+            });
+
+            if (result?.error) {
+                setError(result.error);
+                throw new Error(result.error);
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to sign in';
+            setError(message);
             throw err;
-        } finally {
-            setLoading(false);
         }
     }, []);
 
     const signInGoogle = useCallback(async () => {
         try {
             setError(null);
-            setLoading(true);
-            await signInWithGoogle();
-        } catch (err: any) {
-            setError(err.message || 'Failed to sign in with Google');
+            await nextAuthSignIn('google', { redirect: false });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to sign in with Google';
+            setError(message);
             throw err;
-        } finally {
-            setLoading(false);
         }
     }, []);
 
     const signUp = useCallback(async (email: string, password: string, displayName: string) => {
         try {
             setError(null);
-            setLoading(true);
-            await signUpWithEmail(email, password, displayName);
-        } catch (err: any) {
-            setError(err.message || 'Failed to sign up');
+            const result = await nextAuthSignIn('credentials', {
+                email,
+                password,
+                name: displayName,
+                action: 'register',
+                redirect: false,
+            });
+
+            if (result?.error) {
+                setError(result.error);
+                throw new Error(result.error);
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to sign up';
+            setError(message);
             throw err;
-        } finally {
-            setLoading(false);
         }
     }, []);
 
     const handleSignOut = useCallback(async () => {
         try {
             setError(null);
-            await logOut();
-            setUserProfile(null);
-        } catch (err: any) {
-            setError(err.message || 'Failed to sign out');
+            await nextAuthSignOut({ redirect: false });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to sign out';
+            setError(message);
             throw err;
         }
     }, []);
 
-    const forgotPassword = useCallback(async (email: string) => {
-        try {
-            setError(null);
-            await resetPassword(email);
-        } catch (err: any) {
-            setError(err.message || 'Failed to send reset email');
-            throw err;
-        }
+    const forgotPassword = useCallback(async (_email: string) => {
+        // TODO: Implement password reset via API route
+        setError('Password reset not yet implemented');
+        throw new Error('Password reset not yet implemented');
     }, []);
 
-    const handleUpdateProfile = useCallback(async (updates: { displayName?: string; photoURL?: string }) => {
-        try {
-            setError(null);
-            await updateUserProfile(updates);
-
-            // Update user profile in Firestore
-            if (user) {
-                const userRef = doc(db, 'users', user.uid);
-                await setDoc(userRef, {
-                    displayName: updates.displayName,
-                    photoUrl: updates.photoURL,
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
-
-                // Refetch profile
-                await fetchUserProfile(user);
-            }
-        } catch (err: any) {
-            setError(err.message || 'Failed to update profile');
-            throw err;
-        }
-    }, [user, fetchUserProfile]);
+    const handleUpdateProfile = useCallback(async (_updates: { displayName?: string; photoURL?: string }) => {
+        // TODO: Implement profile update via API route
+        setError('Profile update not yet implemented');
+        throw new Error('Profile update not yet implemented');
+    }, []);
 
     const hasRole = useCallback(async (familyId: string, roles: MemberRole[]): Promise<boolean> => {
         if (!user) return false;
 
         try {
-            const memberRef = doc(db, 'families', familyId, 'members', user.uid);
-            const memberSnap = await getDoc(memberRef);
-
-            if (!memberSnap.exists()) return false;
-
-            const memberRole = memberSnap.data().role as MemberRole;
-            return roles.includes(memberRole);
+            const response = await fetch(`/api/trees/${familyId}/role`);
+            if (!response.ok) return false;
+            const data = await response.json();
+            return roles.includes(data.role);
         } catch {
             return false;
         }
@@ -230,7 +195,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         updateProfile: handleUpdateProfile,
         isAuthenticated: user !== null,
         hasRole,
-        clearError
+        clearError,
     };
 
     return (

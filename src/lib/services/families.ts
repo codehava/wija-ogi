@@ -1,110 +1,87 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Families Service
-// Firestore CRUD operations for Family documents
+// WIJA 3 - Families (Trees) Service (Drizzle ORM / PostgreSQL)
+// Replaces Firestore CRUD for Family/Tree documents
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {
-    collection,
-    doc,
-    setDoc,
-    getDoc,
-    getDocs,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    serverTimestamp,
-    Timestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { Family, CreateFamilyInput, FamilyMember, MemberRole } from '@/types';
+import { eq, and, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { trees, treeMembers, persons } from '@/db/schema';
+import type { Family, CreateFamilyInput, FamilyMember, MemberRole } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// COLLECTION REFERENCES
+// HELPER: Map DB row → Family type
 // ─────────────────────────────────────────────────────────────────────────────────
 
-const FAMILIES_COLLECTION = 'families';
-
-export const familiesCollection = collection(db, FAMILIES_COLLECTION);
-
-export const getFamilyRef = (familyId: string) =>
-    doc(db, FAMILIES_COLLECTION, familyId);
-
-export const getMembersCollection = (familyId: string) =>
-    collection(db, FAMILIES_COLLECTION, familyId, 'members');
+function dbToFamily(row: typeof trees.$inferSelect): Family {
+    return {
+        familyId: row.id,
+        name: row.name,
+        displayName: row.displayName || row.name,
+        slug: row.slug || '',
+        ownerId: row.ownerId || '',
+        rootAncestorId: row.rootAncestorId ?? undefined,
+        subscription: {
+            plan: (row.plan as Family['subscription']['plan']) ?? 'free',
+            status: (row.planStatus as Family['subscription']['status']) ?? 'active',
+        },
+        settings: {
+            script: (row.scriptMode as Family['settings']['script']) ?? 'both',
+            theme: (row.theme as Family['settings']['theme']) ?? 'light',
+            language: (row.language as Family['settings']['language']) ?? 'id',
+        },
+        stats: {
+            memberCount: row.memberCount ?? 0,
+            personCount: row.personCount ?? 0,
+            relationshipCount: row.relationshipCount ?? 0,
+        },
+        createdAt: row.createdAt ?? new Date(),
+        updatedAt: row.updatedAt ?? new Date(),
+    };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // CREATE
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a new family
+ * Create a new family tree
  */
 export async function createFamily(
     input: CreateFamilyInput,
     userId: string
 ): Promise<Family> {
-    const familyRef = doc(collection(db, FAMILIES_COLLECTION));
-    const familyId = familyRef.id;
-
-    // Generate slug from name
     const slug = input.name
         .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 
-    // Create family data object without undefined values
-    const familyData: Record<string, any> = {
-        familyId,
-        name: input.name,
-        displayName: input.displayName || input.name,
-        slug,
-        ownerId: userId,
-        subscription: {
-            plan: 'free',
-            status: 'active'
-        },
-        settings: {
-            script: input.settings?.script || 'both',
+    const [row] = await db
+        .insert(trees)
+        .values({
+            name: input.name,
+            displayName: input.displayName || input.name,
+            slug,
+            ownerId: userId,
+            scriptMode: input.settings?.script || 'both',
             theme: input.settings?.theme || 'light',
-            language: input.settings?.language || 'id'
-        },
-        stats: {
-            memberCount: 1,
-            personCount: 0,
-            relationshipCount: 0
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    };
+            language: input.settings?.language || 'id',
+        })
+        .returning();
 
-    await setDoc(familyRef, familyData);
-
-    // Return family object for TypeScript
-    const family: Family = {
-        ...familyData,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-    } as Family;
-
-    // Add owner as first member
-    const memberRef = doc(getMembersCollection(familyId), userId);
-    const ownerMember: FamilyMember = {
-        memberId: userId,
+    // Auto-add creator as owner member
+    await db.insert(treeMembers).values({
+        treeId: row.id,
         userId,
-        familyId,
         role: 'owner',
-        displayName: '',
-        email: '',
-        joinedAt: serverTimestamp() as Timestamp,
-        invitedBy: userId,
-        lastActiveAt: serverTimestamp() as Timestamp
-    };
+    });
 
-    await setDoc(memberRef, ownerMember);
+    // Update member count
+    await db
+        .update(trees)
+        .set({ memberCount: 1 })
+        .where(eq(trees.id, row.id));
 
-    return family;
+    return dbToFamily(row);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -115,56 +92,84 @@ export async function createFamily(
  * Get a family by ID
  */
 export async function getFamily(familyId: string): Promise<Family | null> {
-    const docSnap = await getDoc(getFamilyRef(familyId));
+    const [row] = await db.select().from(trees).where(eq(trees.id, familyId)).limit(1);
+    return row ? dbToFamily(row) : null;
+}
 
-    if (docSnap.exists()) {
-        return docSnap.data() as Family;
-    }
-
-    return null;
+/**
+ * Get a family by slug
+ */
+export async function getFamilyBySlug(slug: string): Promise<Family | null> {
+    const [row] = await db.select().from(trees).where(eq(trees.slug, slug)).limit(1);
+    return row ? dbToFamily(row) : null;
 }
 
 /**
  * Get all families for a user
  */
 export async function getUserFamilies(userId: string): Promise<Family[]> {
-    // First get all family IDs where user is a member
-    // This requires querying across subcollections which is complex
-    // For now, we'll query families where user is owner
-    const q = query(
-        familiesCollection,
-        where('ownerId', '==', userId),
-        orderBy('updatedAt', 'desc')
-    );
+    const rows = await db
+        .select({ tree: trees })
+        .from(treeMembers)
+        .innerJoin(trees, eq(treeMembers.treeId, trees.id))
+        .where(eq(treeMembers.userId, userId));
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data() as Family);
+    return rows.map((r) => dbToFamily(r.tree));
 }
 
 /**
  * Get family members
  */
 export async function getFamilyMembers(familyId: string): Promise<FamilyMember[]> {
-    const membersRef = getMembersCollection(familyId);
-    const snapshot = await getDocs(membersRef);
-    return snapshot.docs.map(doc => doc.data() as FamilyMember);
+    const rows = await db
+        .select()
+        .from(treeMembers)
+        .where(eq(treeMembers.treeId, familyId));
+
+    return rows.map((row) => ({
+        memberId: row.id,
+        userId: row.userId,
+        familyId: row.treeId,
+        role: row.role as MemberRole,
+        displayName: row.displayName || '',
+        email: '', // Populated via join if needed
+        linkedPersonId: row.linkedPersonId ?? undefined,
+        joinedAt: row.joinedAt ?? new Date(),
+        invitedBy: row.invitedBy || '',
+        lastActiveAt: row.lastActiveAt ?? new Date(),
+    }));
 }
 
 /**
- * Get a specific member
+ * Check if user is a member of a family
  */
-export async function getFamilyMember(
+export async function isFamilyMember(
     familyId: string,
     userId: string
-): Promise<FamilyMember | null> {
-    const memberRef = doc(getMembersCollection(familyId), userId);
-    const docSnap = await getDoc(memberRef);
+): Promise<boolean> {
+    const [row] = await db
+        .select()
+        .from(treeMembers)
+        .where(and(eq(treeMembers.treeId, familyId), eq(treeMembers.userId, userId)))
+        .limit(1);
 
-    if (docSnap.exists()) {
-        return docSnap.data() as FamilyMember;
-    }
+    return !!row;
+}
 
-    return null;
+/**
+ * Get user's role in a family
+ */
+export async function getUserRole(
+    familyId: string,
+    userId: string
+): Promise<MemberRole | null> {
+    const [row] = await db
+        .select()
+        .from(treeMembers)
+        .where(and(eq(treeMembers.treeId, familyId), eq(treeMembers.userId, userId)))
+        .limit(1);
+
+    return row ? (row.role as MemberRole) : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -172,70 +177,98 @@ export async function getFamilyMember(
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Update a family
+ * Update family settings
  */
 export async function updateFamily(
     familyId: string,
-    updates: Partial<Omit<Family, 'familyId' | 'createdAt'>>
+    updates: Partial<Pick<Family, 'name' | 'displayName' | 'settings'>>
 ): Promise<void> {
-    const familyRef = getFamilyRef(familyId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Record<string, any> = { updatedAt: new Date() };
 
-    await updateDoc(familyRef, {
-        ...updates,
-        updatedAt: serverTimestamp()
-    });
+    if (updates.name) data.name = updates.name;
+    if (updates.displayName) data.displayName = updates.displayName;
+    if (updates.settings?.script) data.scriptMode = updates.settings.script;
+    if (updates.settings?.theme) data.theme = updates.settings.theme;
+    if (updates.settings?.language) data.language = updates.settings.language;
+
+    await db.update(trees).set(data).where(eq(trees.id, familyId));
 }
 
 /**
- * Update family settings
- */
-export async function updateFamilySettings(
-    familyId: string,
-    settings: Partial<Family['settings']>
-): Promise<void> {
-    const family = await getFamily(familyId);
-    if (!family) throw new Error('Family not found');
-
-    await updateFamily(familyId, {
-        settings: { ...family.settings, ...settings }
-    });
-}
-
-/**
- * Set root ancestor
- */
-export async function setRootAncestor(
-    familyId: string,
-    personId: string
-): Promise<void> {
-    await updateFamily(familyId, { rootAncestorId: personId });
-}
-
-/**
- * Update family stats
+ * Update family stats (cached counters)
  */
 export async function updateFamilyStats(
     familyId: string,
     stats: Partial<Family['stats']>
 ): Promise<void> {
-    const family = await getFamily(familyId);
-    if (!family) throw new Error('Family not found');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Record<string, any> = { updatedAt: new Date() };
 
-    await updateFamily(familyId, {
-        stats: { ...family.stats, ...stats }
-    });
+    if (stats.memberCount !== undefined) data.memberCount = stats.memberCount;
+    if (stats.personCount !== undefined) data.personCount = stats.personCount;
+    if (stats.relationshipCount !== undefined) data.relationshipCount = stats.relationshipCount;
+
+    await db.update(trees).set(data).where(eq(trees.id, familyId));
 }
 
 /**
- * Update member role
+ * Add a member to a family
+ */
+export async function addFamilyMember(
+    familyId: string,
+    userId: string,
+    role: MemberRole = 'viewer',
+    invitedBy?: string
+): Promise<void> {
+    await db.insert(treeMembers).values({
+        treeId: familyId,
+        userId,
+        role,
+        invitedBy: invitedBy || null,
+    });
+
+    await db
+        .update(trees)
+        .set({
+            memberCount: sql`${trees.memberCount} + 1`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, familyId));
+}
+
+/**
+ * Update a member's role
  */
 export async function updateMemberRole(
     familyId: string,
     userId: string,
-    role: MemberRole
+    newRole: MemberRole
 ): Promise<void> {
-    const memberRef = doc(getMembersCollection(familyId), userId);
-    await updateDoc(memberRef, { role });
+    await db
+        .update(treeMembers)
+        .set({ role: newRole })
+        .where(and(eq(treeMembers.treeId, familyId), eq(treeMembers.userId, userId)));
+}
+
+/**
+ * Remove a member from a family
+ */
+export async function removeFamilyMember(
+    familyId: string,
+    userId: string
+): Promise<void> {
+    await db
+        .delete(treeMembers)
+        .where(and(eq(treeMembers.treeId, familyId), eq(treeMembers.userId, userId)));
+
+    await db
+        .update(trees)
+        .set({
+            memberCount: sql`GREATEST(${trees.memberCount} - 1, 0)`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, familyId));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -243,106 +276,8 @@ export async function updateMemberRole(
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Delete a family (and all subcollections)
+ * Delete a family and all associated data (cascade via FK)
  */
 export async function deleteFamily(familyId: string): Promise<void> {
-    // Note: In production, this should be a Cloud Function
-    // that recursively deletes all subcollections
-    await deleteDoc(getFamilyRef(familyId));
-}
-
-/**
- * Remove a member from family
- */
-export async function removeFamilyMember(
-    familyId: string,
-    userId: string
-): Promise<void> {
-    const memberRef = doc(getMembersCollection(familyId), userId);
-    await deleteDoc(memberRef);
-
-    // Update stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            memberCount: Math.max(0, family.stats.memberCount - 1)
-        });
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// MEMBER MANAGEMENT
-// ─────────────────────────────────────────────────────────────────────────────────
-
-/**
- * Add a member to family
- */
-export async function addFamilyMember(
-    familyId: string,
-    userId: string,
-    role: MemberRole,
-    invitedBy: string,
-    displayName: string,
-    email: string
-): Promise<FamilyMember> {
-    const memberRef = doc(getMembersCollection(familyId), userId);
-
-    const member: FamilyMember = {
-        memberId: userId,
-        userId,
-        familyId,
-        role,
-        displayName,
-        email,
-        joinedAt: serverTimestamp() as Timestamp,
-        invitedBy,
-        lastActiveAt: serverTimestamp() as Timestamp
-    };
-
-    await setDoc(memberRef, member);
-
-    // Update stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            memberCount: family.stats.memberCount + 1
-        });
-    }
-
-    return member;
-}
-
-/**
- * Check if user is member of family
- */
-export async function isFamilyMember(
-    familyId: string,
-    userId: string
-): Promise<boolean> {
-    const member = await getFamilyMember(familyId, userId);
-    return member !== null;
-}
-
-/**
- * Check if user can edit family
- */
-export async function canEditFamily(
-    familyId: string,
-    userId: string
-): Promise<boolean> {
-    const member = await getFamilyMember(familyId, userId);
-    if (!member) return false;
-    return ['owner', 'admin', 'editor'].includes(member.role);
-}
-
-/**
- * Check if user is family owner or admin
- */
-export async function isAdminOrOwner(
-    familyId: string,
-    userId: string
-): Promise<boolean> {
-    const member = await getFamilyMember(familyId, userId);
-    if (!member) return false;
-    return ['owner', 'admin'].includes(member.role);
+    await db.delete(trees).where(eq(trees.id, familyId));
 }

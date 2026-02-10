@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { getInvitation, acceptInvitation } from '@/lib/services/invitations';
+import { invitationsApi } from '@/lib/api';
 import { Invitation } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -30,7 +30,7 @@ export default function AcceptInvitationPage() {
         async function loadInvitation() {
             try {
                 setLoading(true);
-                const inv = await getInvitation(invitationId);
+                const inv = await invitationsApi.getInvitation(invitationId);
 
                 if (!inv) {
                     setError('Undangan tidak ditemukan');
@@ -42,7 +42,8 @@ export default function AcceptInvitationPage() {
                     return;
                 }
 
-                if (inv.expiresAt.toDate() < new Date()) {
+                const expiresDate = inv.expiresAt instanceof Date ? inv.expiresAt : new Date(inv.expiresAt);
+                if (expiresDate < new Date()) {
                     setError('Undangan sudah kadaluarsa');
                     return;
                 }
@@ -66,12 +67,14 @@ export default function AcceptInvitationPage() {
 
         setAccepting(true);
         try {
-            await acceptInvitation(
+            await invitationsApi.acceptInvitation(
                 invitationId,
-                user.uid,
-                user.displayName || user.email || 'User',
-                user.email || '',
-                user.photoURL || undefined
+                {
+                    userId: user.uid,
+                    displayName: user.displayName || user.email || 'User',
+                    email: user.email || '',
+                    photoUrl: user.photoURL || undefined
+                }
             );
             setSuccess(true);
 
@@ -221,11 +224,11 @@ export default function AcceptInvitationPage() {
                     </div>
 
                     <p className="text-xs text-stone-500 text-center mt-4">
-                        Kadaluarsa: {invitation?.expiresAt.toDate().toLocaleDateString('id-ID', {
+                        Kadaluarsa: {invitation?.expiresAt ? (invitation.expiresAt instanceof Date ? invitation.expiresAt : new Date(invitation.expiresAt)).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'
-                        })}
+                        }) : ''}
                     </p>
                 </CardBody>
             </Card>

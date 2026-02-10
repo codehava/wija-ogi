@@ -10,7 +10,8 @@ import { MemberRole, Invitation } from '@/types';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
-import { createInvitation, isEmailAlreadyInvited, CreateInvitationInput } from '@/lib/services/invitations';
+import { invitationsApi } from '@/lib/api';
+import type { CreateInvitationInput } from '@/lib/services/invitations';
 
 export interface InviteMemberFormProps {
     isOpen: boolean;
@@ -59,7 +60,7 @@ export function InviteMemberForm({
 
         try {
             // Check if already invited
-            const alreadyInvited = await isEmailAlreadyInvited(familyId, email);
+            const { isInvited: alreadyInvited } = await invitationsApi.isEmailAlreadyInvited(familyId, email);
             if (alreadyInvited) {
                 setError('Email ini sudah memiliki undangan pending');
                 setLoading(false);
@@ -67,7 +68,7 @@ export function InviteMemberForm({
             }
 
             // Create invitation
-            const invitation = await createInvitation({
+            const invitation = await invitationsApi.createInvitation({
                 familyId,
                 familyName,
                 email,

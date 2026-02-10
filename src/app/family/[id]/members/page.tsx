@@ -12,7 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useCanEdit } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput, Gender } from '@/types';
-import { createPerson } from '@/lib/services/persons';
+import { personsApi } from '@/lib/api';
 import { PersonCard } from '@/components/person/PersonCard';
 import { PersonForm } from '@/components/person/PersonForm';
 import { DualScriptDisplay } from '@/components/aksara/DualScriptDisplay';
@@ -92,7 +92,7 @@ export default function MembersPage() {
 
         setFormLoading(true);
         try {
-            await createPerson(familyId, data, user.uid);
+            await personsApi.createPerson(familyId, data);
             setShowPersonForm(false);
         } catch (err) {
             console.error('Failed to create person:', err);

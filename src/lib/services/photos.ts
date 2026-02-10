@@ -1,10 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Photo Upload Service
-// Handles photo upload to Firebase Storage with compression
+// WIJA - Photo Upload Service (S3/MinIO)
+// Handles photo upload with compression via presigned URLs
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { storage } from '@/lib/firebase/config';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import {
+    uploadFile,
+    deleteFile,
+    getFileUrl,
+    getPersonPhotoKey,
+    getPersonThumbnailKey,
+} from '@/lib/storage';
 
 // Max file size after compression (500KB)
 const MAX_FILE_SIZE = 500 * 1024;
@@ -58,11 +63,19 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 /**
- * Upload person photo to Firebase Storage
- * @param familyId - Family ID
+ * Convert Blob to Uint8Array for S3 upload
+ */
+async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
+    const arrayBuffer = await blob.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+}
+
+/**
+ * Upload person photo to S3/MinIO
+ * @param familyId - Family/Tree ID
  * @param personId - Person ID
  * @param file - Image file to upload
- * @returns Download URL of uploaded photo
+ * @returns URL to access the uploaded photo
  */
 export async function uploadPersonPhoto(
     familyId: string,
@@ -93,58 +106,63 @@ export async function uploadPersonPhoto(
         console.warn(`Compressed size: ${(compressedBlob.size / 1024).toFixed(0)}KB (target: ${MAX_FILE_SIZE / 1024}KB)`);
     }
 
-    // Create storage reference
-    const photoPath = `families/${familyId}/persons/${personId}/photo.jpg`;
-    console.log('[Photo Upload] Uploading to:', photoPath);
-
-    const photoRef = ref(storage, photoPath);
+    // Create storage key
+    const key = getPersonPhotoKey(familyId, personId, file.name);
+    console.log('[Photo Upload] Uploading to S3 key:', key);
 
     try {
-        // Upload compressed image
-        console.log('[Photo Upload] Starting Firebase upload...');
-        await uploadBytes(photoRef, compressedBlob, {
-            contentType: 'image/jpeg',
-            customMetadata: {
-                originalName: file.name,
-                uploadedAt: new Date().toISOString()
-            }
-        });
+        // Convert blob to Uint8Array and upload
+        const data = await blobToUint8Array(compressedBlob);
+        await uploadFile(key, data, 'image/jpeg');
+
         console.log('[Photo Upload] Upload complete, getting URL...');
 
         // Get download URL
-        const downloadURL = await getDownloadURL(photoRef);
+        const downloadURL = await getFileUrl(key);
         console.log('[Photo Upload] Success! URL:', downloadURL);
         return downloadURL;
     } catch (error: any) {
-        console.error('[Photo Upload] FAILED:', error.code, error.message);
-
-        // Provide user-friendly error messages
-        if (error.code === 'storage/unauthorized') {
-            throw new Error('Tidak memiliki izin untuk upload. Hubungi admin.');
-        } else if (error.code === 'storage/quota-exceeded') {
-            throw new Error('Storage penuh. Hubungi admin.');
-        } else if (error.code === 'storage/retry-limit-exceeded') {
-            throw new Error('Koneksi terputus. Coba lagi.');
-        }
-        throw error;
+        console.error('[Photo Upload] FAILED:', error.message);
+        throw new Error('Gagal mengupload foto. Coba lagi.');
     }
 }
 
 /**
- * Delete person photo from Firebase Storage
+ * Delete person photo from S3/MinIO
  */
 export async function deletePersonPhoto(
     familyId: string,
     personId: string
 ): Promise<void> {
-    const photoRef = ref(storage, `families/${familyId}/persons/${personId}/photo.jpg`);
+    const key = getPersonPhotoKey(familyId, personId, 'photo.jpg');
+    const thumbnailKey = getPersonThumbnailKey(familyId, personId);
+
     try {
-        await deleteObject(photoRef);
+        await deleteFile(key);
     } catch (error: any) {
         // Ignore if file doesn't exist
-        if (error.code !== 'storage/object-not-found') {
-            throw error;
-        }
+        console.warn('[Photo Delete] Photo not found, skipping:', key);
+    }
+
+    try {
+        await deleteFile(thumbnailKey);
+    } catch {
+        // Ignore if thumbnail doesn't exist
+    }
+}
+
+/**
+ * Get the current photo URL for a person
+ */
+export async function getPersonPhotoUrl(
+    familyId: string,
+    personId: string
+): Promise<string | null> {
+    const key = getPersonPhotoKey(familyId, personId, 'photo.jpg');
+    try {
+        return await getFileUrl(key);
+    } catch {
+        return null;
     }
 }
 

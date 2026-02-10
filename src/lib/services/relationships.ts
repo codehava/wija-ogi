@@ -1,38 +1,46 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Relationships Service
-// Firestore CRUD operations for Relationship documents
+// WIJA 3 - Relationships Service (Drizzle ORM / PostgreSQL)
+// Replaces Firestore CRUD for Relationship documents
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {
-    collection,
-    doc,
-    setDoc,
-    getDoc,
-    getDocs,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    serverTimestamp,
-    Timestamp,
-    onSnapshot,
-    Unsubscribe
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { Relationship, CreateRelationshipInput, MarriageDetails } from '@/types';
-import { transliterateLatin } from '@/lib/transliteration/engine';
-import { updateFamilyStats, getFamily } from './families';
-import { addSpouse, addParentChild, removeSpouse, removeParentChild } from './persons';
+import { eq, and, or, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { relationships, trees } from '@/db/schema';
+import type { Relationship, CreateRelationshipInput, MarriageDetails } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// COLLECTION REFERENCES
+// HELPER: Map DB row → Relationship type
 // ─────────────────────────────────────────────────────────────────────────────────
 
-export const getRelationshipsCollection = (familyId: string) =>
-    collection(db, 'families', familyId, 'relationships');
+function dbToRelationship(row: typeof relationships.$inferSelect): Relationship {
+    const result: Relationship = {
+        relationshipId: row.id,
+        familyId: row.treeId,
+        type: row.type as Relationship['type'],
+        person1Id: row.person1Id,
+        person2Id: row.person2Id,
+        createdAt: row.createdAt ?? new Date(),
+        updatedAt: row.updatedAt ?? new Date(),
+    };
 
-export const getRelationshipRef = (familyId: string, relationshipId: string) =>
-    doc(db, 'families', familyId, 'relationships', relationshipId);
+    if (row.type === 'spouse') {
+        result.marriage = {
+            date: row.marriageDate ?? undefined,
+            place: row.marriagePlace ?? undefined,
+            placeLontara: row.marriagePlaceLontara ?? undefined,
+            status: (row.marriageStatus as MarriageDetails['status']) ?? 'married',
+            marriageOrder: row.marriageOrder ?? undefined,
+        };
+    }
+
+    if (row.type === 'parent-child') {
+        result.parentChild = {
+            biologicalParent: row.biologicalParent ?? true,
+        };
+    }
+
+    return result;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // CREATE
@@ -45,92 +53,32 @@ export async function createRelationship(
     familyId: string,
     input: CreateRelationshipInput
 ): Promise<Relationship> {
-    const relationshipsRef = getRelationshipsCollection(familyId);
-    const relationshipRef = doc(relationshipsRef);
-    const relationshipId = relationshipRef.id;
+    const [row] = await db
+        .insert(relationships)
+        .values({
+            treeId: familyId,
+            type: input.type,
+            person1Id: input.person1Id,
+            person2Id: input.person2Id,
+            marriageDate: input.marriage?.date || null,
+            marriagePlace: input.marriage?.place || null,
+            marriagePlaceLontara: input.marriage?.placeLontara || null,
+            marriageStatus: input.marriage?.status || null,
+            marriageOrder: input.marriage?.marriageOrder || null,
+            biologicalParent: input.parentChild?.biologicalParent ?? true,
+        })
+        .returning();
 
-    // Build relationship data without undefined fields
-    const relationshipData: Record<string, any> = {
-        relationshipId,
-        familyId,
-        type: input.type,
-        person1Id: input.person1Id,
-        person2Id: input.person2Id,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    };
+    // Update tree stats
+    await db
+        .update(trees)
+        .set({
+            relationshipCount: sql`${trees.relationshipCount} + 1`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, familyId));
 
-    // Only add marriage details if provided
-    if (input.marriage) {
-        const marriageDetails: Record<string, any> = {
-            status: input.marriage.status || 'married'
-        };
-        if (input.marriage.date) marriageDetails.date = input.marriage.date;
-        if (input.marriage.place) {
-            marriageDetails.place = input.marriage.place;
-            marriageDetails.placeLontara = transliterateLatin(input.marriage.place).lontara;
-        }
-        if (input.marriage.marriageOrder) marriageDetails.marriageOrder = input.marriage.marriageOrder;
-        relationshipData.marriage = marriageDetails;
-    }
-
-    // Only add parentChild details if provided
-    if (input.parentChild) {
-        relationshipData.parentChild = input.parentChild;
-    }
-
-    await setDoc(relationshipRef, relationshipData);
-
-    // Update persons' relationship arrays
-    if (input.type === 'spouse') {
-        await addSpouse(familyId, input.person1Id, input.person2Id);
-    } else if (input.type === 'parent-child') {
-        await addParentChild(familyId, input.person1Id, input.person2Id);
-    }
-
-    // Update family stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            relationshipCount: family.stats.relationshipCount + 1
-        });
-    }
-
-    return relationshipData as Relationship;
-}
-
-/**
- * Create spouse relationship
- */
-export async function createSpouseRelationship(
-    familyId: string,
-    person1Id: string,
-    person2Id: string,
-    marriage?: Omit<MarriageDetails, 'placeLontara'>
-): Promise<Relationship> {
-    return createRelationship(familyId, {
-        type: 'spouse',
-        person1Id,
-        person2Id,
-        marriage: marriage as MarriageDetails
-    });
-}
-
-/**
- * Create parent-child relationship
- */
-export async function createParentChildRelationship(
-    familyId: string,
-    parentId: string,
-    childId: string,
-    biologicalParent: boolean = true
-): Promise<Relationship> {
-    return createRelationship(familyId, {
-        type: 'parent-child',
-        person1Id: parentId,
-        person2Id: childId,
-        parentChild: { biologicalParent }
-    });
+    return dbToRelationship(row);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -144,51 +92,25 @@ export async function getRelationship(
     familyId: string,
     relationshipId: string
 ): Promise<Relationship | null> {
-    const docSnap = await getDoc(getRelationshipRef(familyId, relationshipId));
+    const [row] = await db
+        .select()
+        .from(relationships)
+        .where(and(eq(relationships.treeId, familyId), eq(relationships.id, relationshipId)))
+        .limit(1);
 
-    if (docSnap.exists()) {
-        return docSnap.data() as Relationship;
-    }
-
-    return null;
+    return row ? dbToRelationship(row) : null;
 }
 
 /**
  * Get all relationships in a family
  */
 export async function getAllRelationships(familyId: string): Promise<Relationship[]> {
-    const snapshot = await getDocs(getRelationshipsCollection(familyId));
-    return snapshot.docs.map(doc => doc.data() as Relationship);
-}
+    const rows = await db
+        .select()
+        .from(relationships)
+        .where(eq(relationships.treeId, familyId));
 
-/**
- * Get relationships by type
- */
-export async function getRelationshipsByType(
-    familyId: string,
-    type: 'spouse' | 'parent-child'
-): Promise<Relationship[]> {
-    const q = query(
-        getRelationshipsCollection(familyId),
-        where('type', '==', type)
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => doc.data() as Relationship);
-}
-
-/**
- * Get all spouse relationships
- */
-export async function getSpouseRelationships(familyId: string): Promise<Relationship[]> {
-    return getRelationshipsByType(familyId, 'spouse');
-}
-
-/**
- * Get all parent-child relationships
- */
-export async function getParentChildRelationships(familyId: string): Promise<Relationship[]> {
-    return getRelationshipsByType(familyId, 'parent-child');
+    return rows.map(dbToRelationship);
 }
 
 /**
@@ -198,78 +120,73 @@ export async function getPersonRelationships(
     familyId: string,
     personId: string
 ): Promise<Relationship[]> {
-    const allRelationships = await getAllRelationships(familyId);
+    const rows = await db
+        .select()
+        .from(relationships)
+        .where(
+            and(
+                eq(relationships.treeId, familyId),
+                or(
+                    eq(relationships.person1Id, personId),
+                    eq(relationships.person2Id, personId)
+                )
+            )
+        );
 
-    return allRelationships.filter(
-        r => r.person1Id === personId || r.person2Id === personId
-    );
+    return rows.map(dbToRelationship);
 }
 
 /**
- * Find relationship between two persons
+ * Get spouse relationships for a person
  */
-export async function findRelationshipBetween(
+export async function getSpouseRelationships(
     familyId: string,
-    person1Id: string,
-    person2Id: string
-): Promise<Relationship | null> {
-    const allRelationships = await getAllRelationships(familyId);
+    personId: string
+): Promise<Relationship[]> {
+    const rows = await db
+        .select()
+        .from(relationships)
+        .where(
+            and(
+                eq(relationships.treeId, familyId),
+                eq(relationships.type, 'spouse'),
+                or(
+                    eq(relationships.person1Id, personId),
+                    eq(relationships.person2Id, personId)
+                )
+            )
+        );
 
-    return allRelationships.find(
-        r => (r.person1Id === person1Id && r.person2Id === person2Id) ||
-            (r.person1Id === person2Id && r.person2Id === person1Id)
-    ) || null;
+    return rows.map(dbToRelationship);
 }
 
 /**
- * Subscribe to relationships changes (real-time)
+ * Get parent-child relationships for a person
  */
-export function subscribeToRelationships(
+export async function getParentChildRelationships(
     familyId: string,
-    onUpdate: (relationships: Relationship[]) => void,
-    onError?: (error: Error) => void
-): Unsubscribe {
-    const relationshipsRef = getRelationshipsCollection(familyId);
+    personId: string
+): Promise<Relationship[]> {
+    const rows = await db
+        .select()
+        .from(relationships)
+        .where(
+            and(
+                eq(relationships.treeId, familyId),
+                eq(relationships.type, 'parent-child'),
+                or(
+                    eq(relationships.person1Id, personId),
+                    eq(relationships.person2Id, personId)
+                )
+            )
+        );
 
-    return onSnapshot(
-        relationshipsRef,
-        (snapshot) => {
-            const relationships = snapshot.docs.map(doc => doc.data() as Relationship);
-            onUpdate(relationships);
-        },
-        (error) => {
-            if (onError) onError(error);
-        }
-    );
+    return rows.map(dbToRelationship);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // UPDATE
 // ─────────────────────────────────────────────────────────────────────────────────
-
-/**
- * Update a relationship
- */
-export async function updateRelationship(
-    familyId: string,
-    relationshipId: string,
-    updates: Partial<Omit<Relationship, 'relationshipId' | 'familyId' | 'createdAt'>>
-): Promise<void> {
-    const relationshipRef = getRelationshipRef(familyId, relationshipId);
-
-    // Auto-transliterate marriage place if updated
-    if (updates.marriage?.place) {
-        updates.marriage = {
-            ...updates.marriage,
-            placeLontara: transliterateLatin(updates.marriage.place).lontara
-        };
-    }
-
-    await updateDoc(relationshipRef, {
-        ...updates,
-        updatedAt: serverTimestamp()
-    });
-}
 
 /**
  * Update marriage details
@@ -279,20 +196,19 @@ export async function updateMarriageDetails(
     relationshipId: string,
     marriage: Partial<MarriageDetails>
 ): Promise<void> {
-    const relationship = await getRelationship(familyId, relationshipId);
-    if (!relationship) throw new Error('Relationship not found');
-    if (relationship.type !== 'spouse') throw new Error('Not a spouse relationship');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Record<string, any> = { updatedAt: new Date() };
 
-    const updatedMarriage: MarriageDetails = {
-        ...relationship.marriage,
-        ...marriage,
-        status: marriage.status || relationship.marriage?.status || 'married',
-        placeLontara: marriage.place
-            ? transliterateLatin(marriage.place).lontara
-            : relationship.marriage?.placeLontara
-    };
+    if (marriage.date !== undefined) data.marriageDate = marriage.date || null;
+    if (marriage.place !== undefined) data.marriagePlace = marriage.place || null;
+    if (marriage.placeLontara !== undefined) data.marriagePlaceLontara = marriage.placeLontara || null;
+    if (marriage.status !== undefined) data.marriageStatus = marriage.status;
+    if (marriage.marriageOrder !== undefined) data.marriageOrder = marriage.marriageOrder;
 
-    await updateRelationship(familyId, relationshipId, { marriage: updatedMarriage });
+    await db
+        .update(relationships)
+        .set(data)
+        .where(and(eq(relationships.treeId, familyId), eq(relationships.id, relationshipId)));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -306,26 +222,18 @@ export async function deleteRelationship(
     familyId: string,
     relationshipId: string
 ): Promise<void> {
-    const relationship = await getRelationship(familyId, relationshipId);
-    if (!relationship) return;
+    await db
+        .delete(relationships)
+        .where(and(eq(relationships.treeId, familyId), eq(relationships.id, relationshipId)));
 
-    // Remove from persons' relationship arrays
-    if (relationship.type === 'spouse') {
-        await removeSpouse(familyId, relationship.person1Id, relationship.person2Id);
-    } else if (relationship.type === 'parent-child') {
-        await removeParentChild(familyId, relationship.person1Id, relationship.person2Id);
-    }
-
-    // Delete the relationship document
-    await deleteDoc(getRelationshipRef(familyId, relationshipId));
-
-    // Update family stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            relationshipCount: Math.max(0, family.stats.relationshipCount - 1)
-        });
-    }
+    // Update tree stats
+    await db
+        .update(trees)
+        .set({
+            relationshipCount: sql`GREATEST(${trees.relationshipCount} - 1, 0)`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, familyId));
 }
 
 /**
@@ -335,76 +243,28 @@ export async function deletePersonRelationships(
     familyId: string,
     personId: string
 ): Promise<void> {
-    const relationships = await getPersonRelationships(familyId, personId);
+    const existing = await getPersonRelationships(familyId, personId);
 
-    for (const relationship of relationships) {
-        await deleteRelationship(familyId, relationship.relationshipId);
+    if (existing.length > 0) {
+        await db
+            .delete(relationships)
+            .where(
+                and(
+                    eq(relationships.treeId, familyId),
+                    or(
+                        eq(relationships.person1Id, personId),
+                        eq(relationships.person2Id, personId)
+                    )
+                )
+            );
+
+        // Update tree stats
+        await db
+            .update(trees)
+            .set({
+                relationshipCount: sql`GREATEST(${trees.relationshipCount} - ${existing.length}, 0)`,
+                updatedAt: new Date(),
+            })
+            .where(eq(trees.id, familyId));
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// VALIDATION HELPERS
-// ─────────────────────────────────────────────────────────────────────────────────
-
-/**
- * Check if two persons are already spouses
- */
-export async function areSpouses(
-    familyId: string,
-    person1Id: string,
-    person2Id: string
-): Promise<boolean> {
-    const relationship = await findRelationshipBetween(familyId, person1Id, person2Id);
-    return relationship?.type === 'spouse';
-}
-
-/**
- * Check if person1 is parent of person2
- */
-export async function isParentOf(
-    familyId: string,
-    parentId: string,
-    childId: string
-): Promise<boolean> {
-    const relationships = await getParentChildRelationships(familyId);
-    return relationships.some(
-        r => r.person1Id === parentId && r.person2Id === childId
-    );
-}
-
-/**
- * Check if person1 is child of person2
- */
-export async function isChildOf(
-    familyId: string,
-    childId: string,
-    parentId: string
-): Promise<boolean> {
-    return isParentOf(familyId, parentId, childId);
-}
-
-/**
- * Validate relationship (prevent invalid relationships)
- */
-export async function canCreateRelationship(
-    familyId: string,
-    type: 'spouse' | 'parent-child',
-    person1Id: string,
-    person2Id: string
-): Promise<{ valid: boolean; error?: string }> {
-    // Same person check
-    if (person1Id === person2Id) {
-        return { valid: false, error: 'Cannot create relationship with same person' };
-    }
-
-    // Already related check
-    const existingRelationship = await findRelationshipBetween(familyId, person1Id, person2Id);
-    if (existingRelationship) {
-        return {
-            valid: false,
-            error: `These persons already have a ${existingRelationship.type} relationship`
-        };
-    }
-
-    return { valid: true };
 }

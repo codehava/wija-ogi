@@ -12,7 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useIsOwner, useIsAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScriptMode, ThemeMode, Language } from '@/types';
-import { updateFamilySettings, deleteFamily } from '@/lib/services/families';
+import { familiesApi } from '@/lib/api';
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card';
 import { Input, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -53,10 +53,13 @@ export default function SettingsPage() {
 
         setSaving(true);
         try {
-            await updateFamilySettings(familyId, {
-                script: scriptMode,
-                theme: themeMode,
-                language
+            await familiesApi.updateFamily(familyId, {
+                displayName,
+                settings: {
+                    script: scriptMode,
+                    theme: themeMode,
+                    language,
+                },
             });
         } catch (err) {
             console.error('Failed to save settings:', err);
@@ -70,7 +73,7 @@ export default function SettingsPage() {
 
         setSaving(true);
         try {
-            await deleteFamily(familyId);
+            await familiesApi.deleteFamily(familyId);
             router.push('/');
         } catch (err) {
             console.error('Failed to delete family:', err);

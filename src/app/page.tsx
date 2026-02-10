@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/contexts/ThemeContext';
 import { useUserFamilies } from '@/hooks/useFirestore';
 import { transliterateLatin } from '@/lib/transliteration/engine';
-import { createFamily } from '@/lib/services/families';
+import { familiesApi } from '@/lib/api';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -52,12 +52,11 @@ export default function HomePage() {
 
         setCreating(true);
         try {
-            const family = await createFamily(
+            const family = await familiesApi.createFamily(
                 {
                     name: familyName.trim(),
                     displayName: displayName.trim() || undefined
-                },
-                user.uid
+                }
             );
 
             // Refresh list and navigate to new family

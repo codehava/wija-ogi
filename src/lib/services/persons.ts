@@ -1,59 +1,72 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Persons Service
-// Firestore CRUD operations for Person documents with auto-transliteration
+// WIJA 3 - Persons Service (Drizzle ORM / PostgreSQL)
+// Replaces Firestore CRUD — all same function signatures preserved
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {
-    collection,
-    doc,
-    setDoc,
-    getDoc,
-    getDocs,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    serverTimestamp,
-    Timestamp,
-    onSnapshot,
-    Unsubscribe
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { Person, CreatePersonInput, LatinName, LontaraName } from '@/types';
-import { transliterateLatin, transliterateName } from '@/lib/transliteration/engine';
-import { updateFamilyStats, getFamily } from './families';
+import { eq, and, ilike, or, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { persons, trees } from '@/db/schema';
+import type { Person, CreatePersonInput, LatinName, LontaraName } from '@/types';
+import { transliterateName } from '@/lib/transliteration/engine';
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// COLLECTION REFERENCES
+// HELPER: Map DB row → Person type
 // ─────────────────────────────────────────────────────────────────────────────────
 
-export const getPersonsCollection = (familyId: string) =>
-    collection(db, 'families', familyId, 'persons');
-
-export const getPersonRef = (familyId: string, personId: string) =>
-    doc(db, 'families', familyId, 'persons', personId);
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// HELPER: Remove undefined values from object (Firestore doesn't accept undefined)
-// ─────────────────────────────────────────────────────────────────────────────────
-
-function removeUndefined(obj: Record<string, any>): Record<string, any> {
-    const result: Record<string, any> = {};
-
-    for (const key in obj) {
-        const value = obj[key];
-        if (value === undefined) {
-            continue;
-        } else if (value !== null && typeof value === 'object' && !Array.isArray(value) && Object.prototype.toString.call(value) !== '[object Date]' && !('seconds' in value)) {
-            // Recursively clean nested objects (but not Timestamps or Dates)
-            result[key] = removeUndefined(value);
-        } else {
-            result[key] = value;
-        }
-    }
-
-    return result;
+function dbToPerson(row: typeof persons.$inferSelect): Person {
+    return {
+        personId: row.id,
+        familyId: row.treeId,
+        firstName: row.firstName,
+        middleName: row.middleName ?? undefined,
+        lastName: row.lastName,
+        fullName: row.fullName ?? [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' '),
+        latinName: {
+            first: row.firstName,
+            middle: row.middleName ?? '',
+            last: row.lastName,
+        },
+        lontaraName: {
+            first: row.lontaraFirstName ?? '',
+            middle: row.lontaraMiddleName ?? '',
+            last: row.lontaraLastName ?? '',
+        },
+        lontaraNameCustom: (row.lontaraFirstNameCustom || row.lontaraMiddleNameCustom || row.lontaraLastNameCustom)
+            ? {
+                first: row.lontaraFirstNameCustom ?? undefined,
+                middle: row.lontaraMiddleNameCustom ?? undefined,
+                last: row.lontaraLastNameCustom ?? undefined,
+            }
+            : undefined,
+        gender: row.gender as Person['gender'],
+        birthDate: row.birthDate ?? undefined,
+        birthPlace: row.birthPlace ?? undefined,
+        birthOrder: row.birthOrder ?? undefined,
+        deathDate: row.deathDate ?? undefined,
+        deathPlace: row.deathPlace ?? undefined,
+        isLiving: row.isLiving ?? true,
+        occupation: row.occupation ?? undefined,
+        biography: row.biography ?? undefined,
+        relationships: {
+            spouseIds: (row.spouseIds as string[]) ?? [],
+            parentIds: (row.parentIds as string[]) ?? [],
+            childIds: (row.childIds as string[]) ?? [],
+            siblingIds: (row.siblingIds as string[]) ?? [],
+        },
+        isRootAncestor: row.isRootAncestor ?? false,
+        position: {
+            x: row.positionX ?? 0,
+            y: row.positionY ?? 0,
+            fixed: row.positionFixed ?? false,
+        },
+        photoUrl: row.photoUrl ?? undefined,
+        thumbnailUrl: row.thumbnailUrl ?? undefined,
+        gedcomId: row.gedcomId ?? undefined,
+        createdBy: row.createdBy ?? '',
+        createdAt: row.createdAt ?? new Date(),
+        updatedBy: row.updatedBy ?? '',
+        updatedAt: row.updatedAt ?? new Date(),
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -68,79 +81,63 @@ export async function createPerson(
     input: CreatePersonInput,
     userId: string
 ): Promise<Person> {
-    const personsRef = getPersonsCollection(familyId);
-    const personRef = doc(personsRef);
-    const personId = personRef.id;
-
-    // Build latin name object
     const latinName: LatinName = {
         first: input.firstName,
         middle: input.middleName || '',
-        last: input.lastName || ''
+        last: input.lastName || '',
     };
 
-    // Auto-transliterate to Lontara
     const lontaraName = transliterateName(latinName);
+    const fullName = [input.firstName, input.middleName, input.lastName].filter(Boolean).join(' ');
 
-    // Build full name
-    const fullName = [input.firstName, input.middleName, input.lastName]
-        .filter(Boolean)
-        .join(' ');
-
-    // Build person data - only include defined values
-    const personData: Record<string, any> = {
-        personId,
-        familyId,
-        firstName: input.firstName,
-        fullName,
-        latinName: removeUndefined(latinName),
-        lontaraName: removeUndefined(lontaraName),
-        gender: input.gender,
-        isLiving: input.isLiving ?? true,
-        relationships: {
+    const [row] = await db
+        .insert(persons)
+        .values({
+            treeId: familyId,
+            firstName: input.firstName,
+            middleName: input.middleName || null,
+            lastName: input.lastName || '',
+            fullName,
+            lontaraFirstName: lontaraName.first,
+            lontaraMiddleName: lontaraName.middle || null,
+            lontaraLastName: lontaraName.last,
+            gender: input.gender,
+            birthDate: input.birthDate || null,
+            birthPlace: input.birthPlace || null,
+            birthOrder: input.birthOrder || null,
+            deathDate: input.deathDate || null,
+            deathPlace: input.deathPlace || null,
+            isLiving: input.isLiving ?? true,
+            occupation: input.occupation || null,
+            biography: input.biography || null,
+            isRootAncestor: input.isRootAncestor || false,
             spouseIds: [],
             parentIds: [],
             childIds: [],
-            siblingIds: []
-        },
-        isRootAncestor: input.isRootAncestor || false,
-        // NOTE: Position will be calculated by FamilyTree component
-        // Do NOT set position here - let calculateSimplePosition handle it
-        createdBy: userId,
-        createdAt: serverTimestamp(),
-        updatedBy: userId,
-        updatedAt: serverTimestamp()
-    };
+            siblingIds: [],
+            createdBy: userId,
+            updatedBy: userId,
+        })
+        .returning();
 
-    // Add optional fields only if defined
-    if (input.middleName) personData.middleName = input.middleName;
-    if (input.lastName) personData.lastName = input.lastName;
-    if (input.birthDate) personData.birthDate = input.birthDate;
-    if (input.birthPlace) personData.birthPlace = input.birthPlace;
-    if (input.birthOrder) personData.birthOrder = input.birthOrder;
-    if (input.deathDate) personData.deathDate = input.deathDate;
-    if (input.deathPlace) personData.deathPlace = input.deathPlace;
-    if (input.occupation) personData.occupation = input.occupation;
-    if (input.biography) personData.biography = input.biography;
+    // Update tree stats
+    await db
+        .update(trees)
+        .set({
+            personCount: sql`${trees.personCount} + 1`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, familyId));
 
-    await setDoc(personRef, personData);
-
-    // Update family stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            personCount: family.stats.personCount + 1
-        });
-
-        // Set as root ancestor if first person or explicitly marked
-        if (family.stats.personCount === 0 || input.isRootAncestor) {
-            await updateDoc(doc(db, 'families', familyId), {
-                rootAncestorId: personId
-            });
-        }
+    // Set as root ancestor if explicitly marked
+    if (input.isRootAncestor) {
+        await db
+            .update(trees)
+            .set({ rootAncestorId: row.id })
+            .where(eq(trees.id, familyId));
     }
 
-    return personData as Person;
+    return dbToPerson(row);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -154,102 +151,69 @@ export async function getPerson(
     familyId: string,
     personId: string
 ): Promise<Person | null> {
-    const docSnap = await getDoc(getPersonRef(familyId, personId));
+    const [row] = await db
+        .select()
+        .from(persons)
+        .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)))
+        .limit(1);
 
-    if (docSnap.exists()) {
-        return docSnap.data() as Person;
-    }
-
-    return null;
+    return row ? dbToPerson(row) : null;
 }
 
 /**
  * Get all persons in a family
  */
 export async function getAllPersons(familyId: string): Promise<Person[]> {
-    const snapshot = await getDocs(getPersonsCollection(familyId));
-    return snapshot.docs.map(doc => doc.data() as Person);
+    const rows = await db
+        .select()
+        .from(persons)
+        .where(eq(persons.treeId, familyId));
+
+    return rows.map(dbToPerson);
 }
 
 /**
- * Get persons with pagination (for initial load optimization)
- * Uses cursor-based pagination for efficient large dataset handling
+ * Get persons with pagination
  */
 export async function getPersonsPaginated(
     familyId: string,
     pageSize: number = 100,
-    startAfterDoc?: any
-): Promise<{ persons: Person[]; lastDoc: any | null; hasMore: boolean }> {
-    const { limit, startAfter } = await import('firebase/firestore');
+    offset: number = 0
+): Promise<{ persons: Person[]; hasMore: boolean }> {
+    const rows = await db
+        .select()
+        .from(persons)
+        .where(eq(persons.treeId, familyId))
+        .limit(pageSize + 1)
+        .offset(offset);
 
-    let q = query(
-        getPersonsCollection(familyId),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize)
-    );
+    const hasMore = rows.length > pageSize;
+    const result = hasMore ? rows.slice(0, pageSize) : rows;
 
-    if (startAfterDoc) {
-        q = query(
-            getPersonsCollection(familyId),
-            orderBy('createdAt', 'desc'),
-            startAfter(startAfterDoc),
-            limit(pageSize)
-        );
-    }
-
-    const snapshot = await getDocs(q);
-    const persons = snapshot.docs.map(doc => doc.data() as Person);
-    const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
-    const hasMore = snapshot.docs.length === pageSize;
-
-    return { persons, lastDoc, hasMore };
+    return { persons: result.map(dbToPerson), hasMore };
 }
 
 /**
  * Get persons as a Map for efficient lookups
  */
 export async function getPersonsMap(familyId: string): Promise<Map<string, Person>> {
-    const persons = await getAllPersons(familyId);
+    const list = await getAllPersons(familyId);
     const map = new Map<string, Person>();
-    persons.forEach(p => map.set(p.personId, p));
+    list.forEach((p) => map.set(p.personId, p));
     return map;
-}
-
-/**
- * Subscribe to persons changes (real-time)
- */
-export function subscribeToPersons(
-    familyId: string,
-    onUpdate: (persons: Person[]) => void,
-    onError?: (error: Error) => void
-): Unsubscribe {
-    const personsRef = getPersonsCollection(familyId);
-
-    return onSnapshot(
-        personsRef,
-        (snapshot) => {
-            const persons = snapshot.docs.map(doc => doc.data() as Person);
-            onUpdate(persons);
-        },
-        (error) => {
-            if (onError) onError(error);
-        }
-    );
 }
 
 /**
  * Get root ancestor
  */
 export async function getRootAncestor(familyId: string): Promise<Person | null> {
-    const q = query(
-        getPersonsCollection(familyId),
-        where('isRootAncestor', '==', true)
-    );
+    const [row] = await db
+        .select()
+        .from(persons)
+        .where(and(eq(persons.treeId, familyId), eq(persons.isRootAncestor, true)))
+        .limit(1);
 
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return null;
-
-    return snapshot.docs[0].data() as Person;
+    return row ? dbToPerson(row) : null;
 }
 
 /**
@@ -259,14 +223,22 @@ export async function searchPersonsByName(
     familyId: string,
     searchTerm: string
 ): Promise<Person[]> {
-    const persons = await getAllPersons(familyId);
-    const term = searchTerm.toLowerCase();
+    const term = `%${searchTerm}%`;
+    const rows = await db
+        .select()
+        .from(persons)
+        .where(
+            and(
+                eq(persons.treeId, familyId),
+                or(
+                    ilike(persons.fullName, term),
+                    ilike(persons.firstName, term),
+                    ilike(persons.lastName, term)
+                )
+            )
+        );
 
-    return persons.filter(p =>
-        p.fullName.toLowerCase().includes(term) ||
-        p.firstName.toLowerCase().includes(term) ||
-        p.lastName.toLowerCase().includes(term)
-    );
+    return rows.map(dbToPerson);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -282,18 +254,15 @@ export async function updatePerson(
     updates: Partial<CreatePersonInput>,
     userId: string
 ): Promise<void> {
-    const personRef = getPersonRef(familyId, personId);
-
-    // Build update data - only include defined values
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {
         updatedBy: userId,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date(),
     };
 
-    // Only add fields that are defined (not undefined)
     if (updates.firstName !== undefined) updateData.firstName = updates.firstName;
     if (updates.lastName !== undefined) updateData.lastName = updates.lastName;
-    if (updates.middleName !== undefined) updateData.middleName = updates.middleName;
+    if (updates.middleName !== undefined) updateData.middleName = updates.middleName || null;
     if (updates.gender !== undefined) updateData.gender = updates.gender;
     if (updates.birthDate !== undefined) updateData.birthDate = updates.birthDate || null;
     if (updates.birthPlace !== undefined) updateData.birthPlace = updates.birthPlace || null;
@@ -305,25 +274,29 @@ export async function updatePerson(
     if (updates.biography !== undefined) updateData.biography = updates.biography || null;
     if (updates.isRootAncestor !== undefined) updateData.isRootAncestor = updates.isRootAncestor;
 
-    // If name is being updated, re-transliterate
+    // Re-transliterate if name changed
     if (updates.firstName || updates.middleName || updates.lastName) {
         const person = await getPerson(familyId, personId);
         if (person) {
             const latinName: LatinName = {
                 first: updates.firstName ?? person.firstName,
                 middle: updates.middleName ?? person.middleName ?? '',
-                last: updates.lastName ?? person.lastName ?? ''
+                last: updates.lastName ?? person.lastName ?? '',
             };
 
-            updateData.latinName = removeUndefined(latinName);
-            updateData.lontaraName = removeUndefined(transliterateName(latinName));
+            updateData.lontaraFirstName = transliterateName(latinName).first;
+            updateData.lontaraMiddleName = transliterateName(latinName).middle || null;
+            updateData.lontaraLastName = transliterateName(latinName).last;
             updateData.fullName = [latinName.first, latinName.middle, latinName.last]
                 .filter(Boolean)
                 .join(' ');
         }
     }
 
-    await updateDoc(personRef, updateData);
+    await db
+        .update(persons)
+        .set(updateData)
+        .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 }
 
 /**
@@ -334,45 +307,42 @@ export async function updatePersonPosition(
     personId: string,
     position: { x: number; y: number; fixed?: boolean }
 ): Promise<void> {
-    const personRef = getPersonRef(familyId, personId);
-    await updateDoc(personRef, {
-        position: {
-            x: position.x,
-            y: position.y,
-            fixed: position.fixed ?? false
-        },
-        updatedAt: serverTimestamp()
-    });
+    await db
+        .update(persons)
+        .set({
+            positionX: position.x,
+            positionY: position.y,
+            positionFixed: position.fixed ?? false,
+            updatedAt: new Date(),
+        })
+        .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 }
 
 /**
- * Update ALL person positions in batch (more efficient for save-all)
+ * Update ALL person positions in batch
  */
 export async function updateAllPersonPositions(
     familyId: string,
     positions: Map<string, { x: number; y: number }>
 ): Promise<void> {
-    const { writeBatch } = await import('firebase/firestore');
-    const batch = writeBatch(db);
-
-    positions.forEach((position, personId) => {
-        const personRef = getPersonRef(familyId, personId);
-        batch.update(personRef, {
-            position: {
-                x: position.x,
-                y: position.y,
-                fixed: true  // All positions are now fixed since user arranged them
-            },
-            updatedAt: serverTimestamp()
-        });
+    // Use a transaction for batch updates
+    await db.transaction(async (tx) => {
+        for (const [personId, position] of positions) {
+            await tx
+                .update(persons)
+                .set({
+                    positionX: position.x,
+                    positionY: position.y,
+                    positionFixed: true,
+                    updatedAt: new Date(),
+                })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
+        }
     });
-
-    await batch.commit();
-    console.log(`Saved positions for ${positions.size} persons`);
 }
 
 /**
- * Update person relationships
+ * Update person relationships (denormalized JSONB arrays)
  */
 export async function updatePersonRelationships(
     familyId: string,
@@ -382,11 +352,18 @@ export async function updatePersonRelationships(
     const person = await getPerson(familyId, personId);
     if (!person) throw new Error('Person not found');
 
-    const personRef = getPersonRef(familyId, personId);
-    await updateDoc(personRef, {
-        relationships: { ...person.relationships, ...relationships },
-        updatedAt: serverTimestamp()
-    });
+    const merged = { ...person.relationships, ...relationships };
+
+    await db
+        .update(persons)
+        .set({
+            spouseIds: merged.spouseIds,
+            parentIds: merged.parentIds,
+            childIds: merged.childIds,
+            siblingIds: merged.siblingIds,
+            updatedAt: new Date(),
+        })
+        .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 }
 
 /**
@@ -397,11 +374,15 @@ export async function setCustomLontaraName(
     personId: string,
     customName: Partial<LontaraName>
 ): Promise<void> {
-    const personRef = getPersonRef(familyId, personId);
-    await updateDoc(personRef, {
-        lontaraNameCustom: customName,
-        updatedAt: serverTimestamp()
-    });
+    await db
+        .update(persons)
+        .set({
+            lontaraFirstNameCustom: customName.first ?? null,
+            lontaraMiddleNameCustom: customName.middle ?? null,
+            lontaraLastNameCustom: customName.last ?? null,
+            updatedAt: new Date(),
+        })
+        .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 }
 
 /**
@@ -411,22 +392,24 @@ export async function setAsRootAncestor(
     familyId: string,
     personId: string
 ): Promise<void> {
-    // First, remove isRootAncestor from current root
-    const currentRoot = await getRootAncestor(familyId);
-    if (currentRoot) {
-        await updateDoc(getPersonRef(familyId, currentRoot.personId), {
-            isRootAncestor: false
-        });
-    }
+    await db.transaction(async (tx) => {
+        // Unset current root
+        await tx
+            .update(persons)
+            .set({ isRootAncestor: false })
+            .where(and(eq(persons.treeId, familyId), eq(persons.isRootAncestor, true)));
 
-    // Set new root
-    await updateDoc(getPersonRef(familyId, personId), {
-        isRootAncestor: true
-    });
+        // Set new root
+        await tx
+            .update(persons)
+            .set({ isRootAncestor: true })
+            .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 
-    // Update family
-    await updateDoc(doc(db, 'families', familyId), {
-        rootAncestorId: personId
+        // Update tree
+        await tx
+            .update(trees)
+            .set({ rootAncestorId: personId })
+            .where(eq(trees.id, familyId));
     });
 }
 
@@ -435,7 +418,7 @@ export async function setAsRootAncestor(
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Delete a person
+ * Delete a person and clean up relationships
  */
 export async function deletePerson(
     familyId: string,
@@ -444,36 +427,49 @@ export async function deletePerson(
     const person = await getPerson(familyId, personId);
     if (!person) return;
 
-    // Remove from related persons' relationships
-    const allPersons = await getAllPersons(familyId);
+    await db.transaction(async (tx) => {
+        // Get all persons in this tree to clean up denormalized relationship arrays
+        const allRows = await tx
+            .select()
+            .from(persons)
+            .where(eq(persons.treeId, familyId));
 
-    for (const p of allPersons) {
-        if (
-            p.relationships.spouseIds.includes(personId) ||
-            p.relationships.parentIds.includes(personId) ||
-            p.relationships.childIds.includes(personId)
-        ) {
-            await updateDoc(getPersonRef(familyId, p.personId), {
-                relationships: {
-                    spouseIds: p.relationships.spouseIds.filter(id => id !== personId),
-                    parentIds: p.relationships.parentIds.filter(id => id !== personId),
-                    childIds: p.relationships.childIds.filter(id => id !== personId),
-                    siblingIds: p.relationships.siblingIds.filter(id => id !== personId)
-                }
-            });
+        for (const row of allRows) {
+            const spIds = (row.spouseIds as string[]) ?? [];
+            const paIds = (row.parentIds as string[]) ?? [];
+            const chIds = (row.childIds as string[]) ?? [];
+            const siIds = (row.siblingIds as string[]) ?? [];
+
+            if (
+                spIds.includes(personId) ||
+                paIds.includes(personId) ||
+                chIds.includes(personId) ||
+                siIds.includes(personId)
+            ) {
+                await tx
+                    .update(persons)
+                    .set({
+                        spouseIds: spIds.filter((id) => id !== personId),
+                        parentIds: paIds.filter((id) => id !== personId),
+                        childIds: chIds.filter((id) => id !== personId),
+                        siblingIds: siIds.filter((id) => id !== personId),
+                    })
+                    .where(eq(persons.id, row.id));
+            }
         }
-    }
 
-    // Delete the person
-    await deleteDoc(getPersonRef(familyId, personId));
+        // Delete the person
+        await tx.delete(persons).where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
 
-    // Update family stats
-    const family = await getFamily(familyId);
-    if (family) {
-        await updateFamilyStats(familyId, {
-            personCount: Math.max(0, family.stats.personCount - 1)
-        });
-    }
+        // Update tree stats
+        await tx
+            .update(trees)
+            .set({
+                personCount: sql`GREATEST(${trees.personCount} - 1, 0)`,
+                updatedAt: new Date(),
+            })
+            .where(eq(trees.id, familyId));
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -490,28 +486,26 @@ export async function addSpouse(
 ): Promise<void> {
     const person1 = await getPerson(familyId, person1Id);
     const person2 = await getPerson(familyId, person2Id);
-
     if (!person1 || !person2) throw new Error('Person not found');
 
-    // Add to person1's spouses
-    if (!person1.relationships.spouseIds.includes(person2Id)) {
-        await updateDoc(getPersonRef(familyId, person1Id), {
-            'relationships.spouseIds': [...person1.relationships.spouseIds, person2Id]
-        });
-    }
-
-    // Add to person2's spouses
-    if (!person2.relationships.spouseIds.includes(person1Id)) {
-        await updateDoc(getPersonRef(familyId, person2Id), {
-            'relationships.spouseIds': [...person2.relationships.spouseIds, person1Id]
-        });
-    }
+    await db.transaction(async (tx) => {
+        if (!person1.relationships.spouseIds.includes(person2Id)) {
+            await tx
+                .update(persons)
+                .set({ spouseIds: [...person1.relationships.spouseIds, person2Id] })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, person1Id)));
+        }
+        if (!person2.relationships.spouseIds.includes(person1Id)) {
+            await tx
+                .update(persons)
+                .set({ spouseIds: [...person2.relationships.spouseIds, person1Id] })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, person2Id)));
+        }
+    });
 }
 
 /**
  * Add parent-child relationship (bidirectional)
- * Each parent must be added manually - no auto-linking to spouses
- * This allows correct handling of polygamous relationships (1 person with multiple spouses)
  */
 export async function addParentChild(
     familyId: string,
@@ -520,27 +514,22 @@ export async function addParentChild(
 ): Promise<void> {
     const parent = await getPerson(familyId, parentId);
     const child = await getPerson(familyId, childId);
-
     if (!parent || !child) throw new Error('Person not found');
 
-    // Add child to parent's children
-    if (!parent.relationships.childIds.includes(childId)) {
-        await updateDoc(getPersonRef(familyId, parentId), {
-            'relationships.childIds': [...parent.relationships.childIds, childId]
-        });
-    }
-
-    // Add parent to child's parents (max 2)
-    if (!child.relationships.parentIds.includes(parentId) && child.relationships.parentIds.length < 2) {
-        await updateDoc(getPersonRef(familyId, childId), {
-            'relationships.parentIds': [...child.relationships.parentIds, parentId]
-        });
-    }
-
-    // NOTE: No auto-linking to spouses
-    // Each parent-child relationship must be set up manually
-    // This is correct for cases where one person has multiple spouses
-    // and children from different spouses should not be auto-linked to all spouses
+    await db.transaction(async (tx) => {
+        if (!parent.relationships.childIds.includes(childId)) {
+            await tx
+                .update(persons)
+                .set({ childIds: [...parent.relationships.childIds, childId] })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, parentId)));
+        }
+        if (!child.relationships.parentIds.includes(parentId) && child.relationships.parentIds.length < 2) {
+            await tx
+                .update(persons)
+                .set({ parentIds: [...child.relationships.parentIds, parentId] })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, childId)));
+        }
+    });
 }
 
 /**
@@ -554,17 +543,20 @@ export async function removeSpouse(
     const person1 = await getPerson(familyId, person1Id);
     const person2 = await getPerson(familyId, person2Id);
 
-    if (person1) {
-        await updateDoc(getPersonRef(familyId, person1Id), {
-            'relationships.spouseIds': person1.relationships.spouseIds.filter(id => id !== person2Id)
-        });
-    }
-
-    if (person2) {
-        await updateDoc(getPersonRef(familyId, person2Id), {
-            'relationships.spouseIds': person2.relationships.spouseIds.filter(id => id !== person1Id)
-        });
-    }
+    await db.transaction(async (tx) => {
+        if (person1) {
+            await tx
+                .update(persons)
+                .set({ spouseIds: person1.relationships.spouseIds.filter((id) => id !== person2Id) })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, person1Id)));
+        }
+        if (person2) {
+            await tx
+                .update(persons)
+                .set({ spouseIds: person2.relationships.spouseIds.filter((id) => id !== person1Id) })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, person2Id)));
+        }
+    });
 }
 
 /**
@@ -578,17 +570,20 @@ export async function removeParentChild(
     const parent = await getPerson(familyId, parentId);
     const child = await getPerson(familyId, childId);
 
-    if (parent) {
-        await updateDoc(getPersonRef(familyId, parentId), {
-            'relationships.childIds': parent.relationships.childIds.filter(id => id !== childId)
-        });
-    }
-
-    if (child) {
-        await updateDoc(getPersonRef(familyId, childId), {
-            'relationships.parentIds': child.relationships.parentIds.filter(id => id !== parentId)
-        });
-    }
+    await db.transaction(async (tx) => {
+        if (parent) {
+            await tx
+                .update(persons)
+                .set({ childIds: parent.relationships.childIds.filter((id) => id !== childId) })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, parentId)));
+        }
+        if (child) {
+            await tx
+                .update(persons)
+                .set({ parentIds: child.relationships.parentIds.filter((id) => id !== parentId) })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, childId)));
+        }
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -597,32 +592,34 @@ export async function removeParentChild(
 
 /**
  * Regenerate Lontara names for all persons in a family
- * Uses the latest transliteration engine
- * @returns Number of persons updated
  */
 export async function regenerateAllLontaraNames(familyId: string): Promise<number> {
-    const persons = await getAllPersons(familyId);
-    let updatedCount = 0;
+    const allPersons = await getAllPersons(familyId);
+    let count = 0;
 
-    for (const person of persons) {
-        // Build latin name from existing data
-        const latinName: LatinName = {
-            first: person.latinName?.first || person.firstName || '',
-            middle: person.latinName?.middle || '',
-            last: person.latinName?.last || ''
-        };
+    await db.transaction(async (tx) => {
+        for (const person of allPersons) {
+            const latinName: LatinName = {
+                first: person.latinName?.first || person.firstName || '',
+                middle: person.latinName?.middle || '',
+                last: person.latinName?.last || '',
+            };
 
-        // Re-transliterate using latest engine
-        const newLontaraName = transliterateName(latinName);
+            const newLontara = transliterateName(latinName);
 
-        // Update in database
-        await updateDoc(getPersonRef(familyId, person.personId), {
-            lontaraName: removeUndefined(newLontaraName),
-            updatedAt: serverTimestamp()
-        });
+            await tx
+                .update(persons)
+                .set({
+                    lontaraFirstName: newLontara.first,
+                    lontaraMiddleName: newLontara.middle || null,
+                    lontaraLastName: newLontara.last,
+                    updatedAt: new Date(),
+                })
+                .where(and(eq(persons.treeId, familyId), eq(persons.id, person.personId)));
 
-        updatedCount++;
-    }
+            count++;
+        }
+    });
 
-    return updatedCount;
+    return count;
 }

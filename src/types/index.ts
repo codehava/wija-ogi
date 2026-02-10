@@ -1,9 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Type Definitions
-// Based on WIJA Blueprint v5.0
+// WIJA 3 - Type Definitions
+// Based on WIJA Blueprint v5.0 — Updated for PostgreSQL
 // ═══════════════════════════════════════════════════════════════════════════════
-
-import { Timestamp } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // CORE TYPES
@@ -20,7 +18,7 @@ export type RelationshipType = 'spouse' | 'parent-child';
 export type MarriageStatus = 'married' | 'divorced' | 'widowed';
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// FAMILY DOCUMENT
+// FAMILY / TREE DOCUMENT
 // ─────────────────────────────────────────────────────────────────────────────────
 
 export interface Family {
@@ -50,8 +48,8 @@ export interface Family {
         relationshipCount: number;
     };
 
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -132,11 +130,14 @@ export interface Person {
     photoUrl?: string;
     thumbnailUrl?: string;
 
+    // GEDCOM
+    gedcomId?: string;
+
     // Audit
     createdBy: string;
-    createdAt: Timestamp;
+    createdAt: Date | string;
     updatedBy: string;
-    updatedAt: Timestamp;
+    updatedAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -167,8 +168,8 @@ export interface Relationship {
     marriage?: MarriageDetails;
     parentChild?: ParentChildDetails;
 
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -187,9 +188,9 @@ export interface FamilyMember {
 
     linkedPersonId?: string;       // If linked to a Person in the tree
 
-    joinedAt: Timestamp;
+    joinedAt: Date | string;
     invitedBy: string;
-    lastActiveAt: Timestamp;
+    lastActiveAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -211,8 +212,8 @@ export interface UserProfile {
     familyIds: string[];
     primaryFamilyId?: string;
 
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -231,10 +232,10 @@ export interface Invitation {
     invitedByName: string;
 
     status: 'pending' | 'accepted' | 'declined' | 'expired';
-    expiresAt: Timestamp;
+    expiresAt: Date | string;
 
-    createdAt: Timestamp;
-    respondedAt?: Timestamp;
+    createdAt: Date | string;
+    respondedAt?: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -251,7 +252,9 @@ export type ActivityAction =
     | 'member_joined'
     | 'member_removed'
     | 'family_updated'
-    | 'export_created';
+    | 'export_created'
+    | 'gedcom_imported'
+    | 'gedcom_exported';
 
 export interface Activity {
     activityId: string;
@@ -261,22 +264,12 @@ export interface Activity {
     description: string;
 
     targetId?: string;
-    targetType?: 'person' | 'relationship' | 'member' | 'family';
+    targetType?: 'person' | 'relationship' | 'member' | 'family' | 'gedcom';
 
     performedBy: string;
     performedByName: string;
 
-    createdAt: Timestamp;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// AUTH CUSTOM CLAIMS
-// ─────────────────────────────────────────────────────────────────────────────────
-
-export interface UserClaims {
-    familyId: string;
-    role: MemberRole;
-    permissions: string[];
+    createdAt: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -329,11 +322,11 @@ export interface ExportRecord {
     status: 'pending' | 'processing' | 'completed' | 'failed';
 
     downloadUrl?: string;
-    expiresAt?: Timestamp;
+    expiresAt?: Date | string;
 
     requestedBy: string;
-    createdAt: Timestamp;
-    completedAt?: Timestamp;
+    createdAt: Date | string;
+    completedAt?: Date | string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -368,4 +361,22 @@ export interface CreateRelationshipInput {
     person2Id: string;
     marriage?: MarriageDetails;
     parentChild?: ParentChildDetails;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────
+// GEDCOM TYPES
+// ─────────────────────────────────────────────────────────────────────────────────
+
+export interface GedcomImportResult {
+    treeId: string;
+    personsCount: number;
+    familiesCount: number;
+    sourcesCount: number;
+    errors: string[];
+}
+
+export interface GedcomExportOptions {
+    version: '5.5.1' | '7.0';
+    includeNotes: boolean;
+    includeSources: boolean;
 }

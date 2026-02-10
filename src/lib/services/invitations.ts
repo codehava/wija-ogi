@@ -1,25 +1,33 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Invitation Service
-// Handles family invitation system
+// WIJA 3 - Invitation Service (Drizzle ORM / PostgreSQL)
+// Replaces Firestore-based invitation system
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {
-    collection,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    where,
-    serverTimestamp,
-    Timestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { Invitation, MemberRole, FamilyMember } from '@/types';
+import { eq, and } from 'drizzle-orm';
+import { db } from '@/db';
+import { invitations, treeMembers, trees } from '@/db/schema';
+import { sql } from 'drizzle-orm';
+import type { Invitation, MemberRole } from '@/types';
 
-const INVITATIONS_COLLECTION = 'invitations';
+// ─────────────────────────────────────────────────────────────────────────────────
+// HELPER
+// ─────────────────────────────────────────────────────────────────────────────────
+
+function dbToInvitation(row: typeof invitations.$inferSelect): Invitation {
+    return {
+        invitationId: row.id,
+        familyId: row.treeId,
+        familyName: row.treeName || '',
+        email: row.email,
+        role: row.role as MemberRole,
+        invitedBy: row.invitedBy || '',
+        invitedByName: row.invitedByName || '',
+        status: row.status as Invitation['status'],
+        expiresAt: row.expiresAt ?? new Date(),
+        createdAt: row.createdAt ?? new Date(),
+        respondedAt: row.respondedAt ?? undefined,
+    };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // CREATE INVITATION
@@ -32,188 +40,152 @@ export interface CreateInvitationInput {
     role: MemberRole;
     invitedBy: string;
     invitedByName: string;
-    expiresInDays?: number; // Default 7 days
+    expiresInDays?: number;
 }
 
 export async function createInvitation(input: CreateInvitationInput): Promise<Invitation> {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (input.expiresInDays || 7));
 
-    const invitationData = {
-        familyId: input.familyId,
-        familyName: input.familyName,
-        email: input.email.toLowerCase().trim(),
-        role: input.role,
-        invitedBy: input.invitedBy,
-        invitedByName: input.invitedByName,
-        status: 'pending' as const,
-        expiresAt: Timestamp.fromDate(expiresAt),
-        createdAt: serverTimestamp()
-    };
+    const [row] = await db
+        .insert(invitations)
+        .values({
+            treeId: input.familyId,
+            treeName: input.familyName,
+            email: input.email.toLowerCase().trim(),
+            role: input.role,
+            invitedBy: input.invitedBy,
+            invitedByName: input.invitedByName,
+            status: 'pending',
+            expiresAt,
+        })
+        .returning();
 
-    const docRef = await addDoc(collection(db, INVITATIONS_COLLECTION), invitationData);
-
-    return {
-        invitationId: docRef.id,
-        ...invitationData,
-        createdAt: Timestamp.now()
-    } as Invitation;
+    return dbToInvitation(row);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// GET INVITATION BY ID
+// READ
 // ─────────────────────────────────────────────────────────────────────────────────
 
 export async function getInvitation(invitationId: string): Promise<Invitation | null> {
-    const docSnap = await getDoc(doc(db, INVITATIONS_COLLECTION, invitationId));
+    const [row] = await db
+        .select()
+        .from(invitations)
+        .where(eq(invitations.id, invitationId))
+        .limit(1);
 
-    if (!docSnap.exists()) return null;
-
-    return { invitationId, ...docSnap.data() } as Invitation;
+    return row ? dbToInvitation(row) : null;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// GET PENDING INVITATIONS FOR EMAIL
-// ─────────────────────────────────────────────────────────────────────────────────
 
 export async function getPendingInvitationsForEmail(email: string): Promise<Invitation[]> {
-    const q = query(
-        collection(db, INVITATIONS_COLLECTION),
-        where('email', '==', email.toLowerCase().trim()),
-        where('status', '==', 'pending')
-    );
+    const rows = await db
+        .select()
+        .from(invitations)
+        .where(
+            and(
+                eq(invitations.email, email.toLowerCase().trim()),
+                eq(invitations.status, 'pending')
+            )
+        );
 
-    const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs.map(doc => ({
-        invitationId: doc.id,
-        ...doc.data()
-    })) as Invitation[];
+    return rows.map(dbToInvitation);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// GET INVITATIONS FOR FAMILY
-// ─────────────────────────────────────────────────────────────────────────────────
 
 export async function getInvitationsForFamily(familyId: string): Promise<Invitation[]> {
-    const q = query(
-        collection(db, INVITATIONS_COLLECTION),
-        where('familyId', '==', familyId)
-    );
+    const rows = await db
+        .select()
+        .from(invitations)
+        .where(eq(invitations.treeId, familyId));
 
-    const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs.map(doc => ({
-        invitationId: doc.id,
-        ...doc.data()
-    })) as Invitation[];
+    return rows.map(dbToInvitation);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// ACCEPT INVITATION
+// ACCEPT / DECLINE / REVOKE
 // ─────────────────────────────────────────────────────────────────────────────────
 
 export async function acceptInvitation(
     invitationId: string,
     userId: string,
     userDisplayName: string,
-    userEmail: string,
-    userPhotoUrl?: string
+    _userEmail: string,
+    _userPhotoUrl?: string
 ): Promise<void> {
     const invitation = await getInvitation(invitationId);
 
-    if (!invitation) {
-        throw new Error('Invitation not found');
-    }
+    if (!invitation) throw new Error('Invitation not found');
+    if (invitation.status !== 'pending') throw new Error('Invitation is no longer valid');
 
-    if (invitation.status !== 'pending') {
-        throw new Error('Invitation is no longer valid');
-    }
-
-    // Check if expired
-    if (invitation.expiresAt.toDate() < new Date()) {
-        await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
-            status: 'expired'
-        });
+    const expiresDate = invitation.expiresAt instanceof Date ? invitation.expiresAt : new Date(invitation.expiresAt);
+    if (expiresDate < new Date()) {
+        await db
+            .update(invitations)
+            .set({ status: 'expired' })
+            .where(eq(invitations.id, invitationId));
         throw new Error('Invitation has expired');
     }
 
-    // Add user as family member - build data without undefined fields
-    const memberData: Record<string, any> = {
+    // Add user as tree member
+    await db.insert(treeMembers).values({
+        treeId: invitation.familyId,
         userId,
-        familyId: invitation.familyId,
         role: invitation.role,
         displayName: userDisplayName,
-        email: userEmail,
-        joinedAt: serverTimestamp(),
         invitedBy: invitation.invitedBy,
-        lastActiveAt: serverTimestamp()
-    };
+    });
 
-    // Only add photoUrl if provided
-    if (userPhotoUrl) {
-        memberData.photoUrl = userPhotoUrl;
-    }
-
-    await addDoc(
-        collection(db, `families/${invitation.familyId}/members`),
-        memberData
-    );
+    // Update tree member count
+    await db
+        .update(trees)
+        .set({
+            memberCount: sql`${trees.memberCount} + 1`,
+            updatedAt: new Date(),
+        })
+        .where(eq(trees.id, invitation.familyId));
 
     // Update invitation status
-    await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
-        status: 'accepted',
-        respondedAt: serverTimestamp()
-    });
+    await db
+        .update(invitations)
+        .set({ status: 'accepted', respondedAt: new Date() })
+        .where(eq(invitations.id, invitationId));
 }
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// DECLINE INVITATION
-// ─────────────────────────────────────────────────────────────────────────────────
 
 export async function declineInvitation(invitationId: string): Promise<void> {
-    await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
-        status: 'declined',
-        respondedAt: serverTimestamp()
-    });
+    await db
+        .update(invitations)
+        .set({ status: 'declined', respondedAt: new Date() })
+        .where(eq(invitations.id, invitationId));
 }
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// REVOKE/DELETE INVITATION
-// ─────────────────────────────────────────────────────────────────────────────────
 
 export async function revokeInvitation(invitationId: string): Promise<void> {
-    await deleteDoc(doc(db, INVITATIONS_COLLECTION, invitationId));
+    await db.delete(invitations).where(eq(invitations.id, invitationId));
 }
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// RESEND INVITATION (update expiry)
-// ─────────────────────────────────────────────────────────────────────────────────
 
 export async function resendInvitation(invitationId: string): Promise<void> {
     const newExpiresAt = new Date();
     newExpiresAt.setDate(newExpiresAt.getDate() + 7);
 
-    await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
-        status: 'pending',
-        expiresAt: Timestamp.fromDate(newExpiresAt)
-    });
+    await db
+        .update(invitations)
+        .set({ status: 'pending', expiresAt: newExpiresAt })
+        .where(eq(invitations.id, invitationId));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────────
-// CHECK IF EMAIL ALREADY INVITED
-// ─────────────────────────────────────────────────────────────────────────────────
-
 export async function isEmailAlreadyInvited(familyId: string, email: string): Promise<boolean> {
-    const q = query(
-        collection(db, INVITATIONS_COLLECTION),
-        where('familyId', '==', familyId),
-        where('email', '==', email.toLowerCase().trim()),
-        where('status', '==', 'pending')
-    );
+    const [row] = await db
+        .select()
+        .from(invitations)
+        .where(
+            and(
+                eq(invitations.treeId, familyId),
+                eq(invitations.email, email.toLowerCase().trim()),
+                eq(invitations.status, 'pending')
+            )
+        )
+        .limit(1);
 
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
+    return !!row;
 }
 
 export default {
@@ -225,5 +197,5 @@ export default {
     declineInvitation,
     revokeInvitation,
     resendInvitation,
-    isEmailAlreadyInvited
+    isEmailAlreadyInvited,
 };

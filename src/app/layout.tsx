@@ -6,6 +6,7 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { QueryProvider } from '@/contexts/QueryProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -52,9 +53,11 @@ export default function RootLayout({
             </head>
             <body className="font-sans antialiased">
                 <ThemeProvider>
-                    <AuthProvider>
-                        {children}
-                    </AuthProvider>
+                    <QueryProvider>
+                        <AuthProvider>
+                            {children}
+                        </AuthProvider>
+                    </QueryProvider>
                 </ThemeProvider>
             </body>
         </html>

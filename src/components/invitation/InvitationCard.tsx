@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Invitation } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { acceptInvitation, declineInvitation } from '@/lib/services/invitations';
+import { invitationsApi } from '@/lib/api';
 
 export interface InvitationCardProps {
     invitation: Invitation;
@@ -34,12 +34,14 @@ export function InvitationCard({
     const handleAccept = async () => {
         setLoading(true);
         try {
-            await acceptInvitation(
+            await invitationsApi.acceptInvitation(
                 invitation.invitationId,
-                userId,
-                userDisplayName,
-                userEmail,
-                userPhotoUrl
+                {
+                    userId,
+                    displayName: userDisplayName,
+                    email: userEmail,
+                    photoUrl: userPhotoUrl
+                }
             );
             setResponded('accepted');
             onRespond?.();
@@ -53,7 +55,7 @@ export function InvitationCard({
     const handleDecline = async () => {
         setLoading(true);
         try {
-            await declineInvitation(invitation.invitationId);
+            await invitationsApi.declineInvitation(invitation.invitationId);
             setResponded('declined');
             onRespond?.();
         } catch (err) {
@@ -63,7 +65,7 @@ export function InvitationCard({
         }
     };
 
-    const expiresAt = invitation.expiresAt.toDate();
+    const expiresAt = invitation.expiresAt instanceof Date ? invitation.expiresAt : new Date(invitation.expiresAt);
     const isExpired = expiresAt < new Date();
     const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 

@@ -12,8 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useIsAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { FamilyMember, Invitation, MemberRole } from '@/types';
-import { getFamilyMembers, updateMemberRole, removeFamilyMember } from '@/lib/services/families';
-import { getInvitationsForFamily, revokeInvitation, resendInvitation } from '@/lib/services/invitations';
+import { familiesApi, invitationsApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
@@ -45,8 +44,8 @@ export default function TeamPage() {
     const loadData = async () => {
         try {
             const [membersData, invitationsData] = await Promise.all([
-                getFamilyMembers(familyId),
-                getInvitationsForFamily(familyId)
+                familiesApi.getFamilyMembers(familyId),
+                invitationsApi.getInvitationsForFamily(familyId)
             ]);
             setMembers(membersData);
             setInvitations(invitationsData.filter(i => i.status === 'pending'));
@@ -58,7 +57,7 @@ export default function TeamPage() {
     const handleRoleChange = async (memberId: string, newRole: MemberRole) => {
         setActionLoading(true);
         try {
-            await updateMemberRole(familyId, memberId, newRole);
+            await familiesApi.updateMemberRole(familyId, memberId, newRole);
             setMembers(prev => prev.map(m =>
                 m.memberId === memberId ? { ...m, role: newRole } : m
             ));
@@ -74,7 +73,7 @@ export default function TeamPage() {
 
         setActionLoading(true);
         try {
-            await removeFamilyMember(familyId, selectedMember.memberId);
+            await familiesApi.removeFamilyMember(familyId, selectedMember.memberId);
             setMembers(prev => prev.filter(m => m.memberId !== selectedMember.memberId));
             setShowRemoveModal(false);
             setSelectedMember(null);
@@ -88,7 +87,7 @@ export default function TeamPage() {
     const handleRevokeInvitation = async (invitationId: string) => {
         setActionLoading(true);
         try {
-            await revokeInvitation(invitationId);
+            await invitationsApi.revokeInvitation(invitationId);
             setInvitations(prev => prev.filter(i => i.invitationId !== invitationId));
         } catch (err) {
             console.error('Failed to revoke invitation:', err);
@@ -100,7 +99,7 @@ export default function TeamPage() {
     const handleResendInvitation = async (invitationId: string) => {
         setActionLoading(true);
         try {
-            await resendInvitation(invitationId);
+            await invitationsApi.resendInvitation(invitationId);
             loadData(); // Reload to get updated expiry
         } catch (err) {
             console.error('Failed to resend invitation:', err);
@@ -246,7 +245,7 @@ export default function TeamPage() {
                                     <div>
                                         <div className="font-medium text-stone-800">{invitation.email}</div>
                                         <div className="text-sm text-stone-500">
-                                            {roleLabels[invitation.role]} • Kadaluarsa {invitation.expiresAt.toDate().toLocaleDateString('id')}
+                                            {roleLabels[invitation.role]} • Kadaluarsa {(invitation.expiresAt instanceof Date ? invitation.expiresAt : new Date(invitation.expiresAt)).toLocaleDateString('id')}
                                         </div>
                                     </div>
 

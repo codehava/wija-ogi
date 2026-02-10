@@ -1,52 +1,24 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIJA - Export Service
-// Handles family tree export to PDF and other formats
+// WIJA - Export Service (PostgreSQL / Drizzle)
+// Handles family tree export to SVG/PDF and other formats
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {
-    collection,
-    addDoc,
-    updateDoc,
-    doc,
-    getDoc,
-    serverTimestamp,
-    Timestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { ExportOptions, ExportRecord, Person, Relationship, Family } from '@/types';
-
-const EXPORTS_COLLECTION = 'exports';
+import { ExportOptions, Person, Relationship, Family } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────────
-// CREATE EXPORT REQUEST
+// EXPORT RECORD TYPE (no longer in Firestore — tracked in-memory or via DB later)
 // ─────────────────────────────────────────────────────────────────────────────────
 
-export async function createExportRequest(
-    familyId: string,
-    options: ExportOptions,
-    userId: string
-): Promise<string> {
-    const docRef = await addDoc(collection(db, EXPORTS_COLLECTION), {
-        familyId,
-        options,
-        status: 'pending',
-        requestedBy: userId,
-        createdAt: serverTimestamp()
-    });
-
-    return docRef.id;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────────
-// GET EXPORT STATUS
-// ─────────────────────────────────────────────────────────────────────────────────
-
-export async function getExportStatus(exportId: string): Promise<ExportRecord | null> {
-    const docSnap = await getDoc(doc(db, EXPORTS_COLLECTION, exportId));
-
-    if (!docSnap.exists()) return null;
-
-    return { exportId, ...docSnap.data() } as ExportRecord;
+export interface ExportRecord {
+    exportId: string;
+    familyId: string;
+    options: ExportOptions;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    downloadUrl?: string;
+    requestedBy: string;
+    createdAt: Date;
+    completedAt?: Date;
+    error?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────
@@ -322,8 +294,6 @@ export function getDefaultExportOptions(): ExportOptions {
 }
 
 export default {
-    createExportRequest,
-    getExportStatus,
     prepareExportData,
     generateTreeSVG,
     getDefaultExportOptions

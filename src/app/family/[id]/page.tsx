@@ -12,9 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useCanEdit, useIsAdmin, useIsSuperAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput } from '@/types';
-import { createPerson, updatePerson, deletePerson, removeSpouse, removeParentChild, regenerateAllLontaraNames, updatePersonPosition, updateAllPersonPositions } from '@/lib/services/persons';
-import { uploadPersonPhoto, deletePersonPhoto } from '@/lib/services/photos';
-import { createRelationship } from '@/lib/services/relationships';
+import { personsApi, relationshipsApi } from '@/lib/api';
 import { FamilyTree } from '@/components/tree/FamilyTree';
 import { PersonCard } from '@/components/person/PersonCard';
 import { PersonForm } from '@/components/person/PersonForm';
@@ -75,8 +73,8 @@ export default function FamilyPage() {
 
         setRegenerating(true);
         try {
-            const count = await regenerateAllLontaraNames(familyId);
-            alert(`✅ Berhasil regenerate ${count} nama Lontara!`);
+            const result = await personsApi.regenerateAllLontaraNames(familyId);
+            alert(`✅ Berhasil regenerate ${result.count} nama Lontara!`);
         } catch (err) {
             console.error('Failed to regenerate Lontara:', err);
             alert('❌ Gagal regenerate Lontara');
@@ -99,7 +97,7 @@ export default function FamilyPage() {
         try {
             if (editingPerson) {
                 // Update existing person
-                await updatePerson(familyId, editingPerson.personId, data, user.uid);
+                await personsApi.updatePerson(familyId, editingPerson.personId, data);
                 // Clear sidebar edit mode
                 setIsEditingSidebar(false);
                 setEditingPerson(null);
@@ -109,7 +107,7 @@ export default function FamilyPage() {
                 }
             } else {
                 // Create new person
-                await createPerson(familyId, data, user.uid);
+                await personsApi.createPerson(familyId, data);
             }
             setShowPersonForm(false);
             setEditingPerson(null);
@@ -128,7 +126,7 @@ export default function FamilyPage() {
         try {
             if (relationType === 'spouse') {
                 // createRelationship handles both the relationship record AND person arrays
-                await createRelationship(familyId, {
+                await relationshipsApi.createRelationship(familyId, {
                     type: 'spouse',
                     person1Id: selectedPerson.personId,
                     person2Id: targetPersonId,
@@ -139,14 +137,14 @@ export default function FamilyPage() {
                 });
             } else if (relationType === 'parent') {
                 // Selected person is the PARENT of target
-                await createRelationship(familyId, {
+                await relationshipsApi.createRelationship(familyId, {
                     type: 'parent-child',
                     person1Id: selectedPerson.personId, // parent
                     person2Id: targetPersonId // child
                 });
             } else if (relationType === 'child') {
                 // Selected person is the CHILD of target
-                await createRelationship(familyId, {
+                await relationshipsApi.createRelationship(familyId, {
                     type: 'parent-child',
                     person1Id: targetPersonId, // parent
                     person2Id: selectedPerson.personId // child
@@ -195,7 +193,7 @@ export default function FamilyPage() {
 
         setFormLoading(true);
         try {
-            await deletePerson(familyId, selectedPerson.personId);
+            await personsApi.deletePerson(familyId, selectedPerson.personId);
             setSelectedPerson(null);
         } catch (err) {
             console.error('Failed to delete person:', err);
@@ -221,13 +219,13 @@ export default function FamilyPage() {
         setFormLoading(true);
         try {
             if (type === 'spouse') {
-                await removeSpouse(familyId, selectedPerson.personId, relatedPersonId);
+                await personsApi.removeSpouse(familyId, selectedPerson.personId, relatedPersonId);
             } else if (type === 'parent') {
                 // selectedPerson is child, relatedPersonId is parent
-                await removeParentChild(familyId, relatedPersonId, selectedPerson.personId);
+                await personsApi.removeParentChild(familyId, relatedPersonId, selectedPerson.personId);
             } else if (type === 'child') {
                 // selectedPerson is parent, relatedPersonId is child
-                await removeParentChild(familyId, selectedPerson.personId, relatedPersonId);
+                await personsApi.removeParentChild(familyId, selectedPerson.personId, relatedPersonId);
             }
         } catch (err) {
             console.error('Failed to remove relationship:', err);
@@ -241,7 +239,7 @@ export default function FamilyPage() {
     const handlePositionChange = useCallback(async (personId: string, position: { x: number; y: number }) => {
         try {
             // Set fixed=true to indicate this position was manually set by user
-            await updatePersonPosition(familyId, personId, { ...position, fixed: true });
+            await personsApi.updatePersonPosition(familyId, personId, { ...position, fixed: true });
         } catch (err) {
             console.error('Failed to save position:', err);
         }
@@ -250,7 +248,7 @@ export default function FamilyPage() {
     // Handle ALL positions change (save all positions when any node is dragged)
     const handleAllPositionsChange = useCallback(async (positions: Map<string, { x: number; y: number }>) => {
         try {
-            await updateAllPersonPositions(familyId, positions);
+            await personsApi.updateAllPersonPositions(familyId, Object.fromEntries(positions));
         } catch (err) {
             console.error('Failed to save all positions:', err);
         }
@@ -263,8 +261,8 @@ export default function FamilyPage() {
 
         setSidebarPhotoUploading(true);
         try {
-            const photoUrl = await uploadPersonPhoto(familyId, selectedPerson.personId, file);
-            await updatePerson(familyId, selectedPerson.personId, { photoUrl } as any, user.uid);
+            const { photoUrl } = await personsApi.uploadPersonPhoto(familyId, selectedPerson.personId, file);
+            await personsApi.updatePerson(familyId, selectedPerson.personId, { photoUrl } as any);
         } catch (err: any) {
             console.error('Failed to upload photo:', err);
             alert(err.message || 'Gagal mengunggah foto');
@@ -282,8 +280,8 @@ export default function FamilyPage() {
 
         setSidebarPhotoUploading(true);
         try {
-            await deletePersonPhoto(familyId, selectedPerson.personId);
-            await updatePerson(familyId, selectedPerson.personId, { photoUrl: '' } as any, user.uid);
+            await personsApi.deletePersonPhoto(familyId, selectedPerson.personId);
+            await personsApi.updatePerson(familyId, selectedPerson.personId, { photoUrl: '' } as any);
         } catch (err) {
             console.error('Failed to delete photo:', err);
         } finally {

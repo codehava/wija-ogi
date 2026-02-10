@@ -12,8 +12,7 @@ import { useFamilyTree } from '@/hooks/useFirestore';
 import { useCanEdit } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { Person, ScriptMode, CreatePersonInput } from '@/types';
-import { updatePerson, deletePerson } from '@/lib/services/persons';
-import { uploadPersonPhoto, deletePersonPhoto } from '@/lib/services/photos';
+import { personsApi } from '@/lib/api';
 import { PersonForm } from '@/components/person/PersonForm';
 import { PersonNode } from '@/components/person/PersonNode';
 import { DualScriptDisplay } from '@/components/aksara/DualScriptDisplay';
@@ -95,7 +94,7 @@ export default function PersonDetailPage() {
 
         setFormLoading(true);
         try {
-            await updatePerson(familyId, personId, data, user.uid);
+            await personsApi.updatePerson(familyId, personId, data);
             setShowEditForm(false);
         } catch (err) {
             console.error('Failed to update person:', err);
@@ -109,7 +108,7 @@ export default function PersonDetailPage() {
 
         setFormLoading(true);
         try {
-            await deletePerson(familyId, personId);
+            await personsApi.deletePerson(familyId, personId);
             router.push(`/family/${familyId}/members`);
         } catch (err) {
             console.error('Failed to delete person:', err);
@@ -126,9 +125,9 @@ export default function PersonDetailPage() {
         setPhotoUploading(true);
         try {
             // Upload and compress photo
-            const photoUrl = await uploadPersonPhoto(familyId, personId, file);
+            const { photoUrl } = await personsApi.uploadPersonPhoto(familyId, personId, file);
             // Update person with new photo URL
-            await updatePerson(familyId, personId, { photoUrl } as any, user.uid);
+            await personsApi.updatePerson(familyId, personId, { photoUrl } as any);
         } catch (err: any) {
             console.error('Failed to upload photo:', err);
             alert(err.message || 'Gagal mengunggah foto');
@@ -147,8 +146,8 @@ export default function PersonDetailPage() {
 
         setPhotoUploading(true);
         try {
-            await deletePersonPhoto(familyId, personId);
-            await updatePerson(familyId, personId, { photoUrl: '' } as any, user.uid);
+            await personsApi.deletePersonPhoto(familyId, personId);
+            await personsApi.updatePerson(familyId, personId, { photoUrl: '' } as any);
         } catch (err) {
             console.error('Failed to delete photo:', err);
         } finally {
