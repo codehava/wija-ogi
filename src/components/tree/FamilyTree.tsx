@@ -357,7 +357,7 @@ export function FamilyTree({
 
         persons.forEach(person => {
             if (person.relationships.parentIds.length > 0) {
-                const parentKey = [...person.relationships.parentIds].sort().join('-');
+                const parentKey = [...person.relationships.parentIds].sort().join('|||');
                 if (!childrenByParentPair.has(parentKey)) {
                     childrenByParentPair.set(parentKey, []);
                 }
@@ -369,7 +369,7 @@ export function FamilyTree({
         });
 
         childrenByParentPair.forEach((childIds, parentKey) => {
-            const parentIds = parentKey.split('-');
+            const parentIds = parentKey.split('|||');
             const validParentIds = parentIds.filter(pid => positions.has(pid) && personsMap.has(pid));
             if (validParentIds.length === 0) return;
 
