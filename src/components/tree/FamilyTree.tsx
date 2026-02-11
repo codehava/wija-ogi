@@ -30,23 +30,12 @@ export interface FamilyTreeProps {
 }
 
 // Layout constants — Traditional Bugis tree: shape + name below
-const NODE_MIN_WIDTH = 100;
-const NODE_HEIGHT = 100; // Shape (60) + text below (40)
-const NODE_WIDTH = 140; // Compact for shape-based layout
+const NODE_WIDTH = 140; // Fixed width for all nodes (shapes are centered)
+const NODE_HEIGHT = 100; // For layout engine spacing calculations
 const SHAPE_SIZE = 56; // Circle/triangle diameter
 const CANVAS_PADDING = 150;
 
-// Calculate dynamic node width based on name length
-function calculateNodeWidth(displayName: string, lontaraName?: string): number {
-    const charWidth = 7;
-    const padding = 20;
-
-    const nameWidth = (displayName?.length || 8) * charWidth + padding;
-    const lontaraWidth = lontaraName ? (lontaraName.length * charWidth + padding) : 0;
-    const maxContentWidth = Math.max(nameWidth, lontaraWidth);
-
-    return Math.max(NODE_MIN_WIDTH, Math.min(200, maxContentWidth));
-}
+// Node width is fixed at NODE_WIDTH for consistent connection endpoints
 
 interface NodePosition {
     x: number;
@@ -1163,14 +1152,14 @@ export function FamilyTree({
                         const lontaraFullName = person.lontaraName
                             ? [person.lontaraName.first, person.lontaraName.middle, person.lontaraName.last].filter(Boolean).join(' ')
                             : '';
-                        const nodeWidth = calculateNodeWidth(displayName, lontaraFullName);
+                        // nodeWidth is fixed as NODE_WIDTH for consistent connection endpoints
 
                         return (
                             <div
                                 key={person.personId}
                                 className={`tree-node absolute select-none transition-transform ${isDragging ? 'z-50 scale-110 cursor-grabbing' : 'z-10 cursor-grab hover:scale-105'
                                     } ${isSelected ? 'scale-110' : ''} ${isHighlighted ? 'animate-pulse' : ''}`}
-                                style={{ left: pos.x, top: pos.y, width: nodeWidth, minHeight: NODE_HEIGHT }}
+                                style={{ left: pos.x, top: pos.y, width: NODE_WIDTH }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, person.personId)}
                             >
                                 {/* Vertical layout: Shape centered, text below */}
@@ -1215,7 +1204,7 @@ export function FamilyTree({
                                         /* Circle for male / other */
                                         <div
                                             className={`rounded-full overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-lg ${isSelected ? 'ring-3 ring-teal-400 ring-offset-2' :
-                                                    isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
+                                                isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
                                                 }`}
                                             style={{
                                                 width: SHAPE_SIZE, height: SHAPE_SIZE,
