@@ -10,8 +10,8 @@ interface NodePosition {
 // SIMPLE POSITION CALCULATION (for new persons - avoids expensive dagre)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 130;
+const NODE_WIDTH = 140;
+const NODE_HEIGHT = 100;
 
 export interface ViewportInfo {
     pan: { x: number; y: number };
@@ -86,15 +86,15 @@ export function calculateSimplePosition(
 }
 
 // Layout Constants for full dagre layout
-const SPOUSE_GAP = 40;    // Gap between spouses (was 25)
+const SPOUSE_GAP = 80;    // Gap between spouses (wide for Bugis tree style)
 
 // Dynamic spacing based on tree size
 function getLayoutSpacing(personCount: number) {
     // Scale spacing up for larger trees to reduce overlap
     const scale = Math.min(personCount / 50, 1); // 0..1 based on tree size
     return {
-        rankSep: Math.round(180 + scale * 100),   // 180–280 vertical gap between generations
-        nodeSep: Math.round(100 + scale * 80),     // 100–180 horizontal gap between clusters
+        rankSep: Math.round(220 + scale * 130),   // 220–350 vertical gap between generations
+        nodeSep: Math.round(140 + scale * 80),     // 140–220 horizontal gap between clusters
     };
 }
 

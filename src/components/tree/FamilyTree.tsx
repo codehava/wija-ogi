@@ -29,22 +29,23 @@ export interface FamilyTreeProps {
     onAllPositionsChange?: (positions: Map<string, { x: number; y: number }>) => void; // Save all positions at once
 }
 
-// Layout constants
-const NODE_MIN_WIDTH = 180;
-const NODE_MAX_WIDTH = 350;
-const NODE_HEIGHT = 130;
-const NODE_WIDTH = 220; // Default for calculations
-const CANVAS_PADDING = 150; // Padding around the tree
+// Layout constants — Traditional Bugis tree: shape + name below
+const NODE_MIN_WIDTH = 100;
+const NODE_HEIGHT = 100; // Shape (60) + text below (40)
+const NODE_WIDTH = 140; // Compact for shape-based layout
+const SHAPE_SIZE = 56; // Circle/triangle diameter
+const CANVAS_PADDING = 150;
 
 // Calculate dynamic node width based on name length
 function calculateNodeWidth(displayName: string, lontaraName?: string): number {
-    const latinChars = displayName.length;
-    const lontaraChars = lontaraName?.length || 0;
-    const maxChars = Math.max(latinChars, lontaraChars);
+    const charWidth = 7;
+    const padding = 20;
 
-    // Approx 8px per char + padding for shape (60px) + margins (40px)
-    const calculatedWidth = Math.max(maxChars * 8, 80) + 100;
-    return Math.min(Math.max(calculatedWidth, NODE_MIN_WIDTH), NODE_MAX_WIDTH);
+    const nameWidth = (displayName?.length || 8) * charWidth + padding;
+    const lontaraWidth = lontaraName ? (lontaraName.length * charWidth + padding) : 0;
+    const maxContentWidth = Math.max(nameWidth, lontaraWidth);
+
+    return Math.max(NODE_MIN_WIDTH, Math.min(200, maxContentWidth));
 }
 
 interface NodePosition {
@@ -307,11 +308,13 @@ export function FamilyTree({
 
     // Calculate connections based on current positions
     const connections = useMemo(() => {
-        const connLines: Array<{ id: string; d: string; color: string; type: 'spouse' | 'parent-child' | 'vertical-drop' }> = [];
+        const connLines: Array<{ id: string; d: string; color: string; type: 'spouse' | 'parent-child' | 'vertical-drop' | 'marriage-dot' }> = [];
         const drawnPairs = new Set<string>();
-        const coupleConnectors = new Map<string, { centerX: number; bottomY: number }>();
+        const coupleConnectors = new Map<string, { centerX: number; centerY: number; bottomY: number }>();
 
-        // First pass: Draw spouse connections and store connector points
+        const shapeCenterY = SHAPE_SIZE / 2; // Center of the shape vertically
+
+        // First pass: Draw spouse connections
         persons.forEach(person => {
             const pos1 = positions.get(person.personId);
             if (!pos1) return;
@@ -327,32 +330,38 @@ export function FamilyTree({
                 const leftPos = pos1.x < pos2.x ? pos1 : pos2;
                 const rightPos = pos1.x < pos2.x ? pos2 : pos1;
 
-                const y1 = leftPos.y + NODE_HEIGHT / 2;
-                const y2 = rightPos.y + NODE_HEIGHT / 2;
-                const x1 = leftPos.x + NODE_WIDTH;
-                const x2 = rightPos.x;
+                // Connect at the center of shapes
+                const y1 = leftPos.y + shapeCenterY;
+                const y2 = rightPos.y + shapeCenterY;
+                const x1 = leftPos.x + NODE_WIDTH / 2 + SHAPE_SIZE / 2 + 2;
+                const x2 = rightPos.x + NODE_WIDTH / 2 - SHAPE_SIZE / 2 - 2;
 
-                const gap = x2 - x1;
-                const centerX = (x1 + x2) / 2;
-                const controlOffset = Math.max(gap * 0.3, 20);
-
-                // Spouse bezier line (pink)
+                // Horizontal line between spouses (clean, straight)
                 connLines.push({
                     id: `spouse-${key}`,
-                    d: `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`,
-                    color: '#ec4899',
+                    d: `M ${x1} ${y1} L ${x2} ${y2}`,
+                    color: '#f472b6',
                     type: 'spouse'
                 });
 
-                // Store connector: center X and bottom of the couple for child connections
+                // Marriage dot at midpoint
+                const centerX = (leftPos.x + rightPos.x + NODE_WIDTH) / 2;
+                const centerY = (y1 + y2) / 2;
+                connLines.push({
+                    id: `marriage-dot-${key}`,
+                    d: `M ${centerX} ${centerY} m -4,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0`,
+                    color: '#f472b6',
+                    type: 'marriage-dot'
+                });
+
+                // Store connector for child connections
                 const coupleKey = [person.personId, spouseId].sort().join('-');
-                const bottomY = Math.max(leftPos.y, rightPos.y) + NODE_HEIGHT;
-                coupleConnectors.set(coupleKey, { centerX, bottomY });
+                const bottomY = Math.max(leftPos.y, rightPos.y) + SHAPE_SIZE + 4;
+                coupleConnectors.set(coupleKey, { centerX, centerY, bottomY });
             });
         });
 
-        // Second pass: Draw parent-child connections using BRACKET STYLE
-        // Pattern: parent → vertical drop → horizontal bar → vertical drops → children
+        // Second pass: Draw parent-child connections with smooth rounded corners
         const childrenByParentPair = new Map<string, string[]>();
 
         persons.forEach(person => {
@@ -368,6 +377,8 @@ export function FamilyTree({
             }
         });
 
+        const R = 12; // Corner radius for smooth bends
+
         childrenByParentPair.forEach((childIds, parentKey) => {
             const parentIds = parentKey.split('|||');
             const validParentIds = parentIds.filter(pid => positions.has(pid) && personsMap.has(pid));
@@ -375,7 +386,7 @@ export function FamilyTree({
 
             const firstParentPos = positions.get(validParentIds[0])!;
 
-            // Find parent drop point (where the vertical line starts)
+            // Find parent drop point
             let dropX: number;
             let dropStartY: number;
 
@@ -389,15 +400,15 @@ export function FamilyTree({
                     const parent2Pos = positions.get(validParentIds[1]);
                     if (parent2Pos) {
                         dropX = (firstParentPos.x + parent2Pos.x + NODE_WIDTH) / 2;
-                        dropStartY = Math.max(firstParentPos.y, parent2Pos.y) + NODE_HEIGHT;
+                        dropStartY = Math.max(firstParentPos.y, parent2Pos.y) + SHAPE_SIZE + 4;
                     } else {
                         dropX = firstParentPos.x + NODE_WIDTH / 2;
-                        dropStartY = firstParentPos.y + NODE_HEIGHT;
+                        dropStartY = firstParentPos.y + SHAPE_SIZE + 4;
                     }
                 }
             } else {
                 dropX = firstParentPos.x + NODE_WIDTH / 2;
-                dropStartY = firstParentPos.y + NODE_HEIGHT;
+                dropStartY = firstParentPos.y + SHAPE_SIZE + 4;
             }
 
             // Get valid children sorted left-to-right
@@ -408,46 +419,55 @@ export function FamilyTree({
 
             if (validChildren.length === 0) return;
 
-            // Calculate the horizontal bar Y position (midpoint between parent bottom and first child top)
+            // Horizontal bar Y position (midpoint between parent and closest child)
             const closestChildTop = Math.min(...validChildren.map(c => c.pos!.y));
             const barY = dropStartY + (closestChildTop - dropStartY) * 0.45;
 
-            // 1) Vertical line: parent drop point → horizontal bar
+            // 1) Vertical line: parent → horizontal bar
             connLines.push({
                 id: `parent-drop-${parentKey}`,
                 d: `M ${dropX} ${dropStartY} L ${dropX} ${barY}`,
-                color: '#57534e',
+                color: '#a8a29e',
                 type: 'vertical-drop'
             });
 
             if (validChildren.length === 1) {
-                // Single child: just a straight vertical line from bar to child
                 const child = validChildren[0];
                 const childCenterX = child.pos!.x + NODE_WIDTH / 2;
                 const childTop = child.pos!.y;
 
-                // Vertical from dropX down to barY, then to child center, then to child top
-                connLines.push({
-                    id: `child-drop-${child.id}`,
-                    d: `M ${dropX} ${barY} L ${childCenterX} ${barY} L ${childCenterX} ${childTop}`,
-                    color: '#57534e',
-                    type: 'parent-child'
-                });
+                if (Math.abs(childCenterX - dropX) < 2) {
+                    // Straight vertical line
+                    connLines.push({
+                        id: `child-drop-${child.id}`,
+                        d: `M ${dropX} ${barY} L ${childCenterX} ${childTop}`,
+                        color: '#a8a29e',
+                        type: 'parent-child'
+                    });
+                } else {
+                    // Rounded corner path: horizontal then vertical
+                    const dir = childCenterX > dropX ? 1 : -1;
+                    connLines.push({
+                        id: `child-drop-${child.id}`,
+                        d: `M ${dropX} ${barY} L ${childCenterX - dir * R} ${barY} Q ${childCenterX} ${barY}, ${childCenterX} ${barY + R} L ${childCenterX} ${childTop}`,
+                        color: '#a8a29e',
+                        type: 'parent-child'
+                    });
+                }
             } else {
-                // Multiple children: horizontal bar + vertical drops
-
-                // 2) Horizontal bar spanning from leftmost to rightmost child
+                // Multiple children: horizontal bar with rounded corners + vertical drops
                 const leftChildX = validChildren[0].pos!.x + NODE_WIDTH / 2;
                 const rightChildX = validChildren[validChildren.length - 1].pos!.x + NODE_WIDTH / 2;
 
+                // 2) Horizontal bar
                 connLines.push({
                     id: `hbar-${parentKey}`,
                     d: `M ${leftChildX} ${barY} L ${rightChildX} ${barY}`,
-                    color: '#57534e',
+                    color: '#a8a29e',
                     type: 'parent-child'
                 });
 
-                // 3) Vertical drops from horizontal bar to each child
+                // 3) Vertical drops with smooth corners
                 validChildren.forEach(child => {
                     const childCenterX = child.pos!.x + NODE_WIDTH / 2;
                     const childTop = child.pos!.y;
@@ -455,7 +475,7 @@ export function FamilyTree({
                     connLines.push({
                         id: `child-drop-${child.id}`,
                         d: `M ${childCenterX} ${barY} L ${childCenterX} ${childTop}`,
-                        color: '#57534e',
+                        color: '#a8a29e',
                         type: 'parent-child'
                     });
                 });
@@ -1105,120 +1125,41 @@ export function FamilyTree({
                         width: canvasSize.width,
                         height: canvasSize.height,
                         position: 'relative',
-                        backgroundColor: '#ffffff'
+                        backgroundColor: '#fafaf9',
+                        backgroundImage: 'radial-gradient(circle, #d6d3d1 1px, transparent 1px)',
+                        backgroundSize: '24px 24px'
                     }}
                 >
                     {/* SVG Connectors */}
                     <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height}>
-                        <defs>
-                            <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
-                                <polygon points="0 0, 6 2, 0 4" fill="#78716c" />
-                            </marker>
-                        </defs>
                         {connections.map(conn => (
                             <path
                                 key={conn.id}
                                 d={conn.d}
-                                fill="none"
-                                stroke={conn.color}
+                                fill={conn.type === 'marriage-dot' ? conn.color : 'none'}
+                                stroke={conn.type === 'marriage-dot' ? 'none' : conn.color}
                                 strokeWidth={
-                                    conn.type === 'spouse' ? 3 :
-                                        conn.type === 'vertical-drop' ? 3 : 2.5
+                                    conn.type === 'spouse' ? 2.5 :
+                                        conn.type === 'vertical-drop' ? 2 : 1.8
                                 }
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                opacity={conn.type === 'marriage-dot' ? 0.9 : 0.7}
                             />
                         ))}
                     </svg>
 
-                    {/* Person Nodes - VIRTUALIZED: only render visible */}
+                    {/* Person Nodes — Traditional Bugis style: shape + name below */}
                     {visiblePersons.map(person => {
                         const pos = positions.get(person.personId);
                         if (!pos) return null;
 
-                        // Get generation for color banding
-                        const personGen = generations.get(person.personId) || 1;
-                        const genColorIndex = Math.min(personGen - 1, GENERATION_COLORS.length - 1);
-                        const genColor = GENERATION_COLORS[genColorIndex];
-
-                        // Gender shape colors (for the icon/avatar)
-                        const genderShapeColor = person.gender === 'female' ? 'fill-pink-500 stroke-pink-600' :
-                            person.gender === 'male' ? 'fill-blue-500 stroke-blue-600' :
-                                'fill-purple-500 stroke-purple-600';
-
-                        // Build full name from components
                         const displayName = [person.firstName, person.middleName, person.lastName]
-                            .filter(Boolean).join(' ') || person.fullName || person.firstName;
+                            .filter(Boolean).join(' ') || person.fullName || person.firstName || 'N/A';
                         const isSelected = person.personId === selectedPersonId;
                         const isHighlighted = highlightedSet.has(person.personId);
                         const isDragging = draggingNode === person.personId;
-                        const shapeSize = 50;
 
-                        // Render gender shape
-                        const renderShape = () => {
-                            if (person.gender === 'female') {
-                                // Inverted Triangle for female
-                                return (
-                                    <div className="relative flex-shrink-0" style={{ width: shapeSize, height: shapeSize }}>
-                                        <svg width={shapeSize} height={shapeSize} viewBox="0 0 50 50" className="drop-shadow-md">
-                                            <defs>
-                                                <clipPath id={`triangle-clip-${person.personId}`}>
-                                                    <polygon points="25,45 5,10 45,10" />
-                                                </clipPath>
-                                            </defs>
-                                            {person.photoUrl ? (
-                                                <image
-                                                    href={person.photoUrl}
-                                                    x="0"
-                                                    y="0"
-                                                    width="50"
-                                                    height="50"
-                                                    clipPath={`url(#triangle-clip-${person.personId})`}
-                                                    preserveAspectRatio="xMidYMid slice"
-                                                />
-                                            ) : (
-                                                <polygon
-                                                    points="25,45 5,10 45,10"
-                                                    fill="#ec4899"
-                                                    stroke="#db2777"
-                                                    strokeWidth="2"
-                                                />
-                                            )}
-                                            {/* Border on top of image */}
-                                            <polygon
-                                                points="25,45 5,10 45,10"
-                                                fill="none"
-                                                stroke={person.photoUrl ? "#db2777" : "none"}
-                                                strokeWidth="2"
-                                            />
-                                        </svg>
-                                    </div>
-                                );
-                            } else {
-                                // Circle for male (and other/unknown)
-                                const bgColor = person.gender === 'male' ? 'bg-blue-500 border-blue-600' :
-                                    person.gender === 'other' ? 'bg-purple-500 border-purple-600' :
-                                        'bg-gray-500 border-gray-600';
-                                return (
-                                    <div
-                                        className={`rounded-full flex-shrink-0 border-2 overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-md ${bgColor}`}
-                                        style={{ width: shapeSize, height: shapeSize }}
-                                    >
-                                        {person.photoUrl ? (
-                                            <img
-                                                src={person.photoUrl}
-                                                alt={person.firstName}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            person.gender === 'male' ? '♂' : '●'
-                                        )}
-                                    </div>
-                                );
-                            }
-                        };
-
-                        // Calculate dynamic width for this node
                         const lontaraFullName = person.lontaraName
                             ? [person.lontaraName.first, person.lontaraName.middle, person.lontaraName.last].filter(Boolean).join(' ')
                             : '';
@@ -1227,24 +1168,87 @@ export function FamilyTree({
                         return (
                             <div
                                 key={person.personId}
-                                className={`tree-node absolute select-none transition-all ${isDragging ? 'z-50 shadow-2xl cursor-grabbing' : 'z-10 cursor-grab'} ${isSelected ? 'ring-4 ring-teal-400 ring-offset-2' : ''} ${isHighlighted ? 'ring-4 ring-amber-400 ring-offset-2 animate-pulse' : ''}`}
+                                className={`tree-node absolute select-none transition-transform ${isDragging ? 'z-50 scale-110 cursor-grabbing' : 'z-10 cursor-grab hover:scale-105'
+                                    } ${isSelected ? 'scale-110' : ''} ${isHighlighted ? 'animate-pulse' : ''}`}
                                 style={{ left: pos.x, top: pos.y, width: nodeWidth, minHeight: NODE_HEIGHT }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, person.personId)}
                             >
-                                {/* Horizontal layout: Shape on left, text on right */}
-                                <div className={`bg-gradient-to-br ${genColor} border-2 rounded-xl p-3 h-full shadow-md hover:shadow-lg transition-all flex items-center gap-3`}>
+                                {/* Vertical layout: Shape centered, text below */}
+                                <div className="flex flex-col items-center gap-1">
                                     {/* Gender Shape */}
-                                    {renderShape()}
+                                    {person.gender === 'female' ? (
+                                        /* Inverted Triangle for female */
+                                        <div className="relative" style={{ width: SHAPE_SIZE, height: SHAPE_SIZE }}>
+                                            <svg width={SHAPE_SIZE} height={SHAPE_SIZE} viewBox="0 0 56 56" className="drop-shadow-lg">
+                                                <defs>
+                                                    <clipPath id={`tri-${person.personId}`}>
+                                                        <polygon points="28,50 4,10 52,10" />
+                                                    </clipPath>
+                                                    <linearGradient id={`grad-f-${person.personId}`} x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#f9a8d4" />
+                                                        <stop offset="100%" stopColor="#ec4899" />
+                                                    </linearGradient>
+                                                </defs>
+                                                {person.photoUrl ? (
+                                                    <image
+                                                        href={person.photoUrl}
+                                                        x="0" y="0" width="56" height="56"
+                                                        clipPath={`url(#tri-${person.personId})`}
+                                                        preserveAspectRatio="xMidYMid slice"
+                                                    />
+                                                ) : (
+                                                    <polygon
+                                                        points="28,50 4,10 52,10"
+                                                        fill={`url(#grad-f-${person.personId})`}
+                                                    />
+                                                )}
+                                                <polygon
+                                                    points="28,50 4,10 52,10"
+                                                    fill="none"
+                                                    stroke={isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : '#db2777'}
+                                                    strokeWidth={isSelected || isHighlighted ? 3 : 2}
+                                                    strokeLinejoin="round"
+                                                />
+                                            </svg>
+                                        </div>
+                                    ) : (
+                                        /* Circle for male / other */
+                                        <div
+                                            className={`rounded-full overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-lg ${isSelected ? 'ring-3 ring-teal-400 ring-offset-2' :
+                                                    isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
+                                                }`}
+                                            style={{
+                                                width: SHAPE_SIZE, height: SHAPE_SIZE,
+                                                background: person.gender === 'male'
+                                                    ? 'linear-gradient(135deg, #93c5fd, #3b82f6)'
+                                                    : 'linear-gradient(135deg, #c4b5fd, #8b5cf6)',
+                                                border: `2px solid ${isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : person.gender === 'male' ? '#2563eb' : '#7c3aed'}`
+                                            }}
+                                        >
+                                            {person.photoUrl ? (
+                                                <img
+                                                    src={person.photoUrl}
+                                                    alt={person.firstName}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <span className="text-xl font-light opacity-90">
+                                                    {person.gender === 'male' ? '♂' : '●'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
 
-                                    {/* Names beside shape - full display */}
-                                    <div className="flex-1 min-w-0">
+                                    {/* Name below shape */}
+                                    <div className="text-center w-full px-1">
                                         {(scriptMode === 'latin' || scriptMode === 'both') && (
-                                            <div className={`font-semibold leading-snug text-stone-800 ${displayName.length > 30 ? 'text-xs' : displayName.length > 20 ? 'text-sm' : 'text-sm'}`}>
+                                            <div className={`font-medium leading-tight text-stone-700 ${displayName.length > 25 ? 'text-[10px]' : displayName.length > 15 ? 'text-xs' : 'text-xs'
+                                                }`}>
                                                 {displayName}
                                             </div>
                                         )}
                                         {(scriptMode === 'lontara' || scriptMode === 'both') && lontaraFullName && (
-                                            <div className={`text-teal-700 font-lontara leading-snug mt-0.5 ${lontaraFullName.length > 20 ? 'text-sm' : 'text-base'}`}>
+                                            <div className="text-teal-700 font-lontara leading-tight text-[11px] mt-0.5">
                                                 {lontaraFullName}
                                             </div>
                                         )}
