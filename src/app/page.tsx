@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/contexts/ThemeContext';
 import { useUserFamilies } from '@/hooks/useFirestore';
@@ -31,6 +31,15 @@ export default function HomePage() {
     const [error, setError] = useState('');
 
     const loading = authLoading || familiesLoading;
+
+    // Stats for landing page
+    const [stats, setStats] = useState<{ totalPersons: number; totalFamilies: number } | null>(null);
+    useEffect(() => {
+        fetch('/api/stats')
+            .then(res => res.json())
+            .then(data => setStats(data))
+            .catch(() => { });
+    }, []);
 
     // Transliterate WIJA for display
     const wijaLontara = transliterateLatin('wija').lontara;
@@ -122,10 +131,9 @@ export default function HomePage() {
                             />
                             <div>
                                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                                    WIJA
-                                    <span className="text-sm font-normal bg-white/20 px-2 py-0.5 rounded">v5.0</span>
+                                    WIJA-Ogi
                                 </h1>
-                                <p className="text-teal-200 text-sm">Warisan Jejak Keluarga</p>
+                                <p className="text-teal-200 text-sm">Warisan Jejak Keluarga Bugis</p>
                             </div>
                         </div>
 
@@ -159,7 +167,7 @@ export default function HomePage() {
                             {/* Top Branding Card */}
                             <div className="glass rounded-2xl p-8 mb-6 text-center shadow-float animate-fade-in">
                                 <h1 className="text-5xl md:text-7xl font-bold text-teal-700 tracking-tight">
-                                    WIJA
+                                    WIJA-Ogi
                                 </h1>
                                 <p className="text-3xl md:text-4xl font-lontara text-teal-600 mt-2">
                                     ᨓᨗᨍ
@@ -172,13 +180,13 @@ export default function HomePage() {
                                     {/* Left - Branding */}
                                     <div className="p-8 md:p-12 flex flex-col justify-center bg-gradient-to-br from-white/50 to-transparent">
                                         <h2 className="text-3xl md:text-4xl font-bold text-stone-800 mb-2">
-                                            WIJA
+                                            WIJA-Ogi
                                         </h2>
                                         <p className="text-2xl font-lontara text-teal-600 mb-4">
                                             ᨓᨗᨍ
                                         </p>
                                         <p className="text-xl text-stone-600 font-medium">
-                                            Warisan Jejak Keluarga
+                                            Warisan Jejak Keluarga Bugis
                                         </p>
                                         <p className="text-stone-500 mt-4 leading-relaxed">
                                             Aplikasi pohon keluarga digital dengan dukungan
@@ -221,6 +229,23 @@ export default function HomePage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Stats Banner */}
+                            {stats && stats.totalPersons > 0 && (
+                                <div className="glass rounded-xl p-4 mt-6 mb-2 text-center shadow-float animate-fade-in">
+                                    <div className="flex items-center justify-center gap-8">
+                                        <div>
+                                            <span className="text-3xl font-bold text-teal-700">{stats.totalPersons.toLocaleString()}</span>
+                                            <p className="text-sm text-stone-500 mt-1">Anggota Keluarga Terdaftar</p>
+                                        </div>
+                                        <div className="h-10 w-px bg-stone-200"></div>
+                                        <div>
+                                            <span className="text-3xl font-bold text-teal-700">{stats.totalFamilies.toLocaleString()}</span>
+                                            <p className="text-sm text-stone-500 mt-1">Pohon Keluarga</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Feature Cards Strip */}
                             <div className="grid md:grid-cols-3 gap-4 mt-6">
@@ -345,7 +370,7 @@ export default function HomePage() {
 
             {/* Footer */}
             <footer className="py-6 text-center text-stone-500 text-sm">
-                <p>WIJA v5.0 - Warisan Jejak Keluarga</p>
+                <p>WIJA-Ogi - Warisan Jejak Keluarga Bugis</p>
                 <p className="font-lontara text-teal-700 mt-1">
                     {wijaLontara} - ᨓᨑᨗᨔᨊ ᨍᨙᨍᨀ ᨀᨙᨒᨘᨕᨑᨁ
                 </p>

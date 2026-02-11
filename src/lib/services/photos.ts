@@ -82,7 +82,6 @@ export async function uploadPersonPhoto(
     personId: string,
     file: File
 ): Promise<string> {
-    console.log('[Photo Upload] Starting upload for', personId);
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -94,12 +93,9 @@ export async function uploadPersonPhoto(
         throw new Error('Ukuran foto maksimal 10MB');
     }
 
-    console.log('[Photo Upload] Compressing image...');
 
     // Compress the image
     const compressedBlob = await compressImage(file);
-
-    console.log('[Photo Upload] Compressed size:', (compressedBlob.size / 1024).toFixed(0), 'KB');
 
     // Check compressed size
     if (compressedBlob.size > MAX_FILE_SIZE) {
@@ -108,18 +104,14 @@ export async function uploadPersonPhoto(
 
     // Create storage key
     const key = getPersonPhotoKey(familyId, personId, file.name);
-    console.log('[Photo Upload] Uploading to S3 key:', key);
 
     try {
         // Convert blob to Uint8Array and upload
         const data = await blobToUint8Array(compressedBlob);
         await uploadFile(key, data, 'image/jpeg');
 
-        console.log('[Photo Upload] Upload complete, getting URL...');
-
         // Get download URL
         const downloadURL = await getFileUrl(key);
-        console.log('[Photo Upload] Success! URL:', downloadURL);
         return downloadURL;
     } catch (error: any) {
         console.error('[Photo Upload] FAILED:', error.message);

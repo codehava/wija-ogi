@@ -1,7 +1,0 @@
-{
-  "projects": {
-    "default": "wija-prod",
-    "development": "wija-project",
-    "production": "wija-prod"
-  }
-}

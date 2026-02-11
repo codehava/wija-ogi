@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { transliterateLatin } from '@/lib/transliteration/engine';
+import GedcomImport from '@/components/gedcom/GedcomImport';
 
 export default function FamilyPage() {
     const params = useParams();
@@ -54,6 +55,7 @@ export default function FamilyPage() {
     const [editingPerson, setEditingPerson] = useState<Person | null>(null);
     const [isEditingSidebar, setIsEditingSidebar] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
+    const [showGedcomImport, setShowGedcomImport] = useState(false);
 
     // Relationship form state
     const [relationType, setRelationType] = useState<'spouse' | 'parent' | 'child'>('spouse');
@@ -340,7 +342,7 @@ export default function FamilyPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Link href="/" className="flex items-center gap-3 text-teal-200 hover:text-white transition">
-                                <img src="/logo.png" alt="WIJA" className="w-10 h-10 rounded-lg bg-white/10 p-1" />
+                                <img src="/logo.png" alt="WIJA-Ogi" className="w-10 h-10 rounded-lg bg-white/10 p-1" />
                                 <span>← Kembali</span>
                             </Link>
                             <div className="h-8 w-px bg-teal-500"></div>
@@ -399,6 +401,12 @@ export default function FamilyPage() {
                                             {regenerating ? '⏳ Regenerating...' : '🔄 Regenerate Lontara'}
                                         </button>
                                     )}
+                                    <button
+                                        onClick={() => setShowGedcomImport(true)}
+                                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition flex items-center gap-1"
+                                    >
+                                        📥 Import GEDCOM
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -754,6 +762,22 @@ export default function FamilyPage() {
                     </Button>
                 </ModalFooter>
             </Modal>
+
+            {/* GEDCOM Import Modal */}
+            {showGedcomImport && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] animate-fade-in">
+                    <GedcomImport
+                        treeId={familyId}
+                        treeName={family?.displayName || family?.name}
+                        onImportComplete={(result) => {
+                            invalidatePersons(familyId);
+                            invalidateRelationships(familyId);
+                            toast.success(`Berhasil import ${result.personsCount} anggota dan ${result.relationshipsCount} hubungan!`);
+                        }}
+                        onClose={() => setShowGedcomImport(false)}
+                    />
+                </div>
+            )}
         </div>
     );
 }

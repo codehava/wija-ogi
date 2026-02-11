@@ -153,7 +153,6 @@ export function FamilyTree({
         }
 
         // First time load without saved positions - run dagre once
-        console.log('⚡ Running dagre layout for first load (', persons.length, 'persons)');
         initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships);
         return initialLayoutRef.current;
     }, []); // Empty deps - only called once on first load
@@ -216,8 +215,6 @@ export function FamilyTree({
                 containerHeight: containerRef.current?.clientHeight ?? 600
             };
 
-            console.log('📍 Viewport for new person placement:', viewport);
-
             persons.forEach(p => {
                 if (!newMap.has(p.personId)) {
                     // New person - use saved position if available, otherwise SIMPLE position (not dagre!)
@@ -229,7 +226,6 @@ export function FamilyTree({
                         // Pass viewport so new person appears in current view
                         const simplePos = calculateSimplePosition(p, newMap, personsMap, viewport);
                         newMap.set(p.personId, simplePos);
-                        console.log('⚡ Quick position for new person:', p.firstName, 'at', simplePos);
                     }
                     hasChange = true;
                 }
@@ -697,7 +693,6 @@ export function FamilyTree({
         setTimeout(async () => {
             try {
                 const newPositions = calculateTreeLayout(persons, collapsedIds, relationships);
-                console.log('Auto arrange: Updated positions for', newPositions.size, 'nodes');
 
                 // Update local state first for immediate feedback
                 setNodePositions(new Map(newPositions));
@@ -707,7 +702,6 @@ export function FamilyTree({
                 // Save ALL positions to Firestore automatically
                 if (onAllPositionsChange) {
                     await onAllPositionsChange(newPositions);
-                    console.log('✅ Auto arrange: Saved all positions to Firestore');
                 }
             } catch (error) {
                 console.error('Failed to save arranged positions:', error);
