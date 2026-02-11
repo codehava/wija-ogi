@@ -309,7 +309,7 @@ export function FamilyTree({
     const connections = useMemo(() => {
         const connLines: Array<{ id: string; d: string; color: string; type: 'spouse' | 'parent-child' | 'vertical-drop' }> = [];
         const drawnPairs = new Set<string>();
-        const coupleConnectors = new Map<string, { centerX: number; y: number }>();
+        const coupleConnectors = new Map<string, { centerX: number; bottomY: number }>();
 
         // First pass: Draw spouse connections and store connector points
         persons.forEach(person => {
@@ -324,12 +324,9 @@ export function FamilyTree({
                 const pos2 = positions.get(spouseId);
                 if (!pos2) return;
 
-                // Get actual edge points for both nodes (handle different Y positions)
                 const leftPos = pos1.x < pos2.x ? pos1 : pos2;
                 const rightPos = pos1.x < pos2.x ? pos2 : pos1;
 
-                // Calculate connection points on node edges
-                // Calculate connection points on node edges
                 const y1 = leftPos.y + NODE_HEIGHT / 2;
                 const y2 = rightPos.y + NODE_HEIGHT / 2;
                 const x1 = leftPos.x + NODE_WIDTH;
@@ -337,12 +334,9 @@ export function FamilyTree({
 
                 const gap = x2 - x1;
                 const centerX = (x1 + x2) / 2;
-                const centerY = (y1 + y2) / 2;
-
-                // Control points for smooth bezier curve
                 const controlOffset = Math.max(gap * 0.3, 20);
 
-                // Draw spouse bezier line
+                // Spouse bezier line (pink)
                 connLines.push({
                     id: `spouse-${key}`,
                     d: `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`,
@@ -350,22 +344,20 @@ export function FamilyTree({
                     type: 'spouse'
                 });
 
-                // Store center point for child connections
+                // Store connector: center X and bottom of the couple for child connections
                 const coupleKey = [person.personId, spouseId].sort().join('-');
-                coupleConnectors.set(coupleKey, { centerX, y: centerY });
+                const bottomY = Math.max(leftPos.y, rightPos.y) + NODE_HEIGHT;
+                coupleConnectors.set(coupleKey, { centerX, bottomY });
             });
         });
 
-        // Second pass: Draw parent-child connections
-        // Group children by their actual parent pairs (based on child's parentIds)
+        // Second pass: Draw parent-child connections using BRACKET STYLE
+        // Pattern: parent → vertical drop → horizontal bar → vertical drops → children
         const childrenByParentPair = new Map<string, string[]>();
 
         persons.forEach(person => {
-            // Only process if this person is a child of someone
             if (person.relationships.parentIds.length > 0) {
-                // Use the child's actual parentIds to create the key
                 const parentKey = [...person.relationships.parentIds].sort().join('-');
-
                 if (!childrenByParentPair.has(parentKey)) {
                     childrenByParentPair.set(parentKey, []);
                 }
@@ -376,29 +368,24 @@ export function FamilyTree({
             }
         });
 
-        // Draw connections for each parent group
         childrenByParentPair.forEach((childIds, parentKey) => {
             const parentIds = parentKey.split('-');
-
-            // Verify all parents exist in positions
             const validParentIds = parentIds.filter(pid => positions.has(pid) && personsMap.has(pid));
             if (validParentIds.length === 0) return;
 
             const firstParentPos = positions.get(validParentIds[0])!;
 
-            // Find connector point
+            // Find parent drop point (where the vertical line starts)
             let dropX: number;
             let dropStartY: number;
 
             if (validParentIds.length >= 2) {
-                // Has two parents (couple)
                 const coupleKey = validParentIds.slice(0, 2).sort().join('-');
                 const connector = coupleConnectors.get(coupleKey);
                 if (connector) {
                     dropX = connector.centerX;
-                    dropStartY = connector.y;
+                    dropStartY = connector.bottomY;
                 } else {
-                    // Fallback: calculate center between the two parents
                     const parent2Pos = positions.get(validParentIds[1]);
                     if (parent2Pos) {
                         dropX = (firstParentPos.x + parent2Pos.x + NODE_WIDTH) / 2;
@@ -409,12 +396,11 @@ export function FamilyTree({
                     }
                 }
             } else {
-                // Single parent
                 dropX = firstParentPos.x + NODE_WIDTH / 2;
                 dropStartY = firstParentPos.y + NODE_HEIGHT;
             }
 
-            // Get valid children positions
+            // Get valid children sorted left-to-right
             const validChildren = childIds
                 .map(id => ({ id, pos: positions.get(id) }))
                 .filter(c => c.pos !== undefined)
@@ -422,22 +408,58 @@ export function FamilyTree({
 
             if (validChildren.length === 0) return;
 
-            // For each child, draw a smooth bezier curve from parent drop point
-            validChildren.forEach(child => {
+            // Calculate the horizontal bar Y position (midpoint between parent bottom and first child top)
+            const closestChildTop = Math.min(...validChildren.map(c => c.pos!.y));
+            const barY = dropStartY + (closestChildTop - dropStartY) * 0.45;
+
+            // 1) Vertical line: parent drop point → horizontal bar
+            connLines.push({
+                id: `parent-drop-${parentKey}`,
+                d: `M ${dropX} ${dropStartY} L ${dropX} ${barY}`,
+                color: '#57534e',
+                type: 'vertical-drop'
+            });
+
+            if (validChildren.length === 1) {
+                // Single child: just a straight vertical line from bar to child
+                const child = validChildren[0];
                 const childCenterX = child.pos!.x + NODE_WIDTH / 2;
                 const childTop = child.pos!.y;
 
-                // Create smooth S-curve using cubic bezier
-                const controlY1 = dropStartY + (childTop - dropStartY) * 0.4;
-                const controlY2 = dropStartY + (childTop - dropStartY) * 0.6;
-
+                // Vertical from dropX down to barY, then to child center, then to child top
                 connLines.push({
-                    id: `child-curve-${child.id}`,
-                    d: `M ${dropX} ${dropStartY} C ${dropX} ${controlY1}, ${childCenterX} ${controlY2}, ${childCenterX} ${childTop}`,
-                    color: '#44403c',
+                    id: `child-drop-${child.id}`,
+                    d: `M ${dropX} ${barY} L ${childCenterX} ${barY} L ${childCenterX} ${childTop}`,
+                    color: '#57534e',
                     type: 'parent-child'
                 });
-            });
+            } else {
+                // Multiple children: horizontal bar + vertical drops
+
+                // 2) Horizontal bar spanning from leftmost to rightmost child
+                const leftChildX = validChildren[0].pos!.x + NODE_WIDTH / 2;
+                const rightChildX = validChildren[validChildren.length - 1].pos!.x + NODE_WIDTH / 2;
+
+                connLines.push({
+                    id: `hbar-${parentKey}`,
+                    d: `M ${leftChildX} ${barY} L ${rightChildX} ${barY}`,
+                    color: '#57534e',
+                    type: 'parent-child'
+                });
+
+                // 3) Vertical drops from horizontal bar to each child
+                validChildren.forEach(child => {
+                    const childCenterX = child.pos!.x + NODE_WIDTH / 2;
+                    const childTop = child.pos!.y;
+
+                    connLines.push({
+                        id: `child-drop-${child.id}`,
+                        d: `M ${childCenterX} ${barY} L ${childCenterX} ${childTop}`,
+                        color: '#57534e',
+                        type: 'parent-child'
+                    });
+                });
+            }
         });
 
         return connLines;
@@ -1099,28 +1121,14 @@ export function FamilyTree({
                                 d={conn.d}
                                 fill="none"
                                 stroke={conn.color}
-                                strokeWidth={conn.type === 'spouse' ? 3.5 : 2.5}
+                                strokeWidth={
+                                    conn.type === 'spouse' ? 3 :
+                                        conn.type === 'vertical-drop' ? 3 : 2.5
+                                }
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                opacity={conn.type === 'spouse' ? 1 : 0.85}
                             />
                         ))}
-                        {/* Connection dots at parent drop points */}
-                        {connections.filter(c => c.type === 'parent-child').map(conn => {
-                            // Extract the start point (M x y) from path
-                            const match = conn.d.match(/^M\s+([\d.]+)\s+([\d.]+)/);
-                            if (!match) return null;
-                            return (
-                                <circle
-                                    key={`dot-${conn.id}`}
-                                    cx={parseFloat(match[1])}
-                                    cy={parseFloat(match[2])}
-                                    r={4}
-                                    fill="#44403c"
-                                    opacity={0.7}
-                                />
-                            );
-                        })}
                     </svg>
 
                     {/* Person Nodes - VIRTUALIZED: only render visible */}
