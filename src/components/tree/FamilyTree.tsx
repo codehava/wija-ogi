@@ -29,11 +29,20 @@ export interface FamilyTreeProps {
     onAllPositionsChange?: (positions: Map<string, { x: number; y: number }>) => void; // Save all positions at once
 }
 
-// Layout constants — Traditional Bugis tree: shape + name below
-const NODE_WIDTH = 140; // Fixed width for all nodes (shapes are centered)
-const NODE_HEIGHT = 100; // For layout engine spacing calculations
-const SHAPE_SIZE = 56; // Circle/triangle diameter
+// Layout constants — adaptive based on tree size
 const CANVAS_PADDING = 150;
+
+// Adaptive sizing: smaller nodes for very large trees
+function getAdaptiveSizes(personCount: number) {
+    if (personCount > 200) return { nodeWidth: 100, nodeHeight: 80, shapeSize: 36 };
+    if (personCount > 100) return { nodeWidth: 120, nodeHeight: 90, shapeSize: 44 };
+    return { nodeWidth: 140, nodeHeight: 100, shapeSize: 56 };
+}
+
+// Default sizes (used for layout engine constants)
+const NODE_WIDTH = 140;
+const NODE_HEIGHT = 100;
+const SHAPE_SIZE = 56;
 
 // Node width is fixed at NODE_WIDTH for consistent connection endpoints
 
@@ -99,6 +108,17 @@ export function FamilyTree({
 
     // Search highlight state
     const [highlightedIds, setHighlightedIds] = useState<string[]>([]);
+
+    // Ancestry path highlight
+    const [ancestryPathIds, setAncestryPathIds] = useState<Set<string>>(new Set());
+
+    // Hover tooltip
+    const [hoveredPerson, setHoveredPerson] = useState<{ person: Person; x: number; y: number } | null>(null);
+
+    // Adaptive sizes based on tree size
+    const adaptiveSizes = useMemo(() => getAdaptiveSizes(persons.length), [persons.length]);
+    const nodeWidth = adaptiveSizes.nodeWidth;
+    const shapeSize = adaptiveSizes.shapeSize;
 
     // Focus on person (for search navigation)
     const focusOnPerson = useCallback((personId: string) => {
@@ -620,10 +640,12 @@ export function FamilyTree({
         }
 
         if (!wasDrag && draggingNode) {
-            // This was a click, not a drag - trigger person click
+            // This was a click, not a drag - trigger person click + ancestry trace
             const person = persons.find(p => p.personId === draggingNode);
             if (person) {
                 onPersonClick?.(person);
+                // Trace ancestry path from selected person to root
+                setAncestryPathIds(traceAncestryPath(person.personId));
             }
         }
 
@@ -632,10 +654,40 @@ export function FamilyTree({
         setIsPanning(false);
     }, [draggingNode, persons, onPersonClick, nodePositions, onPositionChange, onAllPositionsChange]);
 
+    // Trace ancestry path from a person up to root ancestor
+    const traceAncestryPath = useCallback((personId: string): Set<string> => {
+        const path = new Set<string>();
+        const visited = new Set<string>();
+        const queue = [personId];
+
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            if (visited.has(currentId)) continue;
+            visited.add(currentId);
+            path.add(currentId);
+
+            const person = personsMap.get(currentId);
+            if (!person) continue;
+
+            // Trace up through parents
+            person.relationships.parentIds.forEach(parentId => {
+                if (!visited.has(parentId)) {
+                    queue.push(parentId);
+                }
+            });
+        }
+
+        return path;
+    }, [personsMap]);
+
     const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
         // Don't start panning if clicking on a node, button, or control element
         if (target.closest('.tree-node') || target.tagName === 'BUTTON') return;
+
+        // Clear ancestry path when clicking on canvas
+        setAncestryPathIds(new Set());
+        setHoveredPerson(null);
 
         setIsPanning(true);
         setPanStart({
@@ -776,8 +828,8 @@ export function FamilyTree({
 
                 // Update local state first for immediate feedback
                 setNodePositions(new Map(newPositions));
-                setPan({ x: 0, y: 0 });
-                setZoom(1);
+                // Trigger auto-fit to screen after re-layout
+                setHasAutoFitted(false);
 
                 // Save ALL positions to Firestore automatically
                 if (onAllPositionsChange) {
@@ -1177,22 +1229,57 @@ export function FamilyTree({
 
                     {/* SVG Connectors */}
                     <svg className="absolute inset-0 pointer-events-none" width={canvasSize.width} height={canvasSize.height}>
-                        {connections.map(conn => (
-                            <path
-                                key={conn.id}
-                                d={conn.d}
-                                fill={conn.type === 'marriage-dot' ? conn.color : 'none'}
-                                stroke={conn.type === 'marriage-dot' ? 'none' : conn.color}
-                                strokeWidth={
-                                    conn.type === 'spouse' ? 2 :
-                                        conn.type === 'vertical-drop' ? 2 : 1.8
-                                }
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeDasharray={undefined}
-                                opacity={conn.type === 'marriage-dot' ? 0.9 : 0.65}
-                            />
-                        ))}
+                        {/* Ancestry glow filter */}
+                        {ancestryPathIds.size > 0 && (
+                            <defs>
+                                <filter id="ancestry-glow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <feMerge>
+                                        <feMergeNode in="blur" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                        )}
+                        {connections.map(conn => {
+                            // Check if this connection is part of ancestry path
+                            const isAncestryConn = ancestryPathIds.size > 0 && (
+                                conn.id.startsWith('child-curve-') || conn.id.startsWith('stem-') || conn.id.startsWith('spouse-')
+                            );
+                            const hasAncestry = ancestryPathIds.size > 0;
+                            // For parent-child lines, check if child is in path
+                            const connChildId = conn.id.replace('child-curve-', '');
+                            const isOnPath = isAncestryConn && ancestryPathIds.has(connChildId);
+                            // For stems/spouse lines, check if any connected person is on path
+                            const isOnStemPath = conn.id.startsWith('stem-') &&
+                                conn.id.replace('stem-', '').split('-').some(id => ancestryPathIds.has(id));
+                            const isOnSpousePath = conn.id.startsWith('spouse-') &&
+                                conn.id.replace('spouse-', '').split('-').some(id => ancestryPathIds.has(id));
+
+                            const highlighted = isOnPath || isOnStemPath || isOnSpousePath;
+
+                            return (
+                                <path
+                                    key={conn.id}
+                                    d={conn.d}
+                                    fill={conn.type === 'marriage-dot' ? conn.color : 'none'}
+                                    stroke={highlighted ? '#f59e0b' : conn.type === 'marriage-dot' ? 'none' : conn.color}
+                                    strokeWidth={
+                                        highlighted ? 3 :
+                                            conn.type === 'spouse' ? 2 :
+                                                conn.type === 'vertical-drop' ? 2 : 1.8
+                                    }
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    filter={highlighted ? 'url(#ancestry-glow)' : undefined}
+                                    opacity={
+                                        highlighted ? 1 :
+                                            hasAncestry ? 0.25 :
+                                                conn.type === 'marriage-dot' ? 0.9 : 0.65
+                                    }
+                                />
+                            );
+                        })}
                     </svg>
 
                     {/* Person Nodes — Traditional Bugis style: shape + name below */}
@@ -1205,27 +1292,38 @@ export function FamilyTree({
                         const isSelected = person.personId === selectedPersonId;
                         const isHighlighted = highlightedSet.has(person.personId);
                         const isDragging = draggingNode === person.personId;
+                        const isOnAncestryPath = ancestryPathIds.has(person.personId);
+                        const hasAncestryActive = ancestryPathIds.size > 0;
 
                         const lontaraFullName = person.lontaraName
                             ? [person.lontaraName.first, person.lontaraName.middle, person.lontaraName.last].filter(Boolean).join(' ')
                             : '';
-                        // nodeWidth is fixed as NODE_WIDTH for consistent connection endpoints
+
 
                         return (
                             <div
                                 key={person.personId}
-                                className={`tree-node absolute select-none transition-transform ${isDragging ? 'z-50 scale-110 cursor-grabbing' : 'z-10 cursor-grab hover:scale-105'
+                                className={`tree-node absolute select-none transition-all duration-200 ${isDragging ? 'z-50 scale-110 cursor-grabbing' : 'z-10 cursor-grab hover:scale-105'
                                     } ${isSelected ? 'scale-110' : ''} ${isHighlighted ? 'animate-pulse' : ''}`}
-                                style={{ left: pos.x, top: pos.y, width: NODE_WIDTH }}
+                                style={{
+                                    left: pos.x, top: pos.y, width: nodeWidth,
+                                    opacity: hasAncestryActive && !isOnAncestryPath ? 0.3 : 1,
+                                    filter: isOnAncestryPath ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.6))' : undefined,
+                                }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, person.personId)}
+                                onMouseEnter={(e) => {
+                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                    setHoveredPerson({ person, x: rect.right + 8, y: rect.top });
+                                }}
+                                onMouseLeave={() => setHoveredPerson(null)}
                             >
                                 {/* Vertical layout: Shape centered, text below */}
                                 <div className="flex flex-col items-center gap-1">
                                     {/* Gender Shape */}
                                     {person.gender === 'female' ? (
                                         /* Inverted Triangle for female */
-                                        <div className="relative" style={{ width: SHAPE_SIZE, height: SHAPE_SIZE }}>
-                                            <svg width={SHAPE_SIZE} height={SHAPE_SIZE} viewBox="0 0 56 56" className="drop-shadow-lg">
+                                        <div className="relative" style={{ width: shapeSize, height: shapeSize }}>
+                                            <svg width={shapeSize} height={shapeSize} viewBox="0 0 56 56" className="drop-shadow-lg">
                                                 <defs>
                                                     <clipPath id={`tri-${person.personId}`}>
                                                         <polygon points="28,50 4,10 52,10" />
@@ -1251,8 +1349,8 @@ export function FamilyTree({
                                                 <polygon
                                                     points="28,50 4,10 52,10"
                                                     fill="none"
-                                                    stroke={isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : '#db2777'}
-                                                    strokeWidth={isSelected || isHighlighted ? 3 : 2}
+                                                    stroke={isOnAncestryPath ? '#f59e0b' : isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : '#db2777'}
+                                                    strokeWidth={isOnAncestryPath || isSelected || isHighlighted ? 3 : 2}
                                                     strokeLinejoin="round"
                                                 />
                                             </svg>
@@ -1261,14 +1359,15 @@ export function FamilyTree({
                                         /* Circle for male / other */
                                         <div
                                             className={`rounded-full overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-lg ${isSelected ? 'ring-3 ring-teal-400 ring-offset-2' :
-                                                isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
+                                                isOnAncestryPath ? 'ring-3 ring-amber-400 ring-offset-2' :
+                                                    isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
                                                 }`}
                                             style={{
-                                                width: SHAPE_SIZE, height: SHAPE_SIZE,
+                                                width: shapeSize, height: shapeSize,
                                                 background: person.gender === 'male'
                                                     ? 'linear-gradient(135deg, #93c5fd, #3b82f6)'
                                                     : 'linear-gradient(135deg, #c4b5fd, #8b5cf6)',
-                                                border: `2px solid ${isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : person.gender === 'male' ? '#2563eb' : '#7c3aed'}`
+                                                border: `2px solid ${isOnAncestryPath ? '#f59e0b' : isSelected ? '#14b8a6' : isHighlighted ? '#f59e0b' : person.gender === 'male' ? '#2563eb' : '#7c3aed'}`
                                             }}
                                         >
                                             {person.photoUrl ? (
@@ -1278,7 +1377,7 @@ export function FamilyTree({
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <span className="text-xl font-light opacity-90">
+                                                <span className={`font-light opacity-90 ${shapeSize < 44 ? 'text-sm' : 'text-xl'}`}>
                                                     {person.gender === 'male' ? '♂' : '●'}
                                                 </span>
                                             )}
@@ -1312,7 +1411,40 @@ export function FamilyTree({
                     })}
                 </div>
             </div>
-        </div >
+
+            {/* Hover Tooltip */}
+            {hoveredPerson && (() => {
+                const hp = hoveredPerson;
+                const hpName = [hp.person.firstName, hp.person.middleName, hp.person.lastName].filter(Boolean).join(' ') || hp.person.fullName || 'N/A';
+                const spNames = hp.person.relationships.spouseIds
+                    .map(sid => personsMap.get(sid))
+                    .filter(Boolean)
+                    .map(s => s!.firstName || s!.fullName || '');
+                const cCount = persons.filter(p => p.relationships.parentIds.includes(hp.person.personId)).length;
+                return (
+                    <div
+                        className="fixed z-[100] bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-stone-200 p-3 pointer-events-none"
+                        style={{
+                            left: Math.min(hp.x, typeof window !== 'undefined' ? window.innerWidth - 260 : hp.x),
+                            top: Math.max(8, hp.y),
+                            maxWidth: 240,
+                        }}
+                    >
+                        <div className="font-semibold text-sm text-stone-800 leading-tight">{hpName}</div>
+                        <div className="text-xs text-stone-500 mt-0.5 flex items-center gap-1.5">
+                            <span>{hp.person.gender === 'male' ? '♂ Laki-laki' : hp.person.gender === 'female' ? '♀ Perempuan' : '● Lainnya'}</span>
+                        </div>
+                        {hp.person.biography && (
+                            <div className="text-xs text-stone-600 mt-1 line-clamp-2 italic">{hp.person.biography}</div>
+                        )}
+                        <div className="mt-1.5 pt-1.5 border-t border-stone-100 text-xs text-stone-500 space-y-0.5">
+                            {spNames.length > 0 && <div>💑 {spNames.join(', ')}</div>}
+                            {cCount > 0 && <div>👶 {cCount} anak</div>}
+                        </div>
+                    </div>
+                );
+            })()}
+        </div>
     );
 }
 
