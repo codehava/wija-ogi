@@ -13,6 +13,11 @@ import { Input, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 
+export interface RelationshipContext {
+    type: 'spouse' | 'father' | 'mother' | 'son' | 'daughter';
+    referencePerson: string; // Name of the person this relates to
+}
+
 export interface PersonFormProps {
     isOpen: boolean;
     onClose: () => void;
@@ -20,6 +25,7 @@ export interface PersonFormProps {
     initialData?: Partial<CreatePersonInput>;
     isEditing?: boolean;
     loading?: boolean;
+    relationshipContext?: RelationshipContext;
 }
 
 const GENDER_OPTIONS = [
@@ -45,13 +51,22 @@ const DEFAULT_FORM_STATE: Partial<CreatePersonInput> = {
     isRootAncestor: false
 };
 
+const CONTEXT_LABELS: Record<string, { emoji: string; label: string; color: string }> = {
+    spouse: { emoji: '💍', label: 'Menambahkan pasangan untuk', color: 'bg-pink-50 border-pink-200 text-pink-700' },
+    father: { emoji: '👨', label: 'Menambahkan ayah untuk', color: 'bg-blue-50 border-blue-200 text-blue-700' },
+    mother: { emoji: '👩', label: 'Menambahkan ibu untuk', color: 'bg-purple-50 border-purple-200 text-purple-700' },
+    son: { emoji: '👦', label: 'Menambahkan anak laki-laki untuk', color: 'bg-green-50 border-green-200 text-green-700' },
+    daughter: { emoji: '👧', label: 'Menambahkan anak perempuan untuk', color: 'bg-orange-50 border-orange-200 text-orange-700' },
+};
+
 export function PersonForm({
     isOpen,
     onClose,
     onSave,
     initialData,
     isEditing = false,
-    loading = false
+    loading = false,
+    relationshipContext
 }: PersonFormProps) {
     const [formData, setFormData] = useState<Partial<CreatePersonInput>>(DEFAULT_FORM_STATE);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -123,15 +138,27 @@ export function PersonForm({
         });
     };
 
+    const contextInfo = relationshipContext ? CONTEXT_LABELS[relationshipContext.type] : null;
+    const isGenderLocked = relationshipContext && ['father', 'mother', 'son', 'daughter'].includes(relationshipContext.type);
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={isEditing ? '✏️ Edit Anggota' : '➕ Tambah Anggota'}
+            title={isEditing ? '✏️ Edit Anggota' : relationshipContext ? `${contextInfo?.emoji} Tambah Anggota` : '➕ Tambah Anggota'}
             size="xl"
         >
             <form onSubmit={handleSubmit}>
                 <ModalBody className="space-y-6">
+                    {/* Relationship Context Banner */}
+                    {relationshipContext && contextInfo && (
+                        <div className={`p-3 rounded-lg border ${contextInfo.color}`}>
+                            <div className="text-sm font-medium">
+                                {contextInfo.emoji} {contextInfo.label} <strong>{relationshipContext.referencePerson}</strong>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Lontara Preview */}
                     <div className="p-4 bg-teal-50 rounded-xl border border-teal-200">
                         <div className="text-sm text-teal-600 mb-1">Preview Nama Lontara:</div>
@@ -169,11 +196,12 @@ export function PersonForm({
 
                     {/* Gender */}
                     <Select
-                        label="Jenis Kelamin *"
+                        label={`Jenis Kelamin *${isGenderLocked ? ' (otomatis)' : ''}`}
                         value={formData.gender || 'male'}
-                        onChange={(e) => handleChange('gender', e.target.value)}
+                        onChange={(e) => !isGenderLocked && handleChange('gender', e.target.value)}
                         options={GENDER_OPTIONS}
                         error={errors.gender}
+                        disabled={!!isGenderLocked}
                     />
 
                     {/* Birth Info */}

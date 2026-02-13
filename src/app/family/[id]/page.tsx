@@ -11,13 +11,13 @@ import Link from 'next/link';
 import { useFamilyTree, useInvalidate } from '@/hooks/useFirestore';
 import { useCanEdit, useIsAdmin, useIsSuperAdmin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
-import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput } from '@/types';
+import { Person, ScriptMode, CreatePersonInput, CreateRelationshipInput, Gender } from '@/types';
 import { personsApi, relationshipsApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { FamilyTree } from '@/components/tree/FamilyTree';
 import { SkeletonTreeView } from '@/components/ui/Skeleton';
 import { PersonCard } from '@/components/person/PersonCard';
-import { PersonForm } from '@/components/person/PersonForm';
+import { PersonForm, RelationshipContext } from '@/components/person/PersonForm';
 import { SidebarEditForm } from '@/components/person/SidebarEditForm';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +56,7 @@ export default function FamilyPage() {
     const [isEditingSidebar, setIsEditingSidebar] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const [showGedcomImport, setShowGedcomImport] = useState(false);
+    const [addMemberContext, setAddMemberContext] = useState<RelationshipContext | null>(null);
 
     // Relationship form state
     const [relationType, setRelationType] = useState<'spouse' | 'parent' | 'child'>('spouse');
@@ -66,11 +67,30 @@ export default function FamilyPage() {
     const [sidebarPhotoUploading, setSidebarPhotoUploading] = useState(false);
     const sidebarPhotoInputRef = useRef<HTMLInputElement>(null);
 
-    // Handle add person
+    // Handle add person (generic — no relationship context)
     const handleAddPerson = useCallback(() => {
         setEditingPerson(null);
+        setAddMemberContext(null);
         setShowPersonForm(true);
     }, []);
+
+    // Handle contextual quick-add (with auto-relationship)
+    const handleQuickAdd = useCallback((type: RelationshipContext['type']) => {
+        if (!selectedPerson) return;
+        const genderMap: Record<string, Gender> = {
+            father: 'male',
+            mother: 'female',
+            son: 'male',
+            daughter: 'female',
+            spouse: selectedPerson.gender === 'male' ? 'female' : 'male',
+        };
+        setEditingPerson(null);
+        setAddMemberContext({
+            type,
+            referencePerson: selectedPerson.fullName,
+        });
+        setShowPersonForm(true);
+    }, [selectedPerson]);
 
     // Handle regenerate Lontara (Super Admin only)
     const handleRegenerateLontara = useCallback(async () => {
@@ -95,7 +115,7 @@ export default function FamilyPage() {
         setIsEditingSidebar(true);
     }, []);
 
-    // Handle save person (create or update)
+    // Handle save person (create or update, with optional auto-relationship)
     const handleSavePerson = useCallback(async (data: CreatePersonInput) => {
         if (!user) return;
 
@@ -104,26 +124,60 @@ export default function FamilyPage() {
             if (editingPerson) {
                 // Update existing person
                 await personsApi.updatePerson(familyId, editingPerson.personId, data);
-                // Clear sidebar edit mode
                 setIsEditingSidebar(false);
                 setEditingPerson(null);
-                // Update selected person if it was the one being edited
                 if (selectedPerson?.personId === editingPerson.personId) {
                     setSelectedPerson(null);
                 }
             } else {
                 // Create new person
-                await personsApi.createPerson(familyId, data);
+                const newPerson = await personsApi.createPerson(familyId, data);
+
+                // Auto-create relationship if there's a context
+                if (addMemberContext && selectedPerson && newPerson?.personId) {
+                    try {
+                        const ctx = addMemberContext;
+                        if (ctx.type === 'spouse') {
+                            await relationshipsApi.createRelationship(familyId, {
+                                type: 'spouse',
+                                person1Id: selectedPerson.personId,
+                                person2Id: newPerson.personId,
+                                marriage: { status: 'married', marriageOrder: (selectedPerson.relationships.spouseIds.length || 0) + 1 }
+                            });
+                        } else if (ctx.type === 'father' || ctx.type === 'mother') {
+                            // New person is parent of selected person
+                            await relationshipsApi.createRelationship(familyId, {
+                                type: 'parent-child',
+                                person1Id: newPerson.personId,  // parent
+                                person2Id: selectedPerson.personId  // child
+                            });
+                        } else if (ctx.type === 'son' || ctx.type === 'daughter') {
+                            // New person is child of selected person
+                            await relationshipsApi.createRelationship(familyId, {
+                                type: 'parent-child',
+                                person1Id: selectedPerson.personId,  // parent
+                                person2Id: newPerson.personId  // child
+                            });
+                        }
+                        invalidateRelationships(familyId);
+                        toast.success(`Berhasil menambahkan ${data.firstName} dan menghubungkan relasi!`);
+                    } catch (relErr) {
+                        console.error('Person created but relationship failed:', relErr);
+                        toast.error('Anggota berhasil ditambahkan, tapi gagal menghubungkan relasi.');
+                    }
+                }
             }
             invalidatePersons(familyId);
             setShowPersonForm(false);
             setEditingPerson(null);
+            setAddMemberContext(null);
         } catch (err) {
             console.error('Failed to save person:', err);
+            toast.error('Gagal menyimpan anggota: ' + (err as Error).message);
         } finally {
             setFormLoading(false);
         }
-    }, [familyId, user, editingPerson, selectedPerson]);
+    }, [familyId, user, editingPerson, selectedPerson, addMemberContext]);
 
     // Handle add relationship
     const handleAddRelationship = useCallback(async () => {
@@ -488,11 +542,6 @@ export default function FamilyPage() {
                                         generation={personGenerations.get(selectedPerson.personId)}
                                         showActions={canEdit}
                                         onEdit={() => handleEditPerson(selectedPerson)}
-                                        onAddRelationship={() => {
-                                            setRelationType('spouse');
-                                            setTargetPersonId('');
-                                            setShowRelationshipModal(true);
-                                        }}
                                     />
 
                                     {/* Photo Upload Section */}
@@ -539,7 +588,6 @@ export default function FamilyPage() {
                                         <div className="text-xs text-stone-500 mb-1">💍 Pasangan</div>
                                         {selectedPerson.relationships.spouseIds.map(id => {
                                             const spouse = persons.find(p => p.personId === id);
-                                            // Find the relationship to get marriage order
                                             const rel = relationships.find(r =>
                                                 r.type === 'spouse' &&
                                                 ((r.person1Id === selectedPerson.personId && r.person2Id === id) ||
@@ -630,6 +678,69 @@ export default function FamilyPage() {
                                     )}
                             </div>
 
+                            {/* Quick-Add Relationship Buttons */}
+                            {canEdit && (
+                                <div className="mt-4 pt-4 border-t border-stone-200">
+                                    <h4 className="font-medium text-stone-700 mb-3">➕ Tambah Anggota Keluarga</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => handleQuickAdd('spouse')}
+                                            className="px-3 py-2.5 text-sm bg-pink-50 text-pink-700 rounded-lg hover:bg-pink-100 transition border border-pink-200 font-medium text-left"
+                                        >
+                                            💍 Pasangan
+                                        </button>
+                                        {selectedPerson.relationships.parentIds.length < 2 && (
+                                            <>
+                                                {!selectedPerson.relationships.parentIds.some(id => {
+                                                    const p = persons.find(pp => pp.personId === id);
+                                                    return p?.gender === 'male';
+                                                }) && (
+                                                        <button
+                                                            onClick={() => handleQuickAdd('father')}
+                                                            className="px-3 py-2.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition border border-blue-200 font-medium text-left"
+                                                        >
+                                                            👨 Ayah
+                                                        </button>
+                                                    )}
+                                                {!selectedPerson.relationships.parentIds.some(id => {
+                                                    const p = persons.find(pp => pp.personId === id);
+                                                    return p?.gender === 'female';
+                                                }) && (
+                                                        <button
+                                                            onClick={() => handleQuickAdd('mother')}
+                                                            className="px-3 py-2.5 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition border border-purple-200 font-medium text-left"
+                                                        >
+                                                            👩 Ibu
+                                                        </button>
+                                                    )}
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={() => handleQuickAdd('son')}
+                                            className="px-3 py-2.5 text-sm bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition border border-green-200 font-medium text-left"
+                                        >
+                                            👦 Anak Laki-laki
+                                        </button>
+                                        <button
+                                            onClick={() => handleQuickAdd('daughter')}
+                                            className="px-3 py-2.5 text-sm bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition border border-orange-200 font-medium text-left"
+                                        >
+                                            👧 Anak Perempuan
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setRelationType('spouse');
+                                            setTargetPersonId('');
+                                            setShowRelationshipModal(true);
+                                        }}
+                                        className="w-full mt-2 px-3 py-2 text-sm bg-stone-50 text-stone-600 rounded-lg hover:bg-stone-100 transition border border-stone-200 font-medium"
+                                    >
+                                        🔗 Hubungkan ke yang Sudah Ada
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Delete Member Button */}
                             {canEdit && (
                                 <div className="mt-4 pt-4 border-t border-stone-200">
@@ -653,10 +764,12 @@ export default function FamilyPage() {
                 onClose={() => {
                     setShowPersonForm(false);
                     setEditingPerson(null);
+                    setAddMemberContext(null);
                 }}
                 onSave={handleSavePerson}
                 loading={formLoading}
                 isEditing={!!editingPerson}
+                relationshipContext={addMemberContext || undefined}
                 initialData={editingPerson ? {
                     firstName: editingPerson.firstName,
                     lastName: editingPerson.lastName || '',
@@ -671,6 +784,14 @@ export default function FamilyPage() {
                     occupation: editingPerson.occupation,
                     biography: editingPerson.biography,
                     isRootAncestor: editingPerson.isRootAncestor
+                } : addMemberContext ? {
+                    gender: (() => {
+                        const genderMap: Record<string, Gender> = {
+                            father: 'male', mother: 'female', son: 'male', daughter: 'female',
+                            spouse: selectedPerson?.gender === 'male' ? 'female' : 'male',
+                        };
+                        return genderMap[addMemberContext.type] || 'male';
+                    })()
                 } : undefined}
             />
 
