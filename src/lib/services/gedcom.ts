@@ -31,6 +31,7 @@ interface ParsedPerson {
     deathPlace?: string;
     occupation?: string;
     notes?: string;
+    title?: string;
 }
 
 interface ParsedFamily {
@@ -161,6 +162,9 @@ function extractPerson(record: GedcomRecord): ParsedPerson {
                 break;
             case 'OCCU':
                 person.occupation = child.value;
+                break;
+            case 'TITL':
+                person.title = child.value;
                 break;
             case 'NOTE':
                 person.notes = child.value;
@@ -324,6 +328,8 @@ export async function importGedcom(
             // Lontara places
             birthPlaceLontara: parsed.birthPlace ? transliterateName({ first: parsed.birthPlace, last: '' }).first : null,
             deathPlaceLontara: parsed.deathPlace ? transliterateName({ first: parsed.deathPlace, last: '' }).first : null,
+            // Royal title from GEDCOM TITL tag
+            reignTitle: parsed.title || null,
         });
     }
 
@@ -605,6 +611,11 @@ export async function exportGedcom(treeId: string): Promise<string> {
         // Occupation
         if (person.occupation) {
             lines.push(`1 OCCU ${person.occupation}`);
+        }
+
+        // Title (royal/reign title)
+        if (person.reignTitle) {
+            lines.push(`1 TITL ${person.reignTitle}`);
         }
 
         // Notes (biography)

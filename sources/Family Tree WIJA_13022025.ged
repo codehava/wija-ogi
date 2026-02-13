@@ -3,7 +3,7 @@
 2 VERS 1.0
 2 NAME WIJA Excel to GEDCOM Converter
 1 DEST ANY
-1 DATE FEB 13 2026
+1 DATE FEB 14 2026
 1 GEDC
 2 VERS 5.5.1
 2 FORM LINEAGE-LINKED
@@ -52,6 +52,7 @@
 1 NOTE Keterangan: Arumpone ke-2
 1 NOTE Nama lengkap: Patanrang wanuwa ana'dara sinasiamanna lau'masa arumpone ma'duae (2)
 1 FAMS @F56@
+1 FAMC @F21@
 0 @I6@ INDI
 1 NAME La /Pattikkeng arung palakka/
 2 GIVN La
@@ -66,7 +67,6 @@
 1 SEX F
 1 NOTE Nama lengkap: We Kawang arung pattojo we patappari we tenrikawa ri suppa
 1 FAMS @F78@
-1 FAMC @F34@
 0 @I8@ INDI
 1 NAME La /Maraccina datue ri soppeng riaja datu soppeng maduae/
 2 GIVN La
@@ -82,7 +82,6 @@
 1 SEX F
 1 NOTE Nama lengkap: We Pattippa datu ri balusu
 1 FAMS @F109@
-1 FAMC @F78@
 0 @I10@ INDI
 1 NAME La /Bada laba datue ri soppeng riaja datu soppeng ma'tellue (3)/
 2 GIVN La
@@ -110,7 +109,6 @@
 1 SEX F
 1 NOTE Nama lengkap: We Tenriropo ana' pattolana arunge ri panci
 1 FAMS @F1314@
-1 FAMC @F56@
 0 @I15@ INDI
 1 NAME Daeng /Marowa xxx gau' puang ta' makkalempi'e arumpone maeppae mallajangge ri cina/
 2 GIVN Daeng
@@ -130,7 +128,6 @@
 1 NOTE Keterangan: Arumpone ke-5
 1 NOTE Nama lengkap: La Tenribali arung kaju la tenri sukki puang ta' mappajungge arumpone malimai
 1 FAMS @F1516@
-1 FAMC @F1314@
 0 @I17@ INDI
 1 NAME La /Temmapeo arung leworeng/
 2 GIVN La
@@ -138,7 +135,6 @@
 1 SEX M
 1 NOTE Nama lengkap: La Temmapeo  arung leworeng
 1 FAMS @F1718@
-1 FAMC @F109@
 0 @I18@ INDI
 1 NAME We /Tekkewanua datue ri soppeng riaja datu soppeng mappae/
 2 GIVN We
@@ -156,7 +152,6 @@
 1 SEX F
 1 NOTE Nama lengkap: Tanriesa arung kaju
 1 FAMS @F1920@
-1 FAMC @F1516@
 0 @I20@ INDI
 1 NAME La /Panaongi topawawoi arung pallenna/
 2 GIVN La
@@ -1696,35 +1691,31 @@
 1 SEX F
 1 NOTE Nama lengkap: Syamsuarni
 1 FAMC @F208209@
+0 @F21@ FAM
+1 CHIL @I5@
 0 @F34@ FAM
 1 HUSB @I3@
 1 WIFE @I4@
-1 CHIL @I7@
 1 CHIL @I8@
 0 @F78@ FAM
 1 HUSB @I8@
 1 WIFE @I7@
-1 CHIL @I9@
 1 CHIL @I10@
 0 @F56@ FAM
 1 HUSB @I6@
 1 WIFE @I5@
 1 CHIL @I13@
-1 CHIL @I14@
 0 @F1314@ FAM
 1 HUSB @I13@
 1 WIFE @I14@
 1 CHIL @I15@
-1 CHIL @I16@
 0 @F109@ FAM
 1 HUSB @I10@
 1 WIFE @I9@
-1 CHIL @I17@
 1 CHIL @I18@
 0 @F1516@ FAM
 1 HUSB @I16@
 1 WIFE @I15@
-1 CHIL @I19@
 1 CHIL @I20@
 1 CHIL @I21@
 1 CHIL @I23@
