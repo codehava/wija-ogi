@@ -38,9 +38,9 @@ function JunctionNodeComponent({ }: NodeProps) {
                 style={{ background: 'transparent', border: 'none', width: 1, height: 1, left: 0 }}
             />
 
-            {/* Handle: right — connects to right spouse */}
+            {/* Handle: right — sends edge to right spouse */}
             <Handle
-                type="target"
+                type="source"
                 position={Position.Right}
                 id="right"
                 style={{ background: 'transparent', border: 'none', width: 1, height: 1, right: 0 }}
