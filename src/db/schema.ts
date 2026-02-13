@@ -154,6 +154,8 @@ export const persons = pgTable('persons', {
     deathPlaceLontara: text('death_place_lontara'),
     isLiving: boolean('is_living').default(true),
     occupation: varchar('occupation', { length: 255 }),
+    title: varchar('title', { length: 50 }),             // Nobility: datu, arung, karaeng, opu, andi
+    reignTitle: varchar('reign_title', { length: 255 }),  // e.g. "Raja Bone X"
     biography: text('biography'),
 
     // Relationships (denormalized for quick access)

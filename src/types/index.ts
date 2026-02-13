@@ -16,6 +16,7 @@ export type ThemeMode = 'light' | 'dark' | 'auto';
 export type Language = 'id' | 'en';
 export type RelationshipType = 'spouse' | 'parent-child';
 export type MarriageStatus = 'married' | 'divorced' | 'widowed';
+export type NobilityTitle = 'datu' | 'arung' | 'karaeng' | 'opu' | 'andi' | 'other';
 
 // ─────────────────────────────────────────────────────────────────────────────────
 // FAMILY / TREE DOCUMENT
@@ -113,6 +114,8 @@ export interface Person {
     deathPlace?: string;
     isLiving: boolean;
     occupation?: string;
+    title?: NobilityTitle;           // Nobility title: datu, arung, karaeng, opu, andi
+    reignTitle?: string;             // e.g. "Raja Bone X", "Arung Matoa Wajo ke-15"
     biography?: string;
 
     // ══════════════════════════════════════════════════════════
@@ -345,6 +348,8 @@ export interface CreatePersonInput {
     deathPlace?: string;
     isLiving: boolean;
     occupation?: string;
+    title?: NobilityTitle;
+    reignTitle?: string;
     biography?: string;
     isRootAncestor?: boolean;
 }

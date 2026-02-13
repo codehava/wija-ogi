@@ -74,6 +74,7 @@ export function PersonNode({
     const config = genderConfig[person.gender];
     const generationText = generation > 0 ? getGenerationLabel(generation) : null;
     const shapeSize = compact ? 40 : 50;
+    const hasTitle = !!person.title;
 
     // Render gender shape (circle or triangle)
     const renderShape = () => {
@@ -120,7 +121,7 @@ export function PersonNode({
                 <div
                     className={clsx(
                         'rounded-full flex-shrink-0 border-2 overflow-hidden drop-shadow-md',
-                        colorClass
+                        hasTitle ? 'border-amber-400 ring-2 ring-amber-300' : colorClass
                     )}
                     style={{ width: shapeSize, height: shapeSize }}
                 >
@@ -161,7 +162,15 @@ export function PersonNode({
                 selected ? 'border-teal-500' : 'border-transparent'
             )}>
                 {/* Gender Shape */}
-                {renderShape()}
+                <div className="relative">
+                    {renderShape()}
+                    {/* Crown badge for nobility */}
+                    {hasTitle && (
+                        <div className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-[10px] shadow-sm border border-amber-500 z-10">
+                            👑
+                        </div>
+                    )}
+                </div>
 
                 {/* Names beside shape */}
                 <div className="flex-1 min-w-0">
@@ -189,6 +198,12 @@ export function PersonNode({
                     {/* Details */}
                     {showDetails && !compact && (
                         <div className="text-xs text-stone-500 mt-1">
+                            {/* Reign Title */}
+                            {person.reignTitle && (
+                                <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium mr-1">
+                                    👑 {person.reignTitle}
+                                </span>
+                            )}
                             {person.birthDate && (
                                 <span>
                                     {person.birthDate.split('-')[0]}

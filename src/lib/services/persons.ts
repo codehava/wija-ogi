@@ -46,6 +46,8 @@ function dbToPerson(row: typeof persons.$inferSelect): Person {
         deathPlace: row.deathPlace ?? undefined,
         isLiving: row.isLiving ?? true,
         occupation: row.occupation ?? undefined,
+        title: (row.title as Person['title']) ?? undefined,
+        reignTitle: row.reignTitle ?? undefined,
         biography: row.biography ?? undefined,
         relationships: {
             spouseIds: (row.spouseIds as string[]) ?? [],
@@ -109,6 +111,8 @@ export async function createPerson(
             deathPlace: input.deathPlace || null,
             isLiving: input.isLiving ?? true,
             occupation: input.occupation || null,
+            title: input.title || null,
+            reignTitle: input.reignTitle || null,
             biography: input.biography || null,
             isRootAncestor: input.isRootAncestor || false,
             spouseIds: [],
@@ -271,6 +275,8 @@ export async function updatePerson(
     if (updates.deathPlace !== undefined) updateData.deathPlace = updates.deathPlace || null;
     if (updates.isLiving !== undefined) updateData.isLiving = updates.isLiving;
     if (updates.occupation !== undefined) updateData.occupation = updates.occupation || null;
+    if (updates.title !== undefined) updateData.title = updates.title || null;
+    if (updates.reignTitle !== undefined) updateData.reignTitle = updates.reignTitle || null;
     if (updates.biography !== undefined) updateData.biography = updates.biography || null;
     if (updates.isRootAncestor !== undefined) updateData.isRootAncestor = updates.isRootAncestor;
 

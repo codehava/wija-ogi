@@ -134,6 +134,27 @@ export function PersonCard({
                         </div>
                     )}
 
+                    {/* Nobility Title */}
+                    {(person.title || person.reignTitle) && (
+                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <div className="text-stone-500 text-xs mb-1">👑 Gelar Kebangsawanan</div>
+                            {person.title && (
+                                <div className="font-medium text-amber-700 text-sm">
+                                    {person.title === 'datu' ? '🏛️ Datu' :
+                                        person.title === 'arung' ? '⚔️ Arung' :
+                                            person.title === 'karaeng' ? '🛡️ Karaeng' :
+                                                person.title === 'opu' ? '🎖️ Opu' :
+                                                    person.title === 'andi' ? '✨ Andi' : '📜 Lainnya'}
+                                </div>
+                            )}
+                            {person.reignTitle && (
+                                <div className="font-semibold text-amber-800 text-sm mt-0.5">
+                                    {person.reignTitle}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Relationships Summary */}
                     <div className="pt-4 border-t border-stone-200">
                         <div className="text-stone-500 text-xs mb-2">Hubungan</div>
