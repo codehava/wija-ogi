@@ -450,7 +450,8 @@ export function FamilyTree({
             });
         });
 
-        // Second pass: Parent-child connections (straight lines)
+        // Second pass: Parent-child connections using orthogonal T-junction routing
+        // Pattern: vertical stem → horizontal distribution bar → vertical drops to children
         const childrenByParentPair = new Map<string, string[]>();
 
         persons.forEach(person => {
@@ -498,32 +499,74 @@ export function FamilyTree({
                 dropY = getShapeBottom(p1, validParentIds[0]);
             }
 
-            // Draw smooth Bezier curve from parent drop to each child's shape top
-            childIds.forEach(childId => {
-                const childPos = positions.get(childId);
-                if (!childPos) return;
+            // Get valid children positions
+            const validChildren = childIds
+                .map(cid => ({ id: cid, pos: positions.get(cid) }))
+                .filter((c): c is { id: string; pos: { x: number; y: number } } => !!c.pos);
 
-                const childCenterX = childPos.x + NODE_WIDTH / 2;
-                const childTopY = getShapeTop(childPos, childId);
+            if (validChildren.length === 0) return;
 
-                // Smooth Bezier: goes straight down from parent, then curves gently into child
-                const dy = Math.abs(childTopY - dropY);
-                const dx = Math.abs(childCenterX - dropX);
+            // Calculate the midpoint Y between parent drop and children top
+            const childTopYs = validChildren.map(c => getShapeTop(c.pos, c.id));
+            const minChildTopY = Math.min(...childTopYs);
+            const barY = dropY + (minChildTopY - dropY) / 2; // Horizontal bar halfway
 
-                // Control point 1: straight down from parent (vertical start)
-                const cp1x = dropX;
-                const cp1y = dropY + dy * 0.6;
-                // Control point 2: above child, easing in horizontally 
-                const cp2x = childCenterX;
-                const cp2y = dropY + dy * 0.4;
+            // 1. Vertical stem: from parent drop point down to bar
+            connLines.push({
+                id: `stem-down-${parentKey}`,
+                d: `M ${dropX} ${dropY} L ${dropX} ${barY}`,
+                color: COLOR_PARENT_CHILD,
+                type: 'vertical-drop'
+            });
 
+            if (validChildren.length === 1) {
+                // Single child: straight vertical line from bar to child
+                const child = validChildren[0];
+                const childCenterX = child.pos.x + NODE_WIDTH / 2;
+                const childTopY = getShapeTop(child.pos, child.id);
+
+                // Horizontal segment if not aligned
+                if (Math.abs(childCenterX - dropX) > 2) {
+                    connLines.push({
+                        id: `bar-single-${child.id}`,
+                        d: `M ${dropX} ${barY} L ${childCenterX} ${barY}`,
+                        color: COLOR_PARENT_CHILD,
+                        type: 'parent-child'
+                    });
+                }
+                // Vertical drop to child
                 connLines.push({
-                    id: `child-curve-${childId}`,
-                    d: `M ${dropX} ${dropY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${childCenterX} ${childTopY}`,
+                    id: `drop-${child.id}`,
+                    d: `M ${childCenterX} ${barY} L ${childCenterX} ${childTopY}`,
                     color: COLOR_PARENT_CHILD,
                     type: 'parent-child'
                 });
-            });
+            } else {
+                // Multiple children: horizontal distribution bar + vertical drops
+                const childXPositions = validChildren.map(c => c.pos.x + NODE_WIDTH / 2).sort((a, b) => a - b);
+                const barLeft = Math.min(childXPositions[0], dropX);
+                const barRight = Math.max(childXPositions[childXPositions.length - 1], dropX);
+
+                // 2. Horizontal distribution bar spanning all children
+                connLines.push({
+                    id: `hbar-${parentKey}`,
+                    d: `M ${barLeft} ${barY} L ${barRight} ${barY}`,
+                    color: COLOR_PARENT_CHILD,
+                    type: 'parent-child'
+                });
+
+                // 3. Vertical drops from bar to each child
+                validChildren.forEach(child => {
+                    const childCenterX = child.pos.x + NODE_WIDTH / 2;
+                    const childTopY = getShapeTop(child.pos, child.id);
+                    connLines.push({
+                        id: `drop-${child.id}`,
+                        d: `M ${childCenterX} ${barY} L ${childCenterX} ${childTopY}`,
+                        color: COLOR_PARENT_CHILD,
+                        type: 'parent-child'
+                    });
+                });
+            }
         });
 
         return connLines;
