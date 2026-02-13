@@ -10,17 +10,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
  */
 function JunctionNodeComponent({ }: NodeProps) {
     return (
-        <div style={{ width: 8, height: 8, position: 'relative' }}>
-            {/* Small dot to show the junction point */}
-            <div
-                style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: '#ec4899',
-                    opacity: 0.6,
-                }}
-            />
+        <div style={{ width: 1, height: 1, position: 'relative' }}>
 
             {/* Handle: top — receives the spouse connector line */}
             <Handle

@@ -247,8 +247,8 @@ function FamilyTreeInner({
 
                 // Create junction node at midpoint, at the shape center height
                 const junctionId = `junction-${coupleKey}`;
-                const midX = (leftPos.x + rightPos.x + NODE_WIDTH) / 2 - 4; // center, offset by half junction width
-                const midY = leftPos.y + currentAdaptiveSizes.shapeSize / 2 - 4; // at shape center height
+                const midX = (leftPos.x + rightPos.x + NODE_WIDTH) / 2; // center between spouses
+                const midY = leftPos.y + currentAdaptiveSizes.shapeSize / 2; // at shape center height
 
                 rfNodes.push({
                     id: junctionId,
