@@ -557,62 +557,105 @@ function FamilyTreeInner({
     }, [persons, collapsedIds, relationships, familyId, onAllPositionsChange, buildNodesAndEdges,
         selectedPersonId, highlightedSet, ancestryPathIds, scriptMode, adaptiveSizes, setNodes, setEdges, reactFlowInstance]);
 
-    // PDF Export (WYSIWYG — captures the React Flow canvas exactly as displayed)
+    // PDF Export (WYSIWYG — hi-res capture by expanding container to full tree size)
     const handleExportPDF = useCallback(async () => {
         if (isExporting || persons.length === 0) return;
         setIsExporting(true);
-        toast('📸 Mempersiapkan PDF...', { duration: 2000 });
+        toast('📸 Mempersiapkan PDF hi-res...', { duration: 3000 });
 
         try {
-            // Find the React Flow viewport element inside our container
             const container = reactFlowRef.current;
             if (!container) throw new Error('React Flow container not found');
 
-            // Temporarily hide UI overlays for a clean capture
+            // Save original state
+            const prevViewport = reactFlowInstance.getViewport();
+            const prevWidth = container.style.width;
+            const prevHeight = container.style.height;
+            const prevPosition = container.style.position;
+            const prevOverflow = container.style.overflow;
+
+            // Calculate full tree bounds from node positions
+            const posMap = positionsRef.current;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            posMap.forEach(pos => {
+                minX = Math.min(minX, pos.x);
+                minY = Math.min(minY, pos.y);
+                maxX = Math.max(maxX, pos.x + NODE_WIDTH + 40); // extra for text overflow
+                maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 60); // extra for labels
+            });
+            const padding = 60;
+            minX -= padding; minY -= padding;
+            maxX += padding; maxY += padding;
+
+            const treeWidth = maxX - minX;
+            const treeHeight = maxY - minY;
+
+            // Choose a zoom that keeps nodes readable but image not too huge
+            // For large trees (200+), use 0.5; for small trees, use 1.0
+            const exportZoom = persons.length > 150 ? 0.5 : persons.length > 50 ? 0.7 : 1.0;
+            const canvasWidth = Math.ceil(treeWidth * exportZoom);
+            const canvasHeight = Math.ceil(treeHeight * exportZoom);
+
+            // Temporarily expand container to full tree size
+            container.style.width = `${canvasWidth}px`;
+            container.style.height = `${canvasHeight}px`;
+            container.style.position = 'absolute';
+            container.style.overflow = 'hidden';
+
+            // Set viewport so entire tree is visible at our chosen zoom
+            reactFlowInstance.setViewport({
+                x: -minX * exportZoom,
+                y: -minY * exportZoom,
+                zoom: exportZoom,
+            });
+
+            // Wait for React Flow to re-render at new size
+            await new Promise(r => setTimeout(r, 500));
+
+            // Hide UI overlays for clean capture
             const overlays = container.querySelectorAll<HTMLElement>(
                 '.react-flow__controls, .react-flow__minimap, .react-flow__background, .react-flow__attribution'
             );
             overlays.forEach(el => el.style.display = 'none');
 
-            // Also hide our custom control panels
-            const controlPanels = container.querySelectorAll<HTMLElement>('.absolute.z-10, .controls-panel');
+            const controlPanels = container.querySelectorAll<HTMLElement>('.absolute.z-10');
             const hiddenPanels: HTMLElement[] = [];
             controlPanels.forEach(el => {
-                if (el.closest('.react-flow__renderer')) return; // skip internal elements
+                if (el.closest('.react-flow__renderer')) return;
                 hiddenPanels.push(el);
                 el.style.display = 'none';
             });
 
-            // Fit view to show all nodes before capture
-            const prevViewport = reactFlowInstance.getViewport();
-            reactFlowInstance.fitView({ padding: 0.08 });
-            await new Promise(r => setTimeout(r, 300)); // wait for animation
-
-            // Capture the viewport as high-quality PNG
+            // Capture the full tree as hi-res PNG
             const rfViewport = container.querySelector<HTMLElement>('.react-flow__renderer')
-                || container.querySelector<HTMLElement>('.react-flow__viewport')?.parentElement
                 || container;
 
             const dataUrl = await toPng(rfViewport, {
                 cacheBust: true,
                 pixelRatio: 2,
+                width: canvasWidth,
+                height: canvasHeight,
                 backgroundColor: '#fafaf9',
                 filter: (node: HTMLElement) => {
-                    // Exclude minimap, controls, background dots, attribution
                     const cls = node.className?.toString?.() || '';
                     if (cls.includes('react-flow__controls')) return false;
                     if (cls.includes('react-flow__minimap')) return false;
                     if (cls.includes('react-flow__attribution')) return false;
+                    if (cls.includes('react-flow__background')) return false;
                     return true;
                 },
             });
 
-            // Restore overlays and viewport
+            // Restore everything immediately
             overlays.forEach(el => el.style.display = '');
             hiddenPanels.forEach(el => el.style.display = '');
+            container.style.width = prevWidth;
+            container.style.height = prevHeight;
+            container.style.position = prevPosition;
+            container.style.overflow = prevOverflow;
             reactFlowInstance.setViewport(prevViewport);
 
-            // Get image dimensions for PDF layout
+            // Build PDF from the hi-res image
             const img = new Image();
             await new Promise<void>((resolve, reject) => {
                 img.onload = () => resolve();
@@ -624,7 +667,6 @@ function FamilyTreeInner({
             const imgHeight = img.naturalHeight;
             const aspectRatio = imgWidth / imgHeight;
 
-            // PDF dimensions
             let pdfWidth: number, pdfHeight: number;
             if (aspectRatio > 1.4) { pdfWidth = 297; pdfHeight = 210; }
             else { pdfWidth = 210; pdfHeight = 297; }
@@ -670,6 +712,13 @@ function FamilyTreeInner({
         } catch (error) {
             console.error('PDF export error:', error);
             toast.error('Gagal mengexport PDF. Silakan coba lagi.');
+            // Attempt to restore on error
+            if (reactFlowRef.current) {
+                reactFlowRef.current.style.width = '';
+                reactFlowRef.current.style.height = '';
+                reactFlowRef.current.style.position = '';
+                reactFlowRef.current.style.overflow = '';
+            }
         } finally {
             setIsExporting(false);
         }
