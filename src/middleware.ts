@@ -22,8 +22,22 @@ export function middleware(request: NextRequest) {
 
         // Server-side requests (no origin/referer) are allowed
         if (origin || referer) {
-            const requestOrigin = origin || (referer ? new URL(referer).origin : null);
-            const expectedOrigin = `${request.nextUrl.protocol}//${host}`;
+            let requestOrigin: string | null = null;
+            try {
+                if (origin) {
+                    requestOrigin = new URL(origin).origin;
+                } else if (referer) {
+                    requestOrigin = new URL(referer).origin;
+                }
+            } catch {
+                // malformed URL — block it
+                return NextResponse.json(
+                    { error: 'Forbidden: Invalid origin' },
+                    { status: 403 }
+                );
+            }
+
+            const expectedOrigin = request.nextUrl.origin;
 
             if (requestOrigin && requestOrigin !== expectedOrigin) {
                 return NextResponse.json(

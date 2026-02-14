@@ -22,24 +22,29 @@ export const LanguageSchema = z.enum(['id', 'en']);
 // PERSON SCHEMAS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Validates date strings in YYYY-MM-DD format */
+/** Validates date strings in YYYY-MM-DD format, or empty string (treated as undefined) */
 const DateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD');
+const OptionalDateSchema = DateStringSchema.or(z.literal('')).transform(v => v || undefined).optional();
+
+/** Allow empty strings to become undefined for optional text fields */
+const OptionalStringSchema = (max: number) =>
+    z.string().max(max).trim().transform(v => v || undefined).optional();
 
 export const CreatePersonSchema = z.object({
     firstName: z.string().min(1, 'First name is required').max(100).trim(),
-    middleName: z.string().max(100).trim().optional(),
-    lastName: z.string().min(1, 'Last name is required').max(100).trim(),
+    middleName: OptionalStringSchema(100),
+    lastName: z.string().max(100).trim().default(''),
     gender: GenderSchema,
-    birthDate: DateStringSchema.optional(),
-    birthPlace: z.string().max(200).trim().optional(),
-    birthOrder: z.number().int().min(1).max(50).optional(),
-    deathDate: DateStringSchema.optional(),
-    deathPlace: z.string().max(200).trim().optional(),
+    birthDate: OptionalDateSchema,
+    birthPlace: OptionalStringSchema(200),
+    birthOrder: z.number().int().min(1).max(50).optional().nullable().transform(v => v ?? undefined),
+    deathDate: OptionalDateSchema,
+    deathPlace: OptionalStringSchema(200),
     isLiving: z.boolean().default(true),
-    occupation: z.string().max(200).trim().optional(),
-    title: NobilityTitleSchema.optional(),
-    reignTitle: z.string().max(200).trim().optional(),
-    biography: z.string().max(5000).trim().optional(),
+    occupation: OptionalStringSchema(200),
+    title: NobilityTitleSchema.or(z.literal('')).transform(v => v || undefined).optional(),
+    reignTitle: OptionalStringSchema(200),
+    biography: z.string().max(5000).trim().optional().transform(v => v || undefined),
     isRootAncestor: z.boolean().optional(),
 });
 
