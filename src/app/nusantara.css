@@ -38,6 +38,7 @@
     /* Override default variables */
     --bg-primary: var(--nusantara-bg-primary);
     --bg-secondary: var(--nusantara-bg-secondary);
+    --bg-tertiary: var(--nusantara-bg-elevated);
     --text-primary: var(--nusantara-text-primary);
     --text-secondary: var(--nusantara-text-secondary);
     --text-muted: var(--nusantara-text-muted);
@@ -178,39 +179,98 @@
    ───────────────────────────────────────────────────────────────────────────────── */
 
 [data-theme="nusantara"] .text-stone-800 {
-    color: var(--nusantara-text-primary);
+    color: var(--nusantara-text-primary) !important;
 }
 
 [data-theme="nusantara"] .text-stone-700 {
-    color: #c8d1e0;
+    color: #c8d1e0 !important;
 }
 
 [data-theme="nusantara"] .text-stone-600 {
-    color: var(--nusantara-text-secondary);
+    color: var(--nusantara-text-secondary) !important;
 }
 
 [data-theme="nusantara"] .text-stone-500 {
-    color: var(--nusantara-text-muted);
+    color: var(--nusantara-text-muted) !important;
+}
+
+[data-theme="nusantara"] .text-stone-400 {
+    color: var(--nusantara-text-muted) !important;
+}
+
+/* Border color overrides */
+[data-theme="nusantara"] .border-stone-200,
+[data-theme="nusantara"] .border-stone-300 {
+    border-color: var(--nusantara-border) !important;
+}
+
+/* Teal text in dark theme stays visible */
+[data-theme="nusantara"] .text-teal-700 {
+    color: var(--nusantara-accent-teal) !important;
+}
+
+[data-theme="nusantara"] .text-teal-600 {
+    color: rgba(45, 212, 191, 0.9) !important;
+}
+
+[data-theme="nusantara"] .text-teal-200 {
+    color: rgba(45, 212, 191, 0.7) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────
    BACKGROUND OVERRIDES — Tailwind class overrides
+   Override ALL light-colored Tailwind backgrounds used across pages
    ───────────────────────────────────────────────────────────────────────────────── */
 
-[data-theme="nusantara"] .bg-gradient-to-br.from-stone-100 {
+/* Page-level gradient backgrounds (used in page containers) */
+[data-theme="nusantara"] .bg-gradient-to-br {
     background: linear-gradient(135deg, #0c1222 0%, #0f1f2e 50%, #0c1a25 100%) !important;
 }
 
-/* White-based backgrounds → Nusantara dark */
-[data-theme="nusantara"] .bg-white.rounded-xl,
-[data-theme="nusantara"] .bg-white.rounded-lg {
-    background-color: var(--nusantara-bg-card);
-    border: 1px solid var(--nusantara-border);
+/* Specific gradient utility classes used on pages */
+[data-theme="nusantara"] .from-slate-100,
+[data-theme="nusantara"] .from-stone-100 {
+    --tw-gradient-from: #0c1222 !important;
 }
 
-/* Stone-50 bg → elevated dark */
+[data-theme="nusantara"] .via-teal-50 {
+    --tw-gradient-via: #0f1f2e !important;
+}
+
+[data-theme="nusantara"] .to-cyan-50 {
+    --tw-gradient-to: #0c1a25 !important;
+}
+
+/* White/light backgrounds → dark card */
+[data-theme="nusantara"] .bg-white {
+    background-color: var(--nusantara-bg-card) !important;
+}
+
+[data-theme="nusantara"] .bg-white\/60,
+[data-theme="nusantara"] [class*="bg-white/"] {
+    background-color: rgba(19, 28, 49, 0.8) !important;
+}
+
+[data-theme="nusantara"] .from-white\/50 {
+    --tw-gradient-from: rgba(19, 28, 49, 0.5) !important;
+}
+
+/* Stone backgrounds → dark elevated */
+[data-theme="nusantara"] .bg-stone-50 {
+    background-color: var(--nusantara-bg-elevated) !important;
+}
+
 [data-theme="nusantara"] .bg-stone-100 {
-    background-color: rgba(25, 36, 62, 0.5);
+    background-color: rgba(25, 36, 62, 0.5) !important;
+}
+
+[data-theme="nusantara"] .bg-stone-200 {
+    background-color: rgba(25, 36, 62, 0.7) !important;
+}
+
+/* Slate backgrounds */
+[data-theme="nusantara"] .bg-slate-100 {
+    background-color: rgba(19, 28, 49, 0.6) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────
