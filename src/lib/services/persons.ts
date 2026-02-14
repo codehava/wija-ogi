@@ -325,26 +325,40 @@ export async function updatePersonPosition(
 }
 
 /**
- * Update ALL person positions in batch
+ * P5 FIX: Update ALL person positions in batch using a single SQL statement
+ * Uses CASE/WHEN for bulk update instead of N separate UPDATE queries
  */
 export async function updateAllPersonPositions(
     familyId: string,
     positions: Map<string, { x: number; y: number }>
 ): Promise<void> {
-    // Use a transaction for batch updates
-    await db.transaction(async (tx) => {
-        for (const [personId, position] of positions) {
-            await tx
-                .update(persons)
-                .set({
-                    positionX: position.x,
-                    positionY: position.y,
-                    positionFixed: true,
-                    updatedAt: new Date(),
-                })
-                .where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));
-        }
-    });
+    if (positions.size === 0) return;
+
+    const CHUNK_SIZE = 500;
+    const entries = Array.from(positions.entries());
+
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+        const chunk = entries.slice(i, i + CHUNK_SIZE);
+        const ids = chunk.map(([id]) => id);
+
+        // Build CASE/WHEN expressions for positionX and positionY
+        const xCases = chunk.map(([id, pos]) =>
+            sql`WHEN id = ${id} THEN ${pos.x}`
+        );
+        const yCases = chunk.map(([id, pos]) =>
+            sql`WHEN id = ${id} THEN ${pos.y}`
+        );
+
+        await db.execute(sql`
+            UPDATE persons SET
+                position_x = CASE ${sql.join(xCases, sql` `)} ELSE position_x END,
+                position_y = CASE ${sql.join(yCases, sql` `)} ELSE position_y END,
+                position_fixed = true,
+                updated_at = NOW()
+            WHERE tree_id = ${familyId}
+                AND id IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})
+        `);
+    }
 }
 
 /**
@@ -424,7 +438,8 @@ export async function setAsRootAncestor(
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Delete a person and clean up relationships
+ * P6 FIX: Delete a person and clean up relationships using targeted SQL
+ * Uses array_remove instead of fetching all rows and filtering in JS
  */
 export async function deletePerson(
     familyId: string,
@@ -434,35 +449,22 @@ export async function deletePerson(
     if (!person) return;
 
     await db.transaction(async (tx) => {
-        // Get all persons in this tree to clean up denormalized relationship arrays
-        const allRows = await tx
-            .select()
-            .from(persons)
-            .where(eq(persons.treeId, familyId));
-
-        for (const row of allRows) {
-            const spIds = (row.spouseIds as string[]) ?? [];
-            const paIds = (row.parentIds as string[]) ?? [];
-            const chIds = (row.childIds as string[]) ?? [];
-            const siIds = (row.siblingIds as string[]) ?? [];
-
-            if (
-                spIds.includes(personId) ||
-                paIds.includes(personId) ||
-                chIds.includes(personId) ||
-                siIds.includes(personId)
-            ) {
-                await tx
-                    .update(persons)
-                    .set({
-                        spouseIds: spIds.filter((id) => id !== personId),
-                        parentIds: paIds.filter((id) => id !== personId),
-                        childIds: chIds.filter((id) => id !== personId),
-                        siblingIds: siIds.filter((id) => id !== personId),
-                    })
-                    .where(eq(persons.id, row.id));
-            }
-        }
+        // P6 FIX: Use SQL array_remove to clean up denormalized arrays in a single query
+        // instead of fetching all rows and filtering in JS
+        await tx.execute(sql`
+            UPDATE persons SET
+                spouse_ids = array_remove(spouse_ids, ${personId}),
+                parent_ids = array_remove(parent_ids, ${personId}),
+                child_ids = array_remove(child_ids, ${personId}),
+                sibling_ids = array_remove(sibling_ids, ${personId})
+            WHERE tree_id = ${familyId}
+                AND (
+                    ${personId} = ANY(spouse_ids) OR
+                    ${personId} = ANY(parent_ids) OR
+                    ${personId} = ANY(child_ids) OR
+                    ${personId} = ANY(sibling_ids)
+                )
+        `);
 
         // Delete the person
         await tx.delete(persons).where(and(eq(persons.treeId, familyId), eq(persons.id, personId)));

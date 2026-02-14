@@ -2,11 +2,17 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sql } from 'drizzle-orm';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
 
 export async function GET() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const dbUrl = process.env.DATABASE_URL;
 
     // Check if DATABASE_URL is set (mask credentials)

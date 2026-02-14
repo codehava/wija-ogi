@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getUserFamilies, createFamily } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
+import { CreateFamilySchema, validateInput } from '@/lib/validation';
 import type { CreateFamilyInput } from '@/types';
 
 export async function GET() {
@@ -14,9 +16,8 @@ export async function GET() {
         }
         const families = await getUserFamilies(session.user.id);
         return NextResponse.json(families);
-    } catch (error: any) {
-        console.error('[API] GET /api/families error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to load families');
     }
 }
 
@@ -26,11 +27,14 @@ export async function POST(request: NextRequest) {
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        const input: CreateFamilyInput = await request.json();
-        const family = await createFamily(input, session.user.id);
+        const raw = await request.json();
+        const validated = validateInput(CreateFamilySchema, raw);
+        if (!validated.success) {
+            return NextResponse.json({ error: validated.error }, { status: 400 });
+        }
+        const family = await createFamily(validated.data as CreateFamilyInput, session.user.id);
         return NextResponse.json(family, { status: 201 });
-    } catch (error: any) {
-        console.error('[API] POST /api/families error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to create family');
     }
 }

@@ -142,6 +142,13 @@ export function calculateTreeLayout(
     const visiblePersons = persons.filter(p => visibleIds.has(p.personId));
     const config = LAYOUT_CONFIG;
 
+    // P3 FIX: Pre-build relationship lookup map — O(1) instead of O(n) per lookup
+    const relMap = new Map<string, Relationship>();
+    relationships.forEach(r => {
+        const key = [r.person1Id, r.person2Id].sort().join('|');
+        relMap.set(key, r);
+    });
+
     // --- 2. Cluster Spouses ---
     const personToCluster = new Map<string, string>();
     const clusters = new Map<string, { members: Person[], w: number, h: number }>();
@@ -176,14 +183,10 @@ export function calculateTreeLayout(
             }
         }
 
-        // Build a map of spouse relationships for marriageOrder lookup
+        // P3 FIX: Use pre-built map instead of relationships.find()
         const getMarriageOrder = (personA: Person, personB: Person): number => {
-            // Find the spouse relationship between these two
-            const rel = relationships.find(r =>
-                r.type === 'spouse' &&
-                ((r.person1Id === personA.personId && r.person2Id === personB.personId) ||
-                    (r.person1Id === personB.personId && r.person2Id === personA.personId))
-            );
+            const key = [personA.personId, personB.personId].sort().join('|');
+            const rel = relMap.get(key);
             return rel?.marriage?.marriageOrder ?? 1;
         };
 

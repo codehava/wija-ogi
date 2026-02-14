@@ -7,9 +7,16 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { persons, relationships } from '@/db/schema';
 import { eq, and, or } from 'drizzle-orm';
+import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse, applyRateLimit } from '@/lib/apiHelpers';
+import { RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit: 3 per minute for sensitive operations
+        const rateLimited = applyRateLimit(request, RATE_LIMITS.SENSITIVE);
+        if (rateLimited) return rateLimited;
+
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,6 +27,11 @@ export async function POST(request: NextRequest) {
 
         if (!treeId) {
             return NextResponse.json({ error: 'treeId is required' }, { status: 400 });
+        }
+
+        const isMember = await isFamilyMember(treeId, session.user.id);
+        if (!isMember) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         // Fetch all relationships for this tree
@@ -119,8 +131,6 @@ export async function POST(request: NextRequest) {
             siblingLinks: siblingMap.size,
         });
     } catch (error) {
-        console.error('Rebuild relations error:', error);
-        const message = error instanceof Error ? error.message : 'Failed to rebuild relations';
-        return NextResponse.json({ error: message }, { status: 500 });
+        return safeErrorResponse(error, 'Failed to rebuild relations');
     }
 }

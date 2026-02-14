@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { updateMarriageDetails, deleteRelationship } from '@/lib/services/relationships';
 import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string; relId: string }> };
 
@@ -22,9 +23,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         const details = await request.json();
         await updateMarriageDetails(id, relId, details);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] PATCH relationship error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to update relationship');
     }
 }
 
@@ -41,8 +41,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         }
         await deleteRelationship(id, relId);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] DELETE relationship error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to delete relationship');
     }
 }

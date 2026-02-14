@@ -13,8 +13,7 @@ export async function POST(request: NextRequest) {
         const input = await request.json();
         const invitation = await createInvitation(input);
         return NextResponse.json(invitation, { status: 201 });
-    } catch (error: any) {
-        console.error('[API] POST /api/invitations error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return (await import('@/lib/apiHelpers')).safeErrorResponse(error, 'Failed to create invitation');
     }
 }

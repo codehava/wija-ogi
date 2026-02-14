@@ -7,7 +7,7 @@ import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Family, Person, Relationship } from '@/types';
 import { familiesApi, personsApi, relationshipsApi } from '@/lib/api';
-import { calculateGeneration, findRootAncestor, getGenerationStats } from '@/lib/generation/calculator';
+import { calculateAllGenerationsFromMap, findRootAncestor, getGenerationStats } from '@/lib/generation/calculator';
 import { useAuth } from '@/contexts/AuthContext';
 
 const REFETCH_INTERVAL = 10_000; // 10 seconds for "realtime" hooks
@@ -200,16 +200,10 @@ export function useFamilyTree(familyId: string | null) {
         return findRootAncestor(persons);
     }, [persons]);
 
-    // Calculate generations for all persons
+    // P1 FIX: Calculate generations for all persons in single BFS pass — O(n) instead of O(n²)
     const personGenerations = useMemo(() => {
         if (!rootAncestor) return new Map<string, number>();
-
-        const generations = new Map<string, number>();
-        persons.forEach((p) => {
-            const gen = calculateGeneration(p.personId, rootAncestor.personId, personsMap);
-            generations.set(p.personId, gen);
-        });
-        return generations;
+        return calculateAllGenerationsFromMap(rootAncestor.personId, personsMap);
     }, [persons, rootAncestor, personsMap]);
 
     // Calculate stats

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { exportGedcom } from '@/lib/services/gedcom';
+import { isFamilyMember } from '@/lib/services/families';
 
 export async function GET(
     request: NextRequest,
@@ -16,6 +17,10 @@ export async function GET(
         }
 
         const { treeId } = await params;
+        const isMember = await isFamilyMember(treeId, session.user.id);
+        if (!isMember) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const gedcomContent = await exportGedcom(treeId);
 

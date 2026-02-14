@@ -4,9 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { importGedcom } from '@/lib/services/gedcom';
+import { safeErrorResponse, applyRateLimit } from '@/lib/apiHelpers';
+import { RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit: 5 uploads per minute
+        const rateLimited = applyRateLimit(request, RATE_LIMITS.UPLOAD);
+        if (rateLimited) return rateLimited;
+
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,6 +25,12 @@ export async function POST(request: NextRequest) {
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+        }
+
+        // M2 FIX: Limit file size to 10MB
+        const MAX_GEDCOM_SIZE = 10 * 1024 * 1024; // 10MB
+        if (file.size > MAX_GEDCOM_SIZE) {
+            return NextResponse.json({ error: 'File too large. Maximum size is 10MB.' }, { status: 413 });
         }
 
         // Validate file extension
@@ -45,11 +57,6 @@ export async function POST(request: NextRequest) {
             ...result,
         });
     } catch (error) {
-        console.error('GEDCOM import error:', error);
-        const message = error instanceof Error ? error.message : 'Failed to import GEDCOM file';
-        return NextResponse.json(
-            { error: message },
-            { status: 500 }
-        );
+        return safeErrorResponse(error, 'Failed to import GEDCOM file');
     }
 }

@@ -13,8 +13,9 @@ export async function POST(request: NextRequest, { params }: Params) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         const { id } = await params;
-        const { userId, displayName, email, photoUrl } = await request.json();
-        await acceptInvitation(id, userId, displayName, email, photoUrl);
+        const { displayName, email, photoUrl } = await request.json();
+        // Use authenticated user's ID, not client-provided userId (H3 fix)
+        await acceptInvitation(id, session.user.id, displayName || session.user.name || '', email || session.user.email || '', photoUrl || session.user.image || '');
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('[API] POST accept error:', error);

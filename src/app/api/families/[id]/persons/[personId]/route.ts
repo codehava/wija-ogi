@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { updatePerson, deletePerson } from '@/lib/services/persons';
 import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string; personId: string }> };
 
@@ -22,9 +23,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         const updates = await request.json();
         await updatePerson(id, personId, updates, session.user.id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] PATCH /api/families/[id]/persons/[personId] error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to update person');
     }
 }
 
@@ -41,8 +41,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         }
         await deletePerson(id, personId);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] DELETE /api/families/[id]/persons/[personId] error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to delete person');
     }
 }

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { addSpouse, removeSpouse } from '@/lib/services/persons';
 import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string; personId: string }> };
 
@@ -22,9 +23,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         const { person2Id } = await request.json();
         await addSpouse(id, personId, person2Id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] POST spouse error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to add spouse');
     }
 }
 
@@ -42,8 +42,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         const { person2Id } = await request.json();
         await removeSpouse(id, personId, person2Id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] DELETE spouse error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to remove spouse');
     }
 }

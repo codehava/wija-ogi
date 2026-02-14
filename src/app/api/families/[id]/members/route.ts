@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getFamilyMembers } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,8 +16,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         const { id } = await params;
         const members = await getFamilyMembers(id);
         return NextResponse.json(members);
-    } catch (error: any) {
-        console.error('[API] GET /api/families/[id]/members error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to load members');
     }
 }

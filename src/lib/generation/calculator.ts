@@ -26,7 +26,7 @@ const GENERATION_LABELS: Record<number, string> = {
 // ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Calculate generation at RUNTIME using BFS algorithm
+ * Calculate generation for a SINGLE person at RUNTIME using BFS algorithm
  * @param personId - ID of the person to calculate generation for
  * @param rootId - ID of the root ancestor
  * @param personsMap - Map of all persons (id -> Person)
@@ -77,7 +77,10 @@ export function getGenerationLabel(gen: number): string {
 }
 
 /**
- * Calculate generations for all persons in the tree
+ * P1 FIX: Calculate generations for ALL persons in a SINGLE BFS pass — O(n)
+ * Previously each person triggered a separate BFS (O(n²)).
+ * Now does a single BFS from root, visiting each person exactly once.
+ * 
  * @param persons - Array of all persons
  * @param rootId - ID of the root ancestor
  * @returns Map of personId -> generation number
@@ -89,11 +92,37 @@ export function calculateAllGenerations(
     const personsMap = new Map<string, Person>();
     persons.forEach(p => personsMap.set(p.personId, p));
 
-    const generations = new Map<string, number>();
+    return calculateAllGenerationsFromMap(rootId, personsMap);
+}
 
-    for (const person of persons) {
-        const gen = calculateGeneration(person.personId, rootId, personsMap);
-        generations.set(person.personId, gen);
+/**
+ * Single-pass BFS generation calculator using a pre-built personsMap.
+ * This is the core O(n) implementation used by both calculateAllGenerations
+ * and the useFamilyTree hook.
+ */
+export function calculateAllGenerationsFromMap(
+    rootId: string,
+    personsMap: Map<string, Person>
+): Map<string, number> {
+    const generations = new Map<string, number>();
+    if (!rootId || personsMap.size === 0) return generations;
+
+    const queue: Array<{ id: string; gen: number }> = [{ id: rootId, gen: 1 }];
+
+    while (queue.length > 0) {
+        const { id, gen } = queue.shift()!;
+        if (generations.has(id)) continue;
+        generations.set(id, gen);
+
+        const person = personsMap.get(id);
+        if (!person) continue;
+
+        const childIds = person.relationships?.childIds || [];
+        for (const childId of childIds) {
+            if (!generations.has(childId)) {
+                queue.push({ id: childId, gen: gen + 1 });
+            }
+        }
     }
 
     return generations;
@@ -132,11 +161,12 @@ export function groupByGeneration(
     const personsMap = new Map<string, Person>();
     persons.forEach(p => personsMap.set(p.personId, p));
 
+    const generations = calculateAllGenerationsFromMap(rootId, personsMap);
     const groups: Record<number, Person[]> = {};
 
     for (const person of persons) {
-        const gen = calculateGeneration(person.personId, rootId, personsMap);
-        if (gen === -1) continue;
+        const gen = generations.get(person.personId);
+        if (gen === undefined || gen === -1) continue;
 
         if (!groups[gen]) {
             groups[gen] = [];

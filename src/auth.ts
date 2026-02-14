@@ -11,19 +11,27 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 
-// Password hashing using Web Crypto API (no bcrypt needed)
+const BCRYPT_ROUNDS = 12;
+
+// Password hashing using bcrypt (salted, slow-by-design)
 async function hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+    // bcrypt hashes start with "$2a$" or "$2b$"
+    if (hash.startsWith('$2')) {
+        return bcrypt.compare(password, hash);
+    }
+    // Legacy SHA-256 migration: verify old hash, then rehash with bcrypt
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-    const passwordHash = await hashPassword(password);
-    return passwordHash === hash;
+    const sha256Hash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return sha256Hash === hash;
 }
 
 const credentialsSchema = z.object({
@@ -100,6 +108,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 const isValid = await verifyPassword(password, user.passwordHash);
                 if (!isValid) return null;
+
+                // Auto-migrate legacy SHA-256 hash to bcrypt on successful login
+                if (!user.passwordHash.startsWith('$2')) {
+                    const bcryptHash = await hashPassword(password);
+                    await db.update(users).set({ passwordHash: bcryptHash }).where(eq(users.id, user.id));
+                }
 
                 return {
                     id: user.id,

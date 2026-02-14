@@ -5,17 +5,31 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+// L1 FIX: No silent fallback to dev credentials
+const S3_ENDPOINT = process.env.S3_ENDPOINT || 'http://localhost:9000';
+const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY;
+const S3_SECRET_KEY = process.env.S3_SECRET_KEY;
+
+if (!S3_ACCESS_KEY || !S3_SECRET_KEY) {
+    console.warn('[storage] S3_ACCESS_KEY or S3_SECRET_KEY not set. File uploads will fail.');
+}
+
 const s3Client = new S3Client({
-    endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
+    endpoint: S3_ENDPOINT,
     region: process.env.S3_REGION || 'us-east-1',
     credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY || 'minioadmin',
-        secretAccessKey: process.env.S3_SECRET_KEY || 'minioadmin',
+        accessKeyId: S3_ACCESS_KEY || '',
+        secretAccessKey: S3_SECRET_KEY || '',
     },
     forcePathStyle: process.env.S3_USE_PATH_STYLE === 'true',
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'wija-media';
+
+// M3 FIX: Sanitize S3 key to prevent path traversal
+function sanitizeKey(key: string): string {
+    return key.replace(/\.\.\/|\.\.\\/g, '').replace(/[^a-zA-Z0-9\-_\/\.]/g, '_');
+}
 
 /**
  * Upload a file to S3/MinIO

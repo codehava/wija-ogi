@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { addParentChild, removeParentChild } from '@/lib/services/persons';
 import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string; personId: string }> };
 
@@ -22,9 +23,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         const { childId } = await request.json();
         await addParentChild(id, personId, childId);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] POST children error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to add parent-child relationship');
     }
 }
 
@@ -42,8 +42,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         const { childId } = await request.json();
         await removeParentChild(id, personId, childId);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] DELETE children error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to remove parent-child relationship');
     }
 }
