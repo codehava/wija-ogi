@@ -207,6 +207,8 @@ function FamilyTreeInner({
                         photoUrl: person.photoUrl,
                         lontaraName: person.lontaraName,
                         biography: person.biography,
+                        title: person.title,
+                        reignTitle: person.reignTitle,
                     },
                     displayName,
                     lontaraFullName,

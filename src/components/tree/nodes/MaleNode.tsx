@@ -13,6 +13,8 @@ interface MaleNodeData {
         photoUrl?: string;
         lontaraName?: { first?: string; middle?: string; last?: string };
         biography?: string;
+        title?: string;
+        reignTitle?: string;
     };
     displayName: string;
     lontaraFullName: string;
@@ -30,6 +32,7 @@ interface MaleNodeData {
 function MaleNodeComponent({ data }: NodeProps) {
     const d = data as unknown as MaleNodeData;
     const shapeSize = d.shapeSize || 56;
+    const hasTitle = !!d.person.title || !!d.person.reignTitle;
 
     return (
         <div
@@ -58,15 +61,18 @@ function MaleNodeComponent({ data }: NodeProps) {
                 {/* Circle Shape */}
                 <div
                     className={`rounded-full overflow-hidden flex items-center justify-center text-white text-lg drop-shadow-lg ${d.isSelected ? 'ring-3 ring-teal-400 ring-offset-2' :
-                            d.isOnAncestryPath ? 'ring-3 ring-amber-400 ring-offset-2' :
-                                d.isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
+                        d.isOnAncestryPath ? 'ring-3 ring-amber-400 ring-offset-2' :
+                            d.isHighlighted ? 'ring-3 ring-amber-400 ring-offset-2' : ''
                         }`}
                     style={{
                         width: shapeSize, height: shapeSize,
-                        background: 'linear-gradient(135deg, #93c5fd, #3b82f6)',
-                        border: `2px solid ${d.isOnAncestryPath ? '#f59e0b' :
-                                d.isSelected ? '#14b8a6' :
-                                    d.isHighlighted ? '#f59e0b' : '#2563eb'
+                        background: hasTitle
+                            ? 'linear-gradient(135deg, #fde68a, #f59e0b)'
+                            : 'linear-gradient(135deg, #93c5fd, #3b82f6)',
+                        border: `2px solid ${hasTitle ? '#d97706' :
+                                d.isOnAncestryPath ? '#f59e0b' :
+                                    d.isSelected ? '#14b8a6' :
+                                        d.isHighlighted ? '#f59e0b' : '#2563eb'
                             }`
                     }}
                 >
@@ -76,6 +82,13 @@ function MaleNodeComponent({ data }: NodeProps) {
                         <span className={`font-light opacity-90 ${shapeSize < 44 ? 'text-sm' : 'text-xl'}`}>♂</span>
                     )}
                 </div>
+
+                {/* Crown badge for nobility */}
+                {hasTitle && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-[10px] shadow-md border border-amber-500 z-10">
+                        👑
+                    </div>
+                )}
 
                 {/* Spouse handles — positioned at shape center height */}
                 <Handle
@@ -94,6 +107,12 @@ function MaleNodeComponent({ data }: NodeProps) {
 
             {/* Text below shape — Lontara FIRST, then Latin */}
             <div className="text-center w-full px-1" style={{ maxWidth: 140 }}>
+                {/* Reign Title badge */}
+                {d.person.reignTitle && (
+                    <div className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 mb-0.5 leading-tight">
+                        👑 {d.person.reignTitle}
+                    </div>
+                )}
                 {(d.scriptMode === 'lontara' || d.scriptMode === 'both') && d.lontaraFullName && (
                     <div className="text-teal-700 font-lontara leading-tight text-[11px]">
                         {d.lontaraFullName}

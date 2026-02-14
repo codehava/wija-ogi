@@ -13,6 +13,8 @@ interface FemaleNodeData {
         photoUrl?: string;
         lontaraName?: { first?: string; middle?: string; last?: string };
         biography?: string;
+        title?: string;
+        reignTitle?: string;
     };
     displayName: string;
     lontaraFullName: string;
@@ -30,6 +32,7 @@ interface FemaleNodeData {
 function FemaleNodeComponent({ data }: NodeProps) {
     const d = data as unknown as FemaleNodeData;
     const shapeSize = d.shapeSize || 56;
+    const hasTitle = !!d.person.title || !!d.person.reignTitle;
 
     return (
         <div
@@ -63,8 +66,8 @@ function FemaleNodeComponent({ data }: NodeProps) {
                                 <polygon points="28,50 4,10 52,10" />
                             </clipPath>
                             <linearGradient id={`grad-f-${d.person.personId}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#f9a8d4" />
-                                <stop offset="100%" stopColor="#ec4899" />
+                                <stop offset="0%" stopColor={hasTitle ? '#fde68a' : '#f9a8d4'} />
+                                <stop offset="100%" stopColor={hasTitle ? '#f59e0b' : '#ec4899'} />
                             </linearGradient>
                         </defs>
                         {d.person.photoUrl ? (
@@ -84,15 +87,23 @@ function FemaleNodeComponent({ data }: NodeProps) {
                             points="28,50 4,10 52,10"
                             fill="none"
                             stroke={
-                                d.isOnAncestryPath ? '#f59e0b' :
-                                    d.isSelected ? '#14b8a6' :
-                                        d.isHighlighted ? '#f59e0b' : '#db2777'
+                                hasTitle ? '#d97706' :
+                                    d.isOnAncestryPath ? '#f59e0b' :
+                                        d.isSelected ? '#14b8a6' :
+                                            d.isHighlighted ? '#f59e0b' : '#db2777'
                             }
-                            strokeWidth={d.isOnAncestryPath || d.isSelected || d.isHighlighted ? 3 : 2}
+                            strokeWidth={d.isOnAncestryPath || d.isSelected || d.isHighlighted || hasTitle ? 3 : 2}
                             strokeLinejoin="round"
                         />
                     </svg>
                 </div>
+
+                {/* Crown badge for nobility */}
+                {hasTitle && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-[10px] shadow-md border border-amber-500 z-10">
+                        👑
+                    </div>
+                )}
 
                 {/* Spouse handles — positioned at shape center height */}
                 <Handle
@@ -111,6 +122,12 @@ function FemaleNodeComponent({ data }: NodeProps) {
 
             {/* Text below shape — Lontara FIRST, then Latin */}
             <div className="text-center w-full px-1" style={{ maxWidth: 140 }}>
+                {/* Reign Title badge */}
+                {d.person.reignTitle && (
+                    <div className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 mb-0.5 leading-tight">
+                        👑 {d.person.reignTitle}
+                    </div>
+                )}
                 {(d.scriptMode === 'lontara' || d.scriptMode === 'both') && d.lontaraFullName && (
                     <div className="text-teal-700 font-lontara leading-tight text-[11px]">
                         {d.lontaraFullName}
