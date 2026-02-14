@@ -74,7 +74,7 @@ export function PersonNode({
     const config = genderConfig[person.gender];
     const generationText = generation > 0 ? getGenerationLabel(generation) : null;
     const shapeSize = compact ? 40 : 50;
-    const hasTitle = !!person.title;
+    const hasTitle = !!person.title || !!person.reignTitle;
 
     // Render gender shape (circle or triangle)
     const renderShape = () => {
