@@ -151,6 +151,28 @@ export default function FamilyPage() {
                                 person1Id: newPerson.personId,  // parent
                                 person2Id: selectedPerson.personId  // child
                             });
+
+                            // Smart cross-link: auto-link new parent as spouse of existing other parent
+                            const existingParentIds = selectedPerson.relationships.parentIds;
+                            if (existingParentIds.length > 0) {
+                                for (const existingParentId of existingParentIds) {
+                                    const existingParent = persons.find(p => p.personId === existingParentId);
+                                    if (!existingParent) continue;
+                                    // Only auto-link if they are opposite genders (father+mother)
+                                    const newGender = ctx.type === 'father' ? 'male' : 'female';
+                                    if (existingParent.gender !== newGender) {
+                                        // Check if they're not already spouses
+                                        if (!existingParent.relationships.spouseIds.includes(newPerson.personId)) {
+                                            await relationshipsApi.createRelationship(familyId, {
+                                                type: 'spouse',
+                                                person1Id: existingParentId,
+                                                person2Id: newPerson.personId,
+                                                marriage: { status: 'married', marriageOrder: 1 }
+                                            });
+                                        }
+                                    }
+                                }
+                            }
                         } else if (ctx.type === 'son' || ctx.type === 'daughter') {
                             // New person is child of selected person
                             await relationshipsApi.createRelationship(familyId, {
@@ -158,6 +180,18 @@ export default function FamilyPage() {
                                 person1Id: selectedPerson.personId,  // parent
                                 person2Id: newPerson.personId  // child
                             });
+
+                            // Smart cross-link: also link child to spouse(s) of selected person
+                            const spouseIds = selectedPerson.relationships.spouseIds;
+                            if (spouseIds.length > 0) {
+                                // Link to first spouse (or the only one) as the other parent
+                                const firstSpouseId = spouseIds[0];
+                                await relationshipsApi.createRelationship(familyId, {
+                                    type: 'parent-child',
+                                    person1Id: firstSpouseId,  // other parent (spouse)
+                                    person2Id: newPerson.personId  // child
+                                });
+                            }
                         }
                         invalidateRelationships(familyId);
                         toast.success(`Berhasil menambahkan ${data.firstName} dan menghubungkan relasi!`);
@@ -177,7 +211,7 @@ export default function FamilyPage() {
         } finally {
             setFormLoading(false);
         }
-    }, [familyId, user, editingPerson, selectedPerson, addMemberContext]);
+    }, [familyId, user, editingPerson, selectedPerson, addMemberContext, persons]);
 
     // Handle add relationship
     const handleAddRelationship = useCallback(async () => {

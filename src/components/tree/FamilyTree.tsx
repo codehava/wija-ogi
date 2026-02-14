@@ -749,16 +749,6 @@ function FamilyTreeInner({
         <div ref={reactFlowRef} className="relative h-full w-full">
             {/* Top Controls */}
             <div className="absolute top-3 left-3 z-10 flex gap-2 print:hidden">
-                {editable && onAddPerson && (
-                    <button
-                        onClick={onAddPerson}
-                        className="px-4 py-2 bg-teal-500 text-white rounded-lg shadow-lg flex items-center gap-2 hover:bg-teal-600 transition text-sm font-medium"
-                    >
-                        <span className="text-lg leading-none">+</span>
-                        <span>Tambah Anggota</span>
-                    </button>
-                )}
-
                 <div className="controls-panel flex gap-1.5 bg-white rounded-lg shadow p-1.5 border border-stone-200"
                     onMouseDown={(e) => e.stopPropagation()}>
                     <button
