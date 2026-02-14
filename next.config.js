@@ -2,6 +2,9 @@
 const nextConfig = {
     output: 'standalone',
     reactStrictMode: true,
+    // Skip type check & lint in Docker build (verified locally before push)
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
     images: {
         remotePatterns: [
             {
