@@ -25,6 +25,7 @@
     "dagre": "^0.8.5",
     "dom-to-image-more": "^3.7.2",
     "drizzle-orm": "^0.45.1",
+    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "next": "^15.0.0",

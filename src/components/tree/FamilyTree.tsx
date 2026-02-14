@@ -24,6 +24,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
 import toast from 'react-hot-toast';
 import { Person, Relationship, ScriptMode } from '@/types';
 import { findRootAncestor, calculateAllGenerations } from '@/lib/generation/calculator';
@@ -99,6 +100,7 @@ function FamilyTreeInner({
     const initialLayoutRef = useRef<Map<string, { x: number; y: number }> | null>(null);
     const prevPersonCount = useRef(0);
     const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+    const reactFlowRef = useRef<HTMLDivElement>(null);
 
     // Adaptive sizes
     const adaptiveSizes = useMemo(() => getAdaptiveSizes(persons.length), [persons.length]);
@@ -555,137 +557,74 @@ function FamilyTreeInner({
     }, [persons, collapsedIds, relationships, familyId, onAllPositionsChange, buildNodesAndEdges,
         selectedPersonId, highlightedSet, ancestryPathIds, scriptMode, adaptiveSizes, setNodes, setEdges, reactFlowInstance]);
 
-    // PDF Export (generate SVG from current state)
+    // PDF Export (WYSIWYG — captures the React Flow canvas exactly as displayed)
     const handleExportPDF = useCallback(async () => {
         if (isExporting || persons.length === 0) return;
         setIsExporting(true);
+        toast('📸 Mempersiapkan PDF...', { duration: 2000 });
 
         try {
-            const posMap = positionsRef.current;
-            let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
-            posMap.forEach(pos => {
-                minX = Math.min(minX, pos.x);
-                minY = Math.min(minY, pos.y);
-                maxX = Math.max(maxX, pos.x + NODE_WIDTH);
-                maxY = Math.max(maxY, pos.y + NODE_HEIGHT);
+            // Find the React Flow viewport element inside our container
+            const container = reactFlowRef.current;
+            if (!container) throw new Error('React Flow container not found');
+
+            // Temporarily hide UI overlays for a clean capture
+            const overlays = container.querySelectorAll<HTMLElement>(
+                '.react-flow__controls, .react-flow__minimap, .react-flow__background, .react-flow__attribution'
+            );
+            overlays.forEach(el => el.style.display = 'none');
+
+            // Also hide our custom control panels
+            const controlPanels = container.querySelectorAll<HTMLElement>('.absolute.z-10, .controls-panel');
+            const hiddenPanels: HTMLElement[] = [];
+            controlPanels.forEach(el => {
+                if (el.closest('.react-flow__renderer')) return; // skip internal elements
+                hiddenPanels.push(el);
+                el.style.display = 'none';
             });
 
-            const padding = 40;
-            minX -= padding; minY -= padding; maxX += padding; maxY += padding;
-            const svgWidth = maxX - minX;
-            const svgHeight = maxY - minY;
+            // Fit view to show all nodes before capture
+            const prevViewport = reactFlowInstance.getViewport();
+            reactFlowInstance.fitView({ padding: 0.08 });
+            await new Promise(r => setTimeout(r, 300)); // wait for animation
 
-            function escapeXml(str: string): string {
-                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-            }
+            // Capture the viewport as high-quality PNG
+            const rfViewport = container.querySelector<HTMLElement>('.react-flow__renderer')
+                || container.querySelector<HTMLElement>('.react-flow__viewport')?.parentElement
+                || container;
 
-            let svgContent = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="${minX} ${minY} ${svgWidth} ${svgHeight}">
-                <style>
-                    .name-text { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; fill: #1c1917; }
-                    .lontara-text { font-family: 'Noto Sans Buginese', serif; font-size: 11px; fill: #92400e; }
-                    .connector { fill: none; stroke-width: 2; stroke-linecap: round; }
-                </style>
-                <rect x="${minX}" y="${minY}" width="${svgWidth}" height="${svgHeight}" fill="white"/>
-            `;
-
-            // Draw connections
-            persons.forEach(person => {
-                const pos1 = posMap.get(person.personId);
-                if (!pos1) return;
-
-                // Spouse lines
-                person.relationships.spouseIds.forEach(spouseId => {
-                    const pos2 = posMap.get(spouseId);
-                    if (!pos2) return;
-                    if (person.personId > spouseId) return; // avoid duplicates
-                    const cx1 = pos1.x + NODE_WIDTH / 2;
-                    const cy1 = pos1.y + NODE_HEIGHT / 3;
-                    const cx2 = pos2.x + NODE_WIDTH / 2;
-                    const cy2 = pos2.y + NODE_HEIGHT / 3;
-                    svgContent += `<line x1="${cx1}" y1="${cy1}" x2="${cx2}" y2="${cy2}" stroke="#ec4899" stroke-width="2"/>`;
-                });
-
-                // Parent->child bezier
-                persons.filter(c => c.relationships.parentIds.includes(person.personId)).forEach(child => {
-                    const cPos = posMap.get(child.personId);
-                    if (!cPos) return;
-                    if (child.relationships.parentIds[0] !== person.personId) return; // draw once
-                    const sx = pos1.x + NODE_WIDTH / 2;
-                    const sy = pos1.y + NODE_HEIGHT;
-                    const tx = cPos.x + NODE_WIDTH / 2;
-                    const ty = cPos.y;
-                    const midY = (sy + ty) / 2;
-                    svgContent += `<path d="M ${sx} ${sy} C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}" stroke="#0d9488" stroke-width="1.8" fill="none"/>`;
-                });
+            const dataUrl = await toPng(rfViewport, {
+                cacheBust: true,
+                pixelRatio: 2,
+                backgroundColor: '#fafaf9',
+                filter: (node: HTMLElement) => {
+                    // Exclude minimap, controls, background dots, attribution
+                    const cls = node.className?.toString?.() || '';
+                    if (cls.includes('react-flow__controls')) return false;
+                    if (cls.includes('react-flow__minimap')) return false;
+                    if (cls.includes('react-flow__attribution')) return false;
+                    return true;
+                },
             });
 
-            // Draw nodes
-            persons.forEach(person => {
-                const pos = posMap.get(person.personId);
-                if (!pos) return;
-                const displayName = [person.firstName, person.middleName, person.lastName]
-                    .filter(Boolean).join(' ') || person.fullName || person.firstName || '';
-                const cx = pos.x + NODE_WIDTH / 2;
-                const cy = pos.y + 28;
-                const r = 20;
+            // Restore overlays and viewport
+            overlays.forEach(el => el.style.display = '');
+            hiddenPanels.forEach(el => el.style.display = '');
+            reactFlowInstance.setViewport(prevViewport);
 
-                if (person.gender === 'female') {
-                    svgContent += `<polygon points="${cx},${cy + r * 1.3} ${cx - r},${cy - r * 0.7} ${cx + r},${cy - r * 0.7}" fill="#fce7f3" stroke="#db2777" stroke-width="2"/>`;
-                } else {
-                    svgContent += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>`;
-                }
-
-                // Name text
-                const textX = cx;
-                const textY = cy + r + 18;
-                const words = displayName.split(' ');
-                let lines: string[] = [];
-                let currentLine = '';
-                words.forEach(word => {
-                    const testLine = currentLine ? `${currentLine} ${word}` : word;
-                    if (testLine.length > 15 && currentLine) { lines.push(currentLine); currentLine = word; }
-                    else currentLine = testLine;
-                });
-                if (currentLine) lines.push(currentLine);
-                lines = lines.slice(0, 2);
-                lines.forEach((line, i) => {
-                    svgContent += `<text class="name-text" x="${textX}" y="${textY + i * 14}" text-anchor="middle">${escapeXml(line)}</text>`;
-                });
-
-                if ((scriptMode === 'lontara' || scriptMode === 'both') && person.lontaraName?.first) {
-                    const lontaraY = textY + lines.length * 14 + 2;
-                    svgContent += `<text class="lontara-text" x="${textX}" y="${lontaraY}" text-anchor="middle">${escapeXml(person.lontaraName.first)}</text>`;
-                }
-            });
-
-            svgContent += '</svg>';
-
-            // SVG -> Image -> PDF
-            const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-            const svgUrl = URL.createObjectURL(svgBlob);
+            // Get image dimensions for PDF layout
             const img = new Image();
             await new Promise<void>((resolve, reject) => {
                 img.onload = () => resolve();
                 img.onerror = reject;
-                img.src = svgUrl;
+                img.src = dataUrl;
             });
 
-            const scale = 2;
-            const canvas = document.createElement('canvas');
-            canvas.width = svgWidth * scale;
-            canvas.height = svgHeight * scale;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error('Could not get canvas context');
-            ctx.scale(scale, scale);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, svgWidth, svgHeight);
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(svgUrl);
+            const imgWidth = img.naturalWidth;
+            const imgHeight = img.naturalHeight;
+            const aspectRatio = imgWidth / imgHeight;
 
-            const imgData = canvas.toDataURL('image/png');
-            const aspectRatio = svgWidth / svgHeight;
+            // PDF dimensions
             let pdfWidth: number, pdfHeight: number;
             if (aspectRatio > 1.4) { pdfWidth = 297; pdfHeight = 210; }
             else { pdfWidth = 210; pdfHeight = 297; }
@@ -693,9 +632,9 @@ function FamilyTreeInner({
             const marginTop = 20, marginBottom = 15, marginSide = 10;
             const availableWidth = pdfWidth - (marginSide * 2);
             const availableHeight = pdfHeight - marginTop - marginBottom;
-            const ratio = Math.min(availableWidth / svgWidth, availableHeight / svgHeight);
-            const finalWidth = svgWidth * ratio;
-            const finalHeight = svgHeight * ratio;
+            const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+            const finalWidth = imgWidth * ratio;
+            const finalHeight = imgHeight * ratio;
             const xOffset = (pdfWidth - finalWidth) / 2;
             const yOffset = marginTop + (availableHeight - finalHeight) / 2;
 
@@ -704,6 +643,7 @@ function FamilyTreeInner({
                 unit: 'mm', format: 'a4'
             });
 
+            // Header
             pdf.setFontSize(18);
             pdf.setFont('helvetica', 'bold');
             pdf.text(familyName, pdfWidth / 2, 12, { align: 'center' });
@@ -712,8 +652,11 @@ function FamilyTreeInner({
             pdf.setTextColor(100, 100, 100);
             pdf.text('Pohon Keluarga', pdfWidth / 2, 18, { align: 'center' });
             pdf.setTextColor(0, 0, 0);
-            pdf.addImage(imgData, 'PNG', xOffset, yOffset + 5, finalWidth, finalHeight);
 
+            // Tree image
+            pdf.addImage(dataUrl, 'PNG', xOffset, yOffset + 5, finalWidth, finalHeight);
+
+            // Footer
             pdf.setFontSize(8);
             pdf.setTextColor(100, 100, 100);
             const createdDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -722,13 +665,15 @@ function FamilyTreeInner({
             const safeName = familyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
             const timestamp = new Date().toISOString().slice(0, 10);
             pdf.save(`${safeName}-${timestamp}.pdf`);
+
+            toast.success('✅ PDF berhasil didownload!');
         } catch (error) {
             console.error('PDF export error:', error);
             toast.error('Gagal mengexport PDF. Silakan coba lagi.');
         } finally {
             setIsExporting(false);
         }
-    }, [isExporting, persons, scriptMode, familyName]);
+    }, [isExporting, persons.length, familyName, reactFlowInstance]);
 
     // MiniMap node colors
     const minimapNodeColor = useCallback((node: Node) => {
@@ -752,7 +697,7 @@ function FamilyTreeInner({
     }
 
     return (
-        <div className="relative h-full w-full">
+        <div ref={reactFlowRef} className="relative h-full w-full">
             {/* Top Controls */}
             <div className="absolute top-3 left-3 z-10 flex gap-2 print:hidden">
                 {editable && onAddPerson && (
