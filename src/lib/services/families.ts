@@ -26,7 +26,7 @@ function dbToFamily(row: typeof trees.$inferSelect): Family {
         },
         settings: {
             script: (row.scriptMode as Family['settings']['script']) ?? 'both',
-            theme: (row.theme as Family['settings']['theme']) ?? 'light',
+            theme: (row.theme as Family['settings']['theme']) ?? 'klasik',
             language: (row.language as Family['settings']['language']) ?? 'id',
         },
         stats: {
@@ -63,7 +63,7 @@ export async function createFamily(
             slug,
             ownerId: userId,
             scriptMode: input.settings?.script || 'both',
-            theme: input.settings?.theme || 'light',
+            theme: input.settings?.theme || 'klasik',
             language: input.settings?.language || 'id',
         })
         .returning();

@@ -1,0 +1,490 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   WIJA - Nusantara Theme
+   Premium visual theme with rich cultural Bugis-inspired styling.
+   Activated via data-theme="nusantara" on <html> element.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   NUSANTARA COLOR SYSTEM & VARIABLES
+   Deep slate + warm teal + gold accents
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] {
+    /* Override glass variables for warmer feel */
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-border: rgba(45, 212, 191, 0.15);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(20, 184, 166, 0.08);
+    --shadow-glow: 0 0 80px rgba(20, 184, 166, 0.15);
+
+    /* Nusantara palette */
+    --nusantara-bg-primary: #0c1222;
+    --nusantara-bg-secondary: #131c31;
+    --nusantara-bg-card: rgba(19, 28, 49, 0.9);
+    --nusantara-bg-elevated: rgba(25, 36, 62, 0.95);
+    --nusantara-text-primary: #e8edf5;
+    --nusantara-text-secondary: #94a3c0;
+    --nusantara-text-muted: #5a6a8a;
+    --nusantara-border: rgba(45, 212, 191, 0.12);
+    --nusantara-border-strong: rgba(45, 212, 191, 0.25);
+    --nusantara-accent-gold: #d4a843;
+    --nusantara-accent-gold-soft: rgba(212, 168, 67, 0.15);
+    --nusantara-accent-teal: #2dd4bf;
+    --nusantara-accent-teal-soft: rgba(45, 212, 191, 0.12);
+
+    /* Override Lontara for gold accent */
+    --lontara-text: #d4a843;
+    --lontara-bg: rgba(212, 168, 67, 0.08);
+
+    /* Override default variables */
+    --bg-primary: var(--nusantara-bg-primary);
+    --bg-secondary: var(--nusantara-bg-secondary);
+    --text-primary: var(--nusantara-text-primary);
+    --text-secondary: var(--nusantara-text-secondary);
+    --text-muted: var(--nusantara-text-muted);
+    --border-color: var(--nusantara-border);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   BODY & PAGE BACKGROUNDS
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] body {
+    background: linear-gradient(135deg, #0c1222 0%, #0f1f2e 40%, #0c1a25 70%, #0c1222 100%);
+    color: var(--nusantara-text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   FLOATING PARTICLES BACKGROUND
+   CSS-only ambient decoration
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(1.5px 1.5px at 10% 20%, rgba(45, 212, 191, 0.3) 50%, transparent 50%),
+        radial-gradient(1px 1px at 30% 65%, rgba(212, 168, 67, 0.25) 50%, transparent 50%),
+        radial-gradient(1.5px 1.5px at 55% 15%, rgba(45, 212, 191, 0.2) 50%, transparent 50%),
+        radial-gradient(1px 1px at 75% 40%, rgba(212, 168, 67, 0.2) 50%, transparent 50%),
+        radial-gradient(1.5px 1.5px at 85% 80%, rgba(45, 212, 191, 0.15) 50%, transparent 50%),
+        radial-gradient(1px 1px at 20% 85%, rgba(212, 168, 67, 0.15) 50%, transparent 50%),
+        radial-gradient(1px 1px at 45% 45%, rgba(45, 212, 191, 0.1) 50%, transparent 50%),
+        radial-gradient(1.5px 1.5px at 65% 70%, rgba(212, 168, 67, 0.12) 50%, transparent 50%);
+    animation: nusantara-particles 20s ease-in-out infinite alternate;
+}
+
+@keyframes nusantara-particles {
+    0% {
+        opacity: 0.6;
+        transform: translateY(0);
+    }
+
+    50% {
+        opacity: 0.9;
+    }
+
+    100% {
+        opacity: 0.6;
+        transform: translateY(-8px);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   GLASSMORPHISM - Enhanced
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+[data-theme="nusantara"] .glass-subtle {
+    background: rgba(19, 28, 49, 0.7);
+    border: 1px solid rgba(45, 212, 191, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   SKELETON LOADING
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   CARDS, BUTTONS, INPUTS — Component Overrides
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Cards */
+[data-theme="nusantara"] .card,
+[data-theme="nusantara"] .bg-white {
+    background-color: var(--nusantara-bg-card);
+    border-color: var(--nusantara-border);
+    color: var(--nusantara-text-primary);
+}
+
+[data-theme="nusantara"] .card-header,
+[data-theme="nusantara"] .bg-stone-50 {
+    background-color: var(--nusantara-bg-elevated);
+    border-color: var(--nusantara-border);
+}
+
+/* Buttons */
+[data-theme="nusantara"] .btn-secondary {
+    background-color: var(--nusantara-bg-elevated);
+    color: var(--nusantara-text-primary);
+    border-color: var(--nusantara-border-strong);
+}
+
+[data-theme="nusantara"] .btn-secondary:hover {
+    background-color: rgba(45, 212, 191, 0.1);
+    border-color: var(--nusantara-accent-teal);
+}
+
+/* Inputs */
+[data-theme="nusantara"] .input {
+    background-color: var(--nusantara-bg-primary);
+    border-color: var(--nusantara-border-strong);
+    color: var(--nusantara-text-primary);
+}
+
+[data-theme="nusantara"] .input::placeholder {
+    color: var(--nusantara-text-muted);
+}
+
+[data-theme="nusantara"] .input:focus {
+    border-color: var(--nusantara-accent-teal);
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
+}
+
+[data-theme="nusantara"] .label {
+    color: var(--nusantara-text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   TEXT COLOR OVERRIDES — Tailwind class overrides
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .text-stone-800 {
+    color: var(--nusantara-text-primary);
+}
+
+[data-theme="nusantara"] .text-stone-700 {
+    color: #c8d1e0;
+}
+
+[data-theme="nusantara"] .text-stone-600 {
+    color: var(--nusantara-text-secondary);
+}
+
+[data-theme="nusantara"] .text-stone-500 {
+    color: var(--nusantara-text-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   BACKGROUND OVERRIDES — Tailwind class overrides
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .bg-gradient-to-br.from-stone-100 {
+    background: linear-gradient(135deg, #0c1222 0%, #0f1f2e 50%, #0c1a25 100%) !important;
+}
+
+/* White-based backgrounds → Nusantara dark */
+[data-theme="nusantara"] .bg-white.rounded-xl,
+[data-theme="nusantara"] .bg-white.rounded-lg {
+    background-color: var(--nusantara-bg-card);
+    border: 1px solid var(--nusantara-border);
+}
+
+/* Stone-50 bg → elevated dark */
+[data-theme="nusantara"] .bg-stone-100 {
+    background-color: rgba(25, 36, 62, 0.5);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   TREE CANVAS
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .tree-canvas {
+    background:
+        radial-gradient(circle at 20% 30%, rgba(45, 212, 191, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(212, 168, 67, 0.04) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(45, 212, 191, 0.02) 0%, transparent 70%),
+        #0c1222;
+}
+
+[data-theme="nusantara"] .tree-canvas::-webkit-scrollbar-track {
+    background: #131c31;
+}
+
+[data-theme="nusantara"] .tree-canvas::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2dd4bf, #14b8a6);
+    border-radius: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   PERSON NODES — Tree Visualization
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .person-node.male {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.7) 0%, rgba(37, 99, 235, 0.5) 100%);
+    border-color: rgba(96, 165, 250, 0.5);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="nusantara"] .person-node.female {
+    background: linear-gradient(135deg, rgba(136, 19, 55, 0.7) 0%, rgba(219, 39, 119, 0.4) 100%);
+    border-color: rgba(244, 114, 182, 0.5);
+    box-shadow: 0 4px 16px rgba(219, 39, 119, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Enhanced node hover — glow effect */
+[data-theme="nusantara"] .person-node.male:hover {
+    box-shadow: 0 4px 24px rgba(37, 99, 235, 0.35), 0 0 40px rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.7);
+}
+
+[data-theme="nusantara"] .person-node.female:hover {
+    box-shadow: 0 4px 24px rgba(219, 39, 119, 0.35), 0 0 40px rgba(244, 114, 182, 0.12);
+    border-color: rgba(244, 114, 182, 0.7);
+}
+
+/* Crown badge — gold glow for nobility */
+[data-theme="nusantara"] .nobility-badge {
+    filter: drop-shadow(0 0 6px rgba(212, 168, 67, 0.6));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   HEADER GRADIENT
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] header.bg-gradient-to-r {
+    background: linear-gradient(135deg, #0f172a 0%, #134e4a 40%, #164e63 100%) !important;
+    border-bottom: 1px solid rgba(45, 212, 191, 0.15);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   CULTURAL PATTERNS — Enhanced Bugis Motifs
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .bg-pattern-diamond {
+    background-image:
+        linear-gradient(45deg, rgba(45, 212, 191, 0.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(212, 168, 67, 0.03) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(45, 212, 191, 0.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(212, 168, 67, 0.03) 75%);
+}
+
+[data-theme="nusantara"] .border-bugis::before {
+    background: repeating-linear-gradient(90deg,
+            var(--nusantara-accent-teal) 0px,
+            var(--nusantara-accent-teal) 8px,
+            transparent 8px,
+            transparent 12px,
+            var(--nusantara-accent-gold) 12px,
+            var(--nusantara-accent-gold) 20px,
+            transparent 20px,
+            transparent 24px);
+}
+
+[data-theme="nusantara"] .lontara-accent::before {
+    color: var(--nusantara-accent-gold);
+    opacity: 0.8;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   STATISTICS CARDS — Override Tailwind color classes
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .bg-blue-50 {
+    background-color: rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="nusantara"] .bg-pink-50 {
+    background-color: rgba(219, 39, 119, 0.1);
+}
+
+[data-theme="nusantara"] .bg-teal-50 {
+    background-color: rgba(20, 184, 166, 0.1);
+}
+
+[data-theme="nusantara"] .bg-amber-50,
+[data-theme="nusantara"] .bg-yellow-50 {
+    background-color: rgba(212, 168, 67, 0.1);
+}
+
+[data-theme="nusantara"] .bg-red-50 {
+    background-color: rgba(220, 38, 38, 0.1);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   BORDERS — Override stone borders
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .border-stone-200,
+[data-theme="nusantara"] .border-stone-300,
+[data-theme="nusantara"] .divide-stone-200>*+* {
+    border-color: var(--nusantara-border);
+}
+
+[data-theme="nusantara"] .border-t.border-stone-200 {
+    border-color: var(--nusantara-border);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   TABLE — List view styles
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] thead.bg-teal-50 {
+    background-color: rgba(20, 184, 166, 0.08);
+}
+
+[data-theme="nusantara"] tr:hover {
+    background-color: rgba(45, 212, 191, 0.05) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   LINKS, BADGES, AND TAGS
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] .bg-teal-100 {
+    background-color: rgba(20, 184, 166, 0.15);
+}
+
+[data-theme="nusantara"] .text-teal-700 {
+    color: #2dd4bf;
+}
+
+[data-theme="nusantara"] .text-teal-200 {
+    color: rgba(153, 246, 228, 0.7);
+}
+
+[data-theme="nusantara"] .text-teal-600 {
+    color: #5eead4;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   ANIMATIONS — Nusantara-specific
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+@keyframes nusantara-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes nusantara-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(45, 212, 191, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 0 40px rgba(45, 212, 191, 0.2), 0 0 60px rgba(212, 168, 67, 0.08);
+    }
+}
+
+@keyframes nusantara-float {
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+/* Apply floating to hero section elements */
+[data-theme="nusantara"] .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.3),
+        0 0 40px rgba(45, 212, 191, 0.08);
+    border-color: var(--nusantara-border-strong);
+}
+
+/* Subtle glow animation for glass cards */
+[data-theme="nusantara"] .glass {
+    animation: nusantara-glow 6s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   SCROLLBAR — Custom Nusantara style
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+[data-theme="nusantara"] ::-webkit-scrollbar-track {
+    background: #0c1222;
+}
+
+[data-theme="nusantara"] ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(45, 212, 191, 0.4), rgba(212, 168, 67, 0.3));
+    border-radius: 4px;
+}
+
+[data-theme="nusantara"] ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(45, 212, 191, 0.6), rgba(212, 168, 67, 0.5));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   MODAL OVERRIDES
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Modal backdrop — darker overlay */
+[data-theme="nusantara"] [class*="bg-black"] {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(4px);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   SELECT/OPTION OVERRIDES
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-theme="nusantara"] select {
+    background-color: var(--nusantara-bg-primary);
+    color: var(--nusantara-text-primary);
+    border-color: var(--nusantara-border-strong);
+}
+
+[data-theme="nusantara"] select option {
+    background-color: var(--nusantara-bg-secondary);
+    color: var(--nusantara-text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   PRINT — Disable Nusantara theme for printing
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+    [data-theme="nusantara"] body {
+        background: white !important;
+        color: #000 !important;
+    }
+
+    [data-theme="nusantara"] body::before {
+        display: none !important;
+    }
+}

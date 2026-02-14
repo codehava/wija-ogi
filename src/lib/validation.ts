@@ -15,7 +15,7 @@ export const RelationshipTypeSchema = z.enum(['spouse', 'parent-child']);
 export const MarriageStatusSchema = z.enum(['married', 'divorced', 'widowed']);
 export const NobilityTitleSchema = z.enum(['datu', 'arung', 'karaeng', 'opu', 'andi', 'other']);
 export const ScriptModeSchema = z.enum(['latin', 'lontara', 'both']);
-export const ThemeModeSchema = z.enum(['light', 'dark', 'auto']);
+export const ThemeModeSchema = z.enum(['klasik', 'nusantara']);
 export const LanguageSchema = z.enum(['id', 'en']);
 
 // ─────────────────────────────────────────────────────────────────────────────

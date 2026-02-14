@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { QueryProvider } from '@/contexts/QueryProvider';
 import { Toaster } from 'react-hot-toast';
 import './globals.css';
+import './nusantara.css';
 
 export const metadata: Metadata = {
     title: 'WIJA - Warisan Jejak Keluarga',

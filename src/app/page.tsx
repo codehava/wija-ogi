@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { ThemeToggle } from '@/contexts/ThemeContext';
+import { ThemeSelector } from '@/contexts/ThemeContext';
 import { useUserFamilies } from '@/hooks/useFirestore';
 import { transliterateLatin } from '@/lib/transliteration/engine';
 import { familiesApi } from '@/lib/api';
@@ -139,7 +139,7 @@ export default function HomePage() {
 
                         {isAuthenticated && (
                             <div className="flex items-center gap-2">
-                                <ThemeToggle />
+                                <ThemeSelector />
                                 <span className="text-teal-200 text-sm hidden sm:block">
                                     {user?.email}
                                 </span>
@@ -152,7 +152,7 @@ export default function HomePage() {
                             </div>
                         )}
                         {!isAuthenticated && (
-                            <ThemeToggle />
+                            <ThemeSelector />
                         )}
                     </div>
                 </div>

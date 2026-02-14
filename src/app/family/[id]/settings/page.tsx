@@ -32,7 +32,7 @@ export default function SettingsPage() {
     // Form state
     const [displayName, setDisplayName] = useState('');
     const [scriptMode, setScriptMode] = useState<ScriptMode>('both');
-    const [themeMode, setThemeMode] = useState<ThemeMode>('light');
+    const [themeMode, setThemeMode] = useState<ThemeMode>('klasik');
     const [language, setLanguage] = useState<Language>('id');
     const [saving, setSaving] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -166,13 +166,12 @@ export default function SettingsPage() {
                         />
 
                         <Select
-                            label="Tema"
+                            label="Tema Visual"
                             value={themeMode}
                             onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
                             options={[
-                                { value: 'light', label: '☀️ Terang' },
-                                { value: 'dark', label: '🌙 Gelap' },
-                                { value: 'auto', label: '🔄 Otomatis' }
+                                { value: 'klasik', label: '🎨 Klasik' },
+                                { value: 'nusantara', label: '✨ Nusantara' }
                             ]}
                         />
 

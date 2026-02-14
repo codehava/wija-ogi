@@ -79,7 +79,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
             displayName: session.user.name || '',
             photoUrl: session.user.image || undefined,
             preferredScript: 'both',
-            preferredTheme: 'light',
+            preferredTheme: 'klasik',
             preferredLanguage: 'id',
             familyIds: [],
             createdAt: new Date(),

@@ -33,7 +33,7 @@ export const users = pgTable('users', {
 
     // Preferences
     preferredScript: varchar('preferred_script', { length: 10 }).default('both'),
-    preferredTheme: varchar('preferred_theme', { length: 10 }).default('light'),
+    preferredTheme: varchar('preferred_theme', { length: 10 }).default('klasik'),
     preferredLanguage: varchar('preferred_language', { length: 5 }).default('id'),
 
     createdAt: timestamp('created_at').defaultNow(),
@@ -82,7 +82,7 @@ export const trees = pgTable('trees', {
 
     // Settings
     scriptMode: varchar('script_mode', { length: 10 }).default('both'),
-    theme: varchar('theme', { length: 10 }).default('light'),
+    theme: varchar('theme', { length: 10 }).default('klasik'),
     language: varchar('language', { length: 5 }).default('id'),
 
     // Subscription
