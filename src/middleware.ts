@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // WIJA - Next.js Middleware
-// Rate limiting, CSRF protection, and other global protections
+// Rate limiting for auth endpoints and write operations
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,45 +8,6 @@ import { checkRateLimit, getRateLimitKey, RATE_LIMITS } from '@/lib/rateLimit';
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-
-    // ─── CSRF Protection for mutations ───────────────────────────────────
-    // Verify Origin/Referer matches our host on state-changing requests
-    if (
-        pathname.startsWith('/api/') &&
-        !pathname.startsWith('/api/auth') && // NextAuth handles its own CSRF
-        ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
-    ) {
-        const origin = request.headers.get('origin');
-        const referer = request.headers.get('referer');
-        const host = request.headers.get('host');
-
-        // Server-side requests (no origin/referer) are allowed
-        if (origin || referer) {
-            let requestOrigin: string | null = null;
-            try {
-                if (origin) {
-                    requestOrigin = new URL(origin).origin;
-                } else if (referer) {
-                    requestOrigin = new URL(referer).origin;
-                }
-            } catch {
-                // malformed URL — block it
-                return NextResponse.json(
-                    { error: 'Forbidden: Invalid origin' },
-                    { status: 403 }
-                );
-            }
-
-            const expectedOrigin = request.nextUrl.origin;
-
-            if (requestOrigin && requestOrigin !== expectedOrigin) {
-                return NextResponse.json(
-                    { error: 'Forbidden: Cross-origin request blocked' },
-                    { status: 403 }
-                );
-            }
-        }
-    }
 
     // ─── Rate limit auth endpoints (login/register): 10 per minute ───────
     if (pathname.startsWith('/api/auth')) {
