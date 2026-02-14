@@ -18,17 +18,14 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const [theme, setThemeState] = useState<Theme>('klasik');
-    const [mounted, setMounted] = useState(false);
 
-    // Load theme from localStorage on mount
+    // Load theme from localStorage on mount — sets attribute immediately
     useEffect(() => {
-        setMounted(true);
         const savedTheme = localStorage.getItem('wija-theme') as Theme | null;
         if (savedTheme && (savedTheme === 'klasik' || savedTheme === 'nusantara')) {
             setThemeState(savedTheme);
             document.documentElement.setAttribute('data-theme', savedTheme);
         } else {
-            // Default to klasik
             document.documentElement.setAttribute('data-theme', 'klasik');
         }
     }, []);
@@ -39,11 +36,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         document.documentElement.setAttribute('data-theme', newTheme);
     };
 
-    // Prevent flash of wrong theme
-    if (!mounted) {
-        return null;
-    }
-
+    // IMPORTANT: Always render children — never return null.
+    // Returning null would unmount QueryProvider/AuthProvider and lose all cached data.
     return (
         <ThemeContext.Provider value={{ theme, setTheme }}>
             {children}
