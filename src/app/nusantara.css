@@ -101,18 +101,27 @@
    ───────────────────────────────────────────────────────────────────────────────── */
 
 [data-theme="nusantara"] .glass {
-    background: var(--glass-bg);
+    background: rgba(30, 41, 59, 0.7) !important;
+    /* Lighter background for visibility */
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
+    border: 1px solid rgba(45, 212, 191, 0.3) !important;
+    /* Visual border */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="nusantara"] .glass-subtle {
     background: rgba(19, 28, 49, 0.7);
-    border: 1px solid rgba(45, 212, 191, 0.08);
+    border: 1px solid rgba(45, 212, 191, 0.2);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+}
+
+/* Force visibility of animated items in dark theme to prevent opacity: 0 issues */
+[data-theme="nusantara"] .stagger-item {
+    opacity: 1 !important;
+    animation: none !important;
+    transform: none !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────
