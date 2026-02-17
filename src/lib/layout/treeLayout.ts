@@ -1,6 +1,5 @@
 import dagre from 'dagre';
 import { Person, Relationship } from '@/types';
-import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
 
 interface NodePosition {
     x: number;
@@ -362,28 +361,29 @@ export function calculateTreeLayout(
 
         // BFS from each root — parent→child only, keep MAXIMUM generation
         // (ensures children of cross-lineage marriages go BELOW the deeper parent)
+        // NOTE: No per-root 'visited' set — we allow re-visiting nodes if a later
+        // root provides a HIGHER generation (deeper path wins).
         for (const rootId of layoutRoots) {
             const queue: Array<{ id: string; gen: number }> = [{ id: rootId, gen: 1 }];
-            const visited = new Set<string>();
 
             while (queue.length > 0) {
                 const { id, gen } = queue.shift()!;
-                if (visited.has(id)) continue;
-                visited.add(id);
 
-                // Keep MAXIMUM generation (deeper parent wins)
+                // Only process if this gen is higher than what we already have
                 const existing = layoutGen.get(id);
-                if (existing === undefined || gen > existing) {
-                    layoutGen.set(id, gen);
-                }
+                if (existing !== undefined && gen <= existing) continue;
+                layoutGen.set(id, gen);
 
                 const person = personsMap.get(id);
                 if (!person) continue;
 
                 // Only traverse children (NOT spouses) — prevents cross-lineage flattening
                 for (const childId of person.relationships?.childIds || []) {
-                    if (visibleIds.has(childId) && !visited.has(childId)) {
-                        queue.push({ id: childId, gen: gen + 1 });
+                    if (visibleIds.has(childId)) {
+                        const childExisting = layoutGen.get(childId);
+                        if (childExisting === undefined || gen + 1 > childExisting) {
+                            queue.push({ id: childId, gen: gen + 1 });
+                        }
                     }
                 }
             }
