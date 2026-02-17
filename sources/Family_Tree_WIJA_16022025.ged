@@ -1,0 +1,2129 @@
+0 HEAD
+1 SOUR WIJA-Converter
+2 VERS 1.0
+2 NAME WIJA Excel to GEDCOM Converter
+1 DEST ANY
+1 DATE FEB 17 2026
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @SUBM1@
+0 @SUBM1@ SUBM
+1 NAME WIJA Family Tree Project
+0 @I1@ INDI
+1 NAME Mattasi /Lompoe manurunge ri matajang arumpone pammulange (1)/
+2 GIVN Mattasi
+2 SURN Lompoe manurunge ri matajang arumpone pammulange (1)
+1 SEX M
+1 TITL Arumpone ke-1
+1 NOTE Keterangan: Arumpone ke-1
+1 NOTE Nama lengkap: Mattasi Lompoe manurunge ri matajang arumpone pammulange (1)
+1 FAMS @F12@
+0 @I2@ INDI
+1 NAME We /Tenriwale' manurunge ri tonro ri palakka/
+2 GIVN We
+2 SURN Tenriwale' manurunge ri tonro ri palakka
+1 SEX F
+1 NOTE Nama lengkap: We Tenriwale' manurunge ri tonro ri palakka
+1 FAMS @F12@
+0 @I3@ INDI
+1 NAME La /Temmamala manurunge ri sekkanyili datue ri soppeng riaja datu soppeng pammulange (2)/
+2 GIVN La
+2 SURN Temmamala manurunge ri sekkanyili datue ri soppeng riaja datu soppeng pammulange (2)
+1 SEX M
+1 TITL Datu Soppeng ke-2
+1 NOTE Keterangan: Datu Soppeng ke-2
+1 NOTE Nama lengkap: La Temmamala manurunge ri sekkanyili datue ri soppeng riaja datu soppeng pammulange (2)
+1 FAMS @F34@
+0 @I4@ INDI
+1 NAME We /Temmappuppu ri suppa/
+2 GIVN We
+2 SURN Temmappuppu ri suppa
+1 SEX F
+1 NOTE Nama lengkap: We Temmappuppu ri suppa
+1 FAMS @F34@
+0 @I5@ INDI
+1 NAME Patanrang /wanuwa ana'dara sinasiamanna lau'masa arumpone ma'duae (2)/
+2 GIVN Patanrang
+2 SURN wanuwa ana'dara sinasiamanna lau'masa arumpone ma'duae (2)
+1 SEX F
+1 TITL Arumpone ke-2
+1 NOTE Keterangan: Arumpone ke-2
+1 NOTE Nama lengkap: Patanrang wanuwa ana'dara sinasiamanna lau'masa arumpone ma'duae (2)
+1 FAMS @F56@
+0 @I6@ INDI
+1 NAME La /Pattikkeng arung palakka/
+2 GIVN La
+2 SURN Pattikkeng arung palakka
+1 SEX M
+1 NOTE Nama lengkap: La Pattikkeng arung palakka
+1 FAMS @F56@
+0 @I7@ INDI
+1 NAME We /Kawang arung pattojo we patappari we tenrikawa ri suppa/
+2 GIVN We
+2 SURN Kawang arung pattojo we patappari we tenrikawa ri suppa
+1 SEX F
+1 NOTE Nama lengkap: We Kawang arung pattojo we patappari we tenrikawa ri suppa
+1 FAMS @F78@
+0 @I8@ INDI
+1 NAME La /Maraccina datue ri soppeng riaja datu soppeng maduae/
+2 GIVN La
+2 SURN Maraccina datue ri soppeng riaja datu soppeng maduae
+1 SEX M
+1 NOTE Nama lengkap: La Maraccina datue ri soppeng riaja datu soppeng maduae
+1 FAMS @F78@
+1 FAMC @F34@
+0 @I9@ INDI
+1 NAME We /Pattippa datu ri balusu/
+2 GIVN We
+2 SURN Pattippa datu ri balusu
+1 SEX F
+1 NOTE Nama lengkap: We Pattippa datu ri balusu
+1 FAMS @F109@
+1 FAMC @F78@
+0 @I10@ INDI
+1 NAME La /Bada laba datue ri soppeng riaja datu soppeng ma'tellue (3)/
+2 GIVN La
+2 SURN Bada laba datue ri soppeng riaja datu soppeng ma'tellue (3)
+1 SEX M
+1 TITL Datu Soppeng ke-3
+1 NOTE Keterangan: Datu Soppeng ke-3
+1 NOTE Nama lengkap: La Bada laba datue ri soppeng riaja datu soppeng ma'tellue (3)
+1 FAMS @F109@
+1 FAMC @F78@
+0 @I13@ INDI
+1 NAME La /Salengke xxx puang ta kara arumpone ma'tellue (3)/
+2 GIVN La
+2 SURN Salengke xxx puang ta kara arumpone ma'tellue (3)
+1 SEX M
+1 TITL Arumpone ke-3
+1 NOTE Keterangan: Arumpone ke-3
+1 NOTE Nama lengkap: La Salengke xxx puang ta kara arumpone ma'tellue (3)
+1 FAMS @F1314@
+1 FAMC @F56@
+0 @I14@ INDI
+1 NAME We /Tenriropo ana' pattolana arunge ri panci/
+2 GIVN We
+2 SURN Tenriropo ana' pattolana arunge ri panci
+1 SEX F
+1 NOTE Nama lengkap: We Tenriropo ana' pattolana arunge ri panci
+1 FAMS @F1314@
+0 @I15@ INDI
+1 NAME Daeng /Marowa xxx gau' puang ta' makkalempi'e arumpone maeppae mallajangge ri cina/
+2 GIVN Daeng
+2 SURN Marowa xxx gau' puang ta' makkalempi'e arumpone maeppae mallajangge ri cina
+1 SEX F
+1 TITL Arumpone ke-4
+1 NOTE Keterangan: Arumpone ke-4
+1 NOTE Nama lengkap: Daeng Marowa xxx gau' puang ta' makkalempi'e arumpone maeppae mallajangge ri cina
+1 FAMS @F1516@
+1 FAMC @F1314@
+0 @I16@ INDI
+1 NAME La /Tenribali arung kaju la tenri sukki puang ta' mappajungge arumpone malimai/
+2 GIVN La
+2 SURN Tenribali arung kaju la tenri sukki puang ta' mappajungge arumpone malimai
+1 SEX M
+1 TITL Arumpone ke-5
+1 NOTE Keterangan: Arumpone ke-5
+1 NOTE Nama lengkap: La Tenribali arung kaju la tenri sukki puang ta' mappajungge arumpone malimai
+1 FAMS @F1516@
+0 @I17@ INDI
+1 NAME La /Temmapeo arung leworeng/
+2 GIVN La
+2 SURN Temmapeo arung leworeng
+1 SEX M
+1 NOTE Nama lengkap: La Temmapeo  arung leworeng
+1 FAMS @F1718@
+0 @I18@ INDI
+1 NAME We /Tekkewanua datue ri soppeng riaja datu soppeng mappae/
+2 GIVN We
+2 SURN Tekkewanua datue ri soppeng riaja datu soppeng mappae
+1 SEX F
+1 TITL Datu Soppeng ke-4
+1 NOTE Keterangan: Datu Soppeng ke-4
+1 NOTE Nama lengkap: We Tekkewanua datue ri soppeng riaja datu soppeng mappae
+1 FAMS @F1718@
+1 FAMC @F109@
+0 @I19@ INDI
+1 NAME Tanriesa /arung kaju/
+2 GIVN Tanriesa
+2 SURN arung kaju
+1 SEX F
+1 NOTE Nama lengkap: Tanriesa arung kaju
+1 FAMS @F1920@
+0 @I20@ INDI
+1 NAME La /Panaongi topawawoi arung pallenna/
+2 GIVN La
+2 SURN Panaongi topawawoi arung pallenna
+1 SEX M
+1 NOTE Nama lengkap: La Panaongi topawawoi arung pallenna
+1 FAMS @F1920@
+1 FAMC @F1516@
+0 @I21@ INDI
+1 NAME We /Tenrigella/
+2 GIVN We
+2 SURN Tenrigella
+1 SEX F
+1 NOTE Nama lengkap: We Tenrigella
+1 FAMS @F2122@
+1 FAMC @F1516@
+0 @I22@ INDI
+1 NAME La /Malise Opu dalle' xxx/
+2 GIVN La
+2 SURN Malise Opu dalle' xxx
+1 SEX M
+1 NOTE Nama lengkap: La Malise Opu dalle' xxx
+1 FAMS @F2122@
+0 @I23@ INDI
+1 NAME La /Tenrisuki puang ta' mappajungge arumpone malimai/
+2 GIVN La
+2 SURN Tenrisuki puang ta' mappajungge arumpone malimai
+1 SEX M
+1 NOTE Nama lengkap: La Tenrisuki puang ta' mappajungge arumpone malimai
+1 FAMS @F2324@
+1 FAMC @F1516@
+0 @I24@ INDI
+1 NAME We /Tenrisokke/
+2 GIVN We
+2 SURN Tenrisokke
+1 SEX F
+1 NOTE Nama lengkap: We Tenrisokke
+1 FAMS @F2324@
+0 @I25@ INDI
+1 NAME La /Makkane'ngga datue ri soppeng riaja datu soppeng malimai/
+2 GIVN La
+2 SURN Makkane'ngga datue ri soppeng riaja datu soppeng malimai
+1 SEX M
+1 TITL Datu Soppeng ke-5
+1 NOTE Keterangan: Datu Soppeng ke-5
+1 NOTE Nama lengkap: La Makkane'ngga datue ri soppeng riaja datu soppeng malimai
+1 FAMS @F2526@
+1 FAMC @F1718@
+0 @I26@ INDI
+1 NAME We /Tenri xxx ri bulu matanre/
+2 GIVN We
+2 SURN Tenri xxx ri bulu matanre
+1 SEX F
+1 NOTE Nama lengkap: We Tenri xxx ri bulu matanre
+1 FAMS @F2526@
+0 @I27@ INDI
+1 NAME Arung /Bila petta pangeppae ri soppeng riaja/
+2 GIVN Arung
+2 SURN Bila petta pangeppae ri soppeng riaja
+1 SEX M
+1 NOTE Nama lengkap: Arung Bila petta pangeppae ri soppeng riaja
+1 FAMS @F2728@
+1 FAMC @F1718@
+0 @I28@ INDI
+1 NAME We /Bubu we temmalullu/
+2 GIVN We
+2 SURN Bubu we temmalullu
+1 SEX F
+1 NOTE Nama lengkap: We Bubu we temmalullu
+1 FAMS @F2728@
+0 @I29@ INDI
+1 NAME We /Tenrigau' aruku/
+2 GIVN We
+2 SURN Tenrigau' aruku
+1 SEX F
+1 NOTE Nama lengkap: We Tenrigau' aruku
+1 FAMS @F2930@
+1 FAMC @F2122@
+0 @I30@ INDI
+1 NAME La /Uliyo puang ta' xxx arumpone ma'ennenge matinroe itterung (6)/
+2 GIVN La
+2 SURN Uliyo puang ta' xxx arumpone ma'ennenge matinroe itterung (6)
+1 SEX M
+1 TITL Arumpone ke-6
+1 NOTE Keterangan: Arumpone ke-6
+1 NOTE Nama lengkap: La Uliyo puang ta' xxx arumpone ma'ennenge matinroe itterung (6)
+1 FAMS @F2930@
+1 FAMS @F3031@
+1 FAMC @F2324@
+0 @I31@ INDI
+1 NAME We /Tenriewa ana'na arunge pattiro ma'gadingnge/
+2 GIVN We
+2 SURN Tenriewa ana'na arunge pattiro ma'gadingnge
+1 SEX F
+1 NOTE Nama lengkap: We Tenriewa ana'na arunge pattiro ma'gadingnge
+1 FAMS @F3031@
+0 @I32@ INDI
+1 NAME La /Kare'la datue ri soppeng riaja datu soppeng ma'ennenge (6)/
+2 GIVN La
+2 SURN Kare'la datue ri soppeng riaja datu soppeng ma'ennenge (6)
+1 SEX M
+1 TITL Datu Soppeng ke-6
+1 NOTE Keterangan: Datu Soppeng ke-6
+1 NOTE Nama lengkap: La Kare'la datue ri soppeng riaja datu soppeng ma'ennenge (6)
+1 FAMS @F3233@
+1 FAMC @F2526@
+0 @I33@ INDI
+1 NAME We /Bollosugi/
+2 GIVN We
+2 SURN Bollosugi
+1 SEX F
+1 NOTE Nama lengkap: We Bollosugi
+1 FAMS @F3233@
+1 FAMC @F2728@
+0 @I34@ INDI
+1 NAME We /Sare wanuwa ri baringeng/
+2 GIVN We
+2 SURN Sare wanuwa ri baringeng
+1 SEX F
+1 NOTE Nama lengkap: We Sare wanuwa ri baringeng
+1 FAMS @F3435@
+0 @I35@ INDI
+1 NAME La /Palumpang/
+2 GIVN La
+2 SURN Palumpang
+1 SEX M
+1 NOTE Nama lengkap: La Palumpang
+1 FAMS @F3435@
+1 FAMC @F2728@
+0 @I36@ INDI
+1 NAME La /Pattaweng arung kaju arumpone ma aserae mattinroe ri bettu/
+2 GIVN La
+2 SURN Pattaweng arung kaju arumpone ma aserae mattinroe ri bettu
+1 SEX M
+1 NOTE Nama lengkap: La Pattaweng arung kaju arumpone ma aserae mattinroe ri bettu
+1 FAMS @F3637@
+1 FAMC @F1920@
+0 @I37@ INDI
+1 NAME Daeng /Palipu arung mampu/
+2 GIVN Daeng
+2 SURN Palipu arung mampu
+1 SEX F
+1 NOTE Nama lengkap: Daeng Palipu arung mampu
+1 FAMS @F3637@
+1 FAMC @F2930@
+0 @I38@ INDI
+1 NAME Tenripakawa /arung timuru petta macippoe/
+2 GIVN Tenripakawa
+2 SURN arung timuru petta macippoe
+1 SEX F
+1 NOTE Nama lengkap: Tenripakawa arung timuru petta macippoe
+1 FAMS @F3839@
+0 @I39@ INDI
+1 NAME La /Ipa arumpone ma aruwae matinroe ri addenenna (8)/
+2 GIVN La
+2 SURN Ipa arumpone ma aruwae matinroe ri addenenna (8)
+1 SEX M
+1 TITL Arumpone ke-8
+1 NOTE Keterangan: Arumpone ke-8
+1 NOTE Nama lengkap: La Ipa arumpone ma aruwae matinroe ri addenenna  (8)
+1 FAMS @F3839@
+1 FAMC @F3031@
+0 @I40@ INDI
+1 NAME We /Mappe' Rimario Riase'/
+2 GIVN We
+2 SURN Mappe' Rimario Riase'
+1 SEX F
+1 NOTE Nama lengkap: We Mappe' Rimario Riase'
+1 FAMS @F4045@
+0 @I41@ INDI
+1 NAME La /Palasea Datue ri soppeng riaja datu soppeng ma pittue (7)/
+2 GIVN La
+2 SURN Palasea Datue ri soppeng riaja datu soppeng ma pittue (7)
+1 SEX M
+1 TITL Datu Soppeng ke-7
+1 NOTE Keterangan: Datu Soppeng ke-7
+1 NOTE Nama lengkap: La Palasea Datue ri soppeng riaja datu soppeng ma pittue (7)
+1 FAMS @F4142@
+1 FAMC @F3233@
+0 @I42@ INDI
+1 NAME We /Temmapappe' we temmanrepa ri pising/
+2 GIVN We
+2 SURN Temmapappe' we temmanrepa ri pising
+1 SEX F
+1 NOTE Nama lengkap: We Temmapappe' we temmanrepa ri pising
+1 FAMS @F4142@
+0 @I43@ INDI
+1 NAME La /Pacciki' Soppeng Ri Liu/
+2 GIVN La
+2 SURN Pacciki' Soppeng Ri Liu
+1 SEX M
+1 NOTE Nama lengkap: La Pacciki' Soppeng Ri Liu
+1 FAMS @F4344@
+0 @I44@ INDI
+1 NAME We /xxxx/
+2 GIVN We
+2 SURN xxxx
+1 SEX F
+1 NOTE Nama lengkap: We xxxx
+1 FAMS @F4344@
+1 FAMC @F3435@
+0 @I45@ INDI
+1 NAME La /Mpasampoa sorompalie ri soppeng riaja datu soppeng ma aruwae (8)/
+2 GIVN La
+2 SURN Mpasampoa sorompalie ri soppeng riaja datu soppeng ma aruwae (8)
+1 SEX M
+1 TITL Datu Soppeng ke-8
+1 NOTE Keterangan: Datu Soppeng ke-8
+1 NOTE Nama lengkap: La Mpasampoa sorompalie ri soppeng riaja datu soppeng ma aruwae (8)
+1 FAMS @F4546@
+1 FAMS @F4045@
+1 FAMC @F4142@
+0 @I46@ INDI
+1 NAME We /Tekkewiring we tappatana ri baringeng/
+2 GIVN We
+2 SURN Tekkewiring we tappatana ri baringeng
+1 SEX F
+1 NOTE Nama lengkap: We Tekkewiring we tappatana ri baringeng
+1 FAMS @F4546@
+0 @I47@ INDI
+1 NAME We /Taralompa/
+2 GIVN We
+2 SURN Taralompa
+1 SEX F
+1 NOTE Nama lengkap: We Taralompa
+1 FAMS @F4748@
+1 FAMC @F4142@
+0 @I48@ INDI
+1 NAME La /Poto bune'/
+2 GIVN La
+2 SURN Poto bune'
+1 SEX M
+1 NOTE Nama lengkap: La Poto bune'
+1 FAMS @F4748@
+1 FAMC @F4344@
+0 @I49@ INDI
+1 NAME We /Pennaru/
+2 GIVN We
+2 SURN Pennaru
+1 SEX F
+1 NOTE Nama lengkap: We Pennaru
+1 FAMS @F4950@
+0 @I50@ INDI
+1 NAME La /Mappacompa/
+2 GIVN La
+2 SURN Mappacompa
+1 SEX M
+1 NOTE Nama lengkap: La Mappacompa
+1 FAMS @F4950@
+1 FAMC @F4546@
+0 @I51@ INDI
+1 NAME La /Mannusa toakaranga datu Soppeng ma aserae matinroe ri tanana (9)/
+2 GIVN La
+2 SURN Mannusa toakaranga datu Soppeng ma aserae matinroe ri tanana (9)
+1 SEX M
+1 TITL Datu Soppeng ke-9
+1 NOTE Keterangan: Datu Soppeng ke-9
+1 NOTE Nama lengkap: La Mannusa toakaranga datu Soppeng ma aserae matinroe ri tanana (9)
+1 FAMS @F5152@
+1 FAMC @F4546@
+0 @I52@ INDI
+1 NAME We /Temmanroa we temmageppa/
+2 GIVN We
+2 SURN Temmanroa we temmageppa
+1 SEX F
+1 NOTE Nama lengkap: We Temmanroa we temmageppa
+1 FAMS @F5152@
+1 FAMC @F4748@
+0 @I53@ INDI
+1 NAME Tenriparola //
+2 GIVN Tenriparola
+1 SEX F
+1 NOTE Nama lengkap: Tenriparola
+1 FAMS @F5354@
+0 @I54@ INDI
+1 NAME La /Malle'ngnge Toalau arung sumali/
+2 GIVN La
+2 SURN Malle'ngnge Toalau arung sumali
+1 SEX M
+1 NOTE Nama lengkap: La Malle'ngnge Toalau arung sumali
+1 FAMS @F5354@
+0 @I55@ INDI
+1 NAME La /Saliwu padanreng palakka/
+2 GIVN La
+2 SURN Saliwu padanreng palakka
+1 SEX M
+1 NOTE Nama lengkap: La Saliwu padanreng palakka
+1 FAMS @F5556@
+0 @I56@ INDI
+1 NAME I /lipe'/
+2 GIVN I
+2 SURN lipe'
+1 SEX F
+1 NOTE Nama lengkap: I lipe'
+1 FAMS @F5556@
+1 FAMC @F3031@
+0 @I57@ INDI
+1 NAME La /Waniaga arungbila Tomacerra/
+2 GIVN La
+2 SURN Waniaga arungbila Tomacerra
+1 SEX M
+1 NOTE Nama lengkap: La Waniaga arungbila Tomacerra
+1 FAMS @F5758@
+0 @I58@ INDI
+1 NAME We /Bollo sugi/
+2 GIVN We
+2 SURN Bollo sugi
+1 SEX F
+1 NOTE Nama lengkap: We Bollo sugi
+1 FAMS @F5758@
+1 FAMC @F4950@
+0 @I59@ INDI
+1 NAME Lade /datue ri soppeng riaja petta mabollonge datu soppeng ma seppuloe (10)/
+2 GIVN Lade
+2 SURN datue ri soppeng riaja petta mabollonge datu soppeng ma seppuloe (10)
+1 SEX M
+1 TITL Datu Soppeng ke-10
+1 NOTE Keterangan: Datu Soppeng ke-10
+1 NOTE Nama lengkap: Lade  datue ri soppeng riaja petta mabollonge datu soppeng ma seppuloe (10)
+1 FAMS @F5960@
+1 FAMC @F5152@
+0 @I60@ INDI
+1 NAME We /Temmabule' petta malotongge datu ri marioriawa/
+2 GIVN We
+2 SURN Temmabule' petta malotongge datu ri marioriawa
+1 SEX F
+1 NOTE Nama lengkap: We Temmabule' petta malotongge datu ri marioriawa
+1 FAMS @F5960@
+0 @I61@ INDI
+1 NAME La /Parai Topatakka arung sumali petta lampe pabbekkeng/
+2 GIVN La
+2 SURN Parai Topatakka arung sumali petta lampe pabbekkeng
+1 SEX M
+1 NOTE Nama lengkap: La Parai Topatakka arung sumali petta lampe pabbekkeng
+1 FAMS @F6162@
+1 FAMC @F5354@
+0 @I62@ INDI
+1 NAME We /Tenrijello makalurue arunge ri pattiro/
+2 GIVN We
+2 SURN Tenrijello makalurue arunge ri pattiro
+1 SEX F
+1 NOTE Nama lengkap: We Tenrijello makalurue arunge ri pattiro
+1 FAMS @F6162@
+1 FAMC @F3839@
+0 @I63@ INDI
+1 NAME Tenripauwa /tenripakawa/
+2 GIVN Tenripauwa
+2 SURN tenripakawa
+1 SEX F
+1 NOTE Nama lengkap: Tenripauwa tenripakawa
+1 FAMS @F6364@
+1 FAMC @F3031@
+0 @I64@ INDI
+1 NAME La /makkaroda tenribali pue ma beawae datu ri soppeng rilau/
+2 GIVN La
+2 SURN makkaroda tenribali pue ma beawae datu ri soppeng rilau
+1 SEX M
+1 NOTE Nama lengkap: La makkaroda tenribali pue ma beawae datu ri soppeng rilau
+1 FAMS @F6364@
+1 FAMC @F5758@
+0 @I65@ INDI
+1 NAME We /Tenriania ri belo ri gangka/
+2 GIVN We
+2 SURN Tenriania ri belo ri gangka
+1 SEX F
+1 NOTE Nama lengkap: We Tenriania ri belo ri gangka
+1 FAMS @F6566@
+0 @I66@ INDI
+1 NAME La /Mattaeso puwang lipue datu soppeng maseppuloe duwa bunge passediengi soppeng riaja soppeng rilau mappadaoroane siana siamai lassekaki datu soppeng ma'seppuloe seddi (12)/
+2 GIVN La
+2 SURN Mattaeso puwang lipue datu soppeng maseppuloe duwa bunge passediengi soppeng riaja soppeng rilau mappadaoroane siana siamai lassekaki datu soppeng ma'seppuloe seddi (12)
+1 SEX M
+1 TITL Datu Soppeng ke 11 dan ke-12
+1 NOTE Keterangan: Datu Soppeng ke 11 dan ke-12
+1 NOTE Nama lengkap: La Mattaeso puwang lipue datu soppeng maseppuloe duwa bunge passediengi soppeng riaja soppeng rilau mappadaoroane siana siamai lassekaki datu soppeng ma'seppuloe seddi (12)
+1 FAMS @F6566@
+1 FAMC @F5960@
+0 @I67@ INDI
+1 NAME La /Tenriruwa aru palakka arumpone ma'seppuloe se'di matinroe ri bantaeng (11)/
+2 GIVN La
+2 SURN Tenriruwa aru palakka arumpone ma'seppuloe se'di matinroe ri bantaeng (11)
+1 SEX M
+1 TITL Arumpone ke-11
+1 NOTE Keterangan: Arumpone ke-11
+1 NOTE Nama lengkap: La Tenriruwa aru palakka arumpone ma'seppuloe se'di matinroe ri bantaeng (11)
+1 FAMS @F6768@
+1 FAMC @F5556@
+0 @I68@ INDI
+1 NAME We /Baji Tenrileke' Petta lembae datue ri marioriase/
+2 GIVN We
+2 SURN Baji Tenrileke' Petta lembae datue ri marioriase
+1 SEX F
+1 NOTE Nama lengkap: We Baji Tenrileke' Petta lembae datue ri marioriase
+1 FAMS @F6768@
+1 FAMS @F6869@
+1 FAMC @F6364@
+0 @I69@ INDI
+1 NAME Tolope'e /arung pattojo riaja/
+2 GIVN Tolope'e
+2 SURN arung pattojo riaja
+1 SEX M
+1 NOTE Nama lengkap: Tolope'e arung pattojo riaja
+1 FAMS @F6869@
+0 @I70@ INDI
+1 NAME La /Mappaleppe pattolae datu soppeng ma seppuloe mattellu mpoccoe/
+2 GIVN La
+2 SURN Mappaleppe pattolae datu soppeng ma seppuloe mattellu mpoccoe
+1 SEX M
+1 TITL Datu Soppeng ke-15
+1 NOTE Keterangan: Datu Soppeng ke-15
+1 NOTE Nama lengkap: La Mappaleppe pattolae datu soppeng ma seppuloe mattellu mpoccoe
+1 FAMS @F7071@
+1 FAMC @F6566@
+0 @I71@ INDI
+1 NAME We /Tessiewa we tenriwewang datu ri pattojo/
+2 GIVN We
+2 SURN Tessiewa we tenriwewang datu ri pattojo
+1 SEX F
+1 NOTE Nama lengkap: We Tessiewa we tenriwewang datu ri pattojo
+1 FAMS @F7071@
+0 @I72@ INDI
+1 NAME We /Pasa datu ri watu/
+2 GIVN We
+2 SURN Pasa datu ri watu
+1 SEX F
+1 NOTE Nama lengkap: We Pasa datu ri watu
+1 FAMS @F7273@
+0 @I73@ INDI
+1 NAME La /Potobune tobalise arung tanatengga datue ri lompulle/
+2 GIVN La
+2 SURN Potobune tobalise arung tanatengga datue ri lompulle
+1 SEX M
+1 NOTE Nama lengkap: La Potobune tobalise arung tanatengga datue ri lompulle
+1 FAMS @F7374@
+1 FAMS @F7273@
+0 @I74@ INDI
+1 NAME I /Buludini tenrisuadangke datue ri marioriase/
+2 GIVN I
+2 SURN Buludini tenrisuadangke datue ri marioriase
+1 SEX F
+1 NOTE Nama lengkap: I Buludini tenrisuadangke datue ri marioriase
+1 FAMS @F7374@
+1 FAMC @F6768@
+0 @I75@ INDI
+1 NAME La /Ma'daremmeng arung timuru arumpone ma' seppuloe tellu matinroe ri bukaka (13)/
+2 GIVN La
+2 SURN Ma'daremmeng arung timuru arumpone ma' seppuloe tellu matinroe ri bukaka (13)
+1 SEX M
+1 TITL Arumpone ke-13
+1 NOTE Keterangan: Arumpone ke-13
+1 NOTE Nama lengkap: La Ma'daremmeng arung timuru arumpone ma' seppuloe tellu matinroe ri bukaka (13)
+1 FAMS @F7576@
+1 FAMC @F6162@
+0 @I76@ INDI
+1 NAME Khadija /Petta ranrengtua arumpogi ana' na towalie petta arung matoa wajo ma seppuloe lima (15)/
+2 GIVN Khadija
+2 SURN Petta ranrengtua arumpogi ana' na towalie petta arung matoa wajo ma seppuloe lima (15)
+1 SEX F
+1 TITL Matoa Wajo ke-15
+1 NOTE Keterangan: Matoa Wajo ke-15
+1 NOTE Nama lengkap: Khadija Petta ranrengtua arumpogi ana' na towalie petta arung matoa wajo ma seppuloe lima (15)
+1 FAMS @F7576@
+0 @I77@ INDI
+1 NAME We /Tenriegella Arung Pattojo Rilau Arung Lapajung Ana'dara Sinasiaamanna datu soppeng laseppuloe appabunge sellengge tahun 1609/
+2 GIVN We
+2 SURN Tenriegella Arung Pattojo Rilau Arung Lapajung Ana'dara Sinasiaamanna datu soppeng laseppuloe appabunge sellengge tahun 1609
+1 SEX F
+1 NOTE Nama lengkap: We Tenriegella Arung Pattojo Rilau Arung Lapajung Ana'dara Sinasiaamanna datu soppeng laseppuloe appabunge sellengge tahun 1609
+1 FAMS @F7778@
+1 FAMC @F7071@
+0 @I78@ INDI
+1 NAME La /Maddusila arung mampu latowaka petta mamesa batue/
+2 GIVN La
+2 SURN Maddusila arung mampu latowaka petta mamesa batue
+1 SEX M
+1 NOTE Nama lengkap: La Maddusila arung mampu latowaka petta mamesa batue
+1 FAMS @F7778@
+0 @I79@ INDI
+1 NAME We /Bubbu dasajo datue ri watu arung pattojo/
+2 GIVN We
+2 SURN Bubbu dasajo datue ri watu arung pattojo
+1 SEX F
+1 NOTE Nama lengkap: We Bubbu dasajo datue ri watu arung  pattojo
+1 FAMS @F7980@
+1 FAMC @F6869@
+0 @I80@ INDI
+1 NAME La /Tenribali Arung Mampu Arung ri wajo Pattojo alau datu soppeng maseppuloe lima matinroe ri adatuanna (15)/
+2 GIVN La
+2 SURN Tenribali Arung Mampu Arung ri wajo Pattojo alau datu soppeng maseppuloe lima matinroe ri adatuanna (15)
+1 SEX M
+1 TITL Arumpone ke-15
+1 NOTE Keterangan: Arumpone ke-15
+1 NOTE Nama lengkap: La Tenribali Arung Mampu Arung ri wajo Pattojo alau datu soppeng maseppuloe lima matinroe ri adatuanna (15)
+1 FAMS @F7980@
+0 @I81@ INDI
+1 NAME I /mutaya wija manurunge ri buri liu/
+2 GIVN I
+2 SURN mutaya wija manurunge ri buri liu
+1 SEX F
+1 NOTE Nama lengkap: I mutaya wija manurunge ri buri liu
+1 FAMS @F8182@
+0 @I82@ INDI
+1 NAME La /Tenritatta daeng serang datue ri marioriase arung palakka arunmpone ma seppuloe petu petta malampe'e gemme'na puwetta tau risompae matinroe ri bontoala/
+2 GIVN La
+2 SURN Tenritatta daeng serang datue ri marioriase arung palakka arunmpone ma seppuloe petu petta malampe'e gemme'na puwetta tau risompae matinroe ri bontoala
+1 SEX M
+1 TITL Arumpone ke-17
+1 NOTE Keterangan: Arumpone ke-17
+1 NOTE Nama lengkap: La Tenritatta daeng serang datue ri marioriase arung palakka arunmpone ma seppuloe petu petta malampe'e gemme'na puwetta tau risompae matinroe ri bontoala
+1 FAMS @F8182@
+1 FAMS @F8283@
+1 FAMC @F7374@
+0 @I83@ INDI
+1 NAME We /ada arung sijelling datue ri watu datu soppeng maseppuloe enneng ana' dara siama siamanna la tenri sengngeng laesang datu soppeng maseppuloe lima (15)/
+2 GIVN We
+2 SURN ada arung sijelling datue ri watu datu soppeng maseppuloe enneng ana' dara siama siamanna la tenri sengngeng laesang datu soppeng maseppuloe lima (15)
+1 SEX F
+1 TITL Datu Soppeng ke-15
+1 NOTE Keterangan: Datu Soppeng ke-15
+1 NOTE Nama lengkap: We ada arung sijelling datue ri watu datu soppeng maseppuloe enneng ana' dara siama siamanna la tenri sengngeng laesang datu soppeng maseppuloe lima  (15)
+1 FAMS @F8283@
+0 @I84@ INDI
+1 NAME We /Mappolobombang pa'danreng palakka matinroe ri pinceng pute/
+2 GIVN We
+2 SURN Mappolobombang pa'danreng palakka matinroe ri pinceng pute
+1 SEX F
+1 NOTE Nama lengkap: We Mappolobombang pa'danreng palakka matinroe ri pinceng pute
+1 FAMS @F8485@
+1 FAMC @F7374@
+0 @I85@ INDI
+1 NAME La /Tadampali senrima ugi petta pakkokoe arung timuru matinroe ri tenggana timuru/
+2 GIVN La
+2 SURN Tadampali senrima ugi petta pakkokoe arung timuru matinroe ri tenggana timuru
+1 SEX M
+1 NOTE Nama lengkap: La Tadampali senrima ugi petta pakkokoe arung timuru matinroe ri tenggana timuru
+1 FAMS @F8485@
+1 FAMC @F7576@
+0 @I86@ INDI
+1 NAME Tenriamba /matinroe ri bollasadae/
+2 GIVN Tenriamba
+2 SURN matinroe ri bollasadae
+1 SEX F
+1 NOTE Nama lengkap: Tenriamba matinroe ri bollasadae
+1 FAMS @F8687@
+1 FAMC @F7374@
+0 @I87@ INDI
+1 NAME La /Mappajanci datu tanete sultan ishak/
+2 GIVN La
+2 SURN Mappajanci datu tanete sultan ishak
+1 SEX M
+1 NOTE Nama lengkap: La Mappajanci datu tanete sultan ishak
+1 FAMS @F8687@
+0 @I88@ INDI
+1 NAME La /Tenrisengngeng laesa datue ri soppeng maseppuloe pitu matinroe ri sawasanna/
+2 GIVN La
+2 SURN Tenrisengngeng laesa datue ri soppeng maseppuloe pitu matinroe ri sawasanna
+1 SEX M
+1 TITL Datu Soppeng ke-17
+1 NOTE Keterangan: Datu Soppeng ke-17
+1 NOTE Nama lengkap: La Tenrisengngeng laesa datue ri soppeng maseppuloe pitu matinroe ri sawasanna
+1 FAMS @F8889@
+1 FAMC @F7980@
+0 @I89@ INDI
+1 NAME Tenripada /xxx Petta Pungae/
+2 GIVN Tenripada
+2 SURN xxx Petta Pungae
+1 SEX F
+1 NOTE Nama lengkap: Tenripada xxx Petta Pungae
+1 FAMS @F8889@
+0 @I90@ INDI
+1 NAME Patteke' /tana karaeng Tanete matinroe ri tanete/
+2 GIVN Patteke'
+2 SURN tana karaeng Tanete matinroe ri tanete
+1 SEX F
+1 NOTE Nama lengkap: Patteke' tana karaeng Tanete matinroe ri tanete
+1 FAMS @F9091@
+1 FAMC @F8687@
+0 @I91@ INDI
+1 NAME Muhammad /Laonro tenri lengkang topalaguna pajung ri luwu ma'seppuloe aruwa (18)/
+2 GIVN Muhammad
+2 SURN Laonro tenri lengkang topalaguna pajung ri luwu ma'seppuloe aruwa (18)
+1 SEX M
+1 TITL Pajung Ri Luwu ke-18
+1 NOTE Keterangan: Pajung Ri Luwu ke-18
+1 NOTE Nama lengkap: Muhammad Laonro tenri lengkang topalaguna pajung ri luwu ma'seppuloe aruwa (18)
+1 FAMS @F9091@
+0 @I92@ INDI
+1 NAME La /Kareddu arung sekkanyilli/
+2 GIVN La
+2 SURN Kareddu arung sekkanyilli
+1 SEX M
+1 NOTE Nama lengkap: La Kareddu arung sekkanyilli
+1 FAMS @F9293@
+1 FAMC @F8889@
+0 @I93@ INDI
+1 NAME Ana'na /lawellong watampanuwae ri ganra/
+2 GIVN Ana'na
+2 SURN lawellong watampanuwae ri ganra
+1 SEX F
+1 NOTE Nama lengkap: Ana'na  lawellong watampanuwae ri ganra
+1 FAMS @F9293@
+0 @I94@ INDI
+1 NAME We /Mariama karaeng patungkengi/
+2 GIVN We
+2 SURN Mariama karaeng patungkengi
+1 SEX F
+1 NOTE Nama lengkap: We Mariama karaeng patungkengi
+1 FAMS @F9495@
+0 @I95@ INDI
+1 NAME La /Patau mattalatikka arung palakka arumpone datu soppeng ma'seppuloe aruwa matinroe ri naga uleng (18)/
+2 GIVN La
+2 SURN Patau mattalatikka arung palakka arumpone datu soppeng ma'seppuloe aruwa matinroe ri naga uleng (18)
+1 SEX M
+1 TITL Datu Soppeng ke-18
+1 NOTE Keterangan: Datu Soppeng ke-18
+1 NOTE Nama lengkap: La Patau mattalatikka arung palakka arumpone datu soppeng ma'seppuloe aruwa matinroe ri naga uleng (18)
+1 FAMS @F9495@
+1 FAMC @F8485@
+0 @I96@ INDI
+1 NAME La /Page datue ri wompulle/
+2 GIVN La
+2 SURN Page datue ri wompulle
+1 SEX M
+1 NOTE Nama lengkap: La Page datue ri wompulle
+1 FAMS @F9697@
+1 FAMC @F7273@
+0 @I97@ INDI
+1 NAME We /bakku datue ri botto/
+2 GIVN We
+2 SURN bakku datue ri botto
+1 SEX F
+1 NOTE Nama lengkap: We bakku datue ri botto
+1 FAMS @F9697@
+0 @I98@ INDI
+1 NAME I /Gumatiri/
+2 GIVN I
+2 SURN Gumatiri
+1 SEX F
+1 NOTE Nama lengkap: I Gumatiri
+1 FAMS @F9899@
+0 @I99@ INDI
+1 NAME La /Pareppa tosappe wali karaeng sombae ri gowa datu soppeng ma'duapuloe matinroe ri somba opu (20)/
+2 GIVN La
+2 SURN Pareppa tosappe wali karaeng sombae ri gowa datu soppeng ma'duapuloe matinroe ri somba opu (20)
+1 SEX M
+1 TITL Datu Soppeng ke-20
+1 NOTE Keterangan: Datu Soppeng ke-20
+1 NOTE Nama lengkap: La Pareppa tosappe wali karaeng sombae ri gowa datu soppeng ma'duapuloe matinroe ri somba opu (20)
+1 FAMS @F9899@
+0 @I100@ INDI
+1 NAME La /Pasama datue ri lompulle' datue ri bakke'/
+2 GIVN La
+2 SURN Pasama datue ri lompulle' datue ri bakke'
+1 SEX M
+1 NOTE Nama lengkap: La Pasama datue ri lompulle' datue ri bakke'
+1 FAMS @F100101@
+1 FAMC @F9697@
+0 @I101@ INDI
+1 NAME We /Mappamekko datue ri bakke'/
+2 GIVN We
+2 SURN Mappamekko datue ri bakke'
+1 SEX F
+1 NOTE Nama lengkap: We Mappamekko datue ri bakke'
+1 FAMS @F100101@
+0 @I102@ INDI
+1 NAME La /Rumpang mega to sappaile'/
+2 GIVN La
+2 SURN Rumpang mega to sappaile'
+1 SEX M
+1 NOTE Nama lengkap: La Rumpang mega to sappaile'
+1 FAMS @F102103@
+0 @I103@ INDI
+1 NAME Batari /tungke pajung ri luwu matinroe ri pattiro/
+2 GIVN Batari
+2 SURN tungke pajung ri luwu matinroe ri pattiro
+1 SEX F
+1 TITL Pajung Ri Luwu
+1 NOTE Keterangan: Pajung Ri Luwu
+1 NOTE Nama lengkap: Batari tungke pajung ri luwu matinroe ri pattiro
+1 FAMS @F102103@
+1 FAMC @F9091@
+0 @I104@ INDI
+1 NAME I /Dalaintang arung palakka bone/
+2 GIVN I
+2 SURN Dalaintang arung palakka bone
+1 SEX F
+1 NOTE Nama lengkap: I Dalaintang arung palakka bone
+1 FAMS @F104105@
+1 FAMC @F8182@
+0 @I105@ INDI
+1 NAME La /Raulangi Karaenge Ri Bontonompo/
+2 GIVN La
+2 SURN Raulangi Karaenge Ri Bontonompo
+1 SEX M
+1 NOTE Nama lengkap: La Raulangi Karaenge Ri Bontonompo
+1 FAMS @F104105@
+0 @I106@ INDI
+1 NAME La /masselomo/
+2 GIVN La
+2 SURN masselomo
+1 SEX M
+1 NOTE Nama lengkap: La masselomo
+1 FAMS @F106107@
+1 FAMC @F9899@
+0 @I107@ INDI
+1 NAME We /gau arung tanjong/
+2 GIVN We
+2 SURN gau arung tanjong
+1 SEX F
+1 NOTE Nama lengkap: We gau arung tanjong
+1 FAMS @F106107@
+0 @I108@ INDI
+1 NAME La /Pasajo la mappaselli arung pattojo/
+2 GIVN La
+2 SURN Pasajo la mappaselli arung pattojo
+1 SEX M
+1 NOTE Nama lengkap: La Pasajo la mappaselli arung pattojo
+1 FAMS @F108109@
+1 FAMC @F9293@
+0 @I109@ INDI
+1 NAME Tenripauwang //
+2 GIVN Tenripauwang
+1 SEX F
+1 NOTE Nama lengkap: Tenripauwang
+1 FAMS @F108109@
+0 @I110@ INDI
+1 NAME Ana'na /gallarang ri moncongloe/
+2 GIVN Ana'na
+2 SURN gallarang ri moncongloe
+1 SEX F
+1 NOTE Nama lengkap: Ana'na gallarang ri moncongloe
+1 FAMS @F110111@
+0 @I111@ INDI
+1 NAME Wali /maraja mompo ri gowa ri tampu'i yusuf nalennyepaimeng/
+2 GIVN Wali
+2 SURN maraja mompo ri gowa ri tampu'i yusuf nalennyepaimeng
+1 SEX M
+1 NOTE Nama lengkap: Wali maraja mompo ri gowa ri tampu'i yusuf nalennyepaimeng
+1 FAMS @F110111@
+0 @I112@ INDI
+1 NAME La /Maripottona karaengnge ri butung/
+2 GIVN La
+2 SURN Maripottona karaengnge ri butung
+1 SEX M
+1 NOTE Nama lengkap: La Maripottona karaengnge ri butung
+1 FAMS @F112113@
+1 FAMC @F104105@
+0 @I113@ INDI
+1 NAME I /Tenriampa arung sengkang/
+2 GIVN I
+2 SURN Tenriampa arung sengkang
+1 SEX F
+1 NOTE Nama lengkap: I Tenriampa arung sengkang
+1 FAMS @F112113@
+0 @I114@ INDI
+1 NAME I /Pawawoi datu boge/
+2 GIVN I
+2 SURN Pawawoi datu boge
+1 SEX F
+1 NOTE Nama lengkap: I Pawawoi datu boge
+1 FAMS @F114115@
+1 FAMC @F106107@
+0 @I115@ INDI
+1 NAME Petta /jangko dulung datu lamuru/
+2 GIVN Petta
+2 SURN jangko dulung datu lamuru
+1 SEX M
+1 NOTE Nama lengkap: Petta jangko dulung datu lamuru
+1 FAMS @F114115@
+0 @I116@ INDI
+1 NAME La /Malla arung dariwo riawa datue ri lompulle/
+2 GIVN La
+2 SURN Malla arung dariwo riawa datue ri lompulle
+1 SEX M
+1 NOTE Nama lengkap: La Malla arung dariwo riawa datue ri lompulle
+1 FAMS @F116117@
+1 FAMC @F100101@
+0 @I117@ INDI
+1 NAME I /Tenri lelleang pajung ri luwu datutoi ri soppeng matinroe ri soreang/
+2 GIVN I
+2 SURN Tenri lelleang pajung ri luwu datutoi ri soppeng matinroe ri soreang
+1 SEX F
+1 TITL Pajung Ri Luwu
+1 NOTE Keterangan: Pajung Ri Luwu
+1 NOTE Nama lengkap: I Tenri lelleang pajung ri luwu datutoi ri soppeng matinroe ri soreang
+1 FAMS @F116117@
+1 FAMS @F117118@
+1 FAMC @F102103@
+0 @I118@ INDI
+1 NAME La /Mappa datue ri pattojo matinroe ri doninna/
+2 GIVN La
+2 SURN Mappa datue ri pattojo matinroe ri doninna
+1 SEX M
+1 NOTE Nama lengkap: La Mappa datue ri pattojo matinroe ri doninna
+1 FAMS @F117118@
+1 FAMC @F108109@
+0 @I119@ INDI
+1 NAME La /Tenridolo Matinroe ri wadatoangi/
+2 GIVN La
+2 SURN Tenridolo Matinroe ri wadatoangi
+1 SEX M
+1 NOTE Nama lengkap: La Tenridolo Matinroe  ri wadatoangi
+1 FAMS @F119120@
+0 @I120@ INDI
+1 NAME Petta /Pangepae Ri leworeng/
+2 GIVN Petta
+2 SURN Pangepae Ri leworeng
+1 SEX F
+1 NOTE Nama lengkap: Petta Pangepae Ri leworeng
+1 FAMS @F119120@
+0 @I121@ INDI
+1 NAME La /Cinra arung kamiri/
+2 GIVN La
+2 SURN Cinra arung kamiri
+1 SEX M
+1 NOTE Nama lengkap: La Cinra arung kamiri
+1 FAMS @F121122@
+0 @I122@ INDI
+1 NAME Besse /palekkoreng ri ana'dara sina siamanna arung tile/
+2 GIVN Besse
+2 SURN palekkoreng ri ana'dara sina siamanna arung tile
+1 SEX F
+1 NOTE Nama lengkap: Besse palekkoreng ri ana'dara sina siamanna arung tile
+1 FAMS @F121122@
+0 @I123@ INDI
+1 NAME Syekh /yusuf ri gowa/
+2 GIVN Syekh
+2 SURN yusuf ri gowa
+1 SEX M
+1 NOTE Nama lengkap: Syekh yusuf ri gowa
+1 FAMS @F123124@
+1 FAMC @F110111@
+0 @I124@ INDI
+1 NAME Ana'na /Sombae Ri Gowa/
+2 GIVN Ana'na
+2 SURN Sombae Ri Gowa
+1 SEX F
+1 NOTE Nama lengkap: Ana'na Sombae Ri Gowa
+1 FAMS @F123124@
+0 @I125@ INDI
+1 NAME La /Sempenena petta labatoana datu ri pammana/
+2 GIVN La
+2 SURN Sempenena petta labatoana datu ri pammana
+1 SEX M
+1 TITL Datu Pammana
+1 NOTE Keterangan: Datu Pammana
+1 NOTE Nama lengkap: La Sempenena petta labatoana datu ri pammana
+1 FAMS @F125126@
+1 FAMC @F112113@
+0 @I126@ INDI
+1 NAME I /tenrirawe petta pa'jubae pajung ri luwu/
+2 GIVN I
+2 SURN tenrirawe petta pa'jubae pajung ri luwu
+1 SEX F
+1 TITL Pajung Ri Luwu
+1 NOTE Keterangan: Pajung Ri Luwu
+1 NOTE Nama lengkap: I tenrirawe petta pa'jubae  pajung ri luwu
+1 FAMS @F125126@
+0 @I127@ INDI
+1 NAME La /Passawu arung kalola/
+2 GIVN La
+2 SURN Passawu arung kalola
+1 SEX M
+1 NOTE Nama lengkap: La Passawu arung kalola
+1 FAMS @F127128@
+0 @I128@ INDI
+1 NAME I /Camming arung tampaning/
+2 GIVN I
+2 SURN Camming arung tampaning
+1 SEX F
+1 NOTE Nama lengkap: I Camming arung tampaning
+1 FAMS @F127128@
+0 @I129@ INDI
+1 NAME La /Sunra Datue ri lamuru matinroe ri lamangile/
+2 GIVN La
+2 SURN Sunra Datue ri lamuru matinroe ri lamangile
+1 SEX M
+1 NOTE Nama lengkap: La Sunra Datue ri lamuru matinroe ri lamangile
+1 FAMS @F129130@
+1 FAMC @F114115@
+0 @I130@ INDI
+1 NAME I /panangngareng datue ri marioriase matinroe ri ujung tanah/
+2 GIVN I
+2 SURN panangngareng datue ri marioriase matinroe ri ujung tanah
+1 SEX F
+1 TITL Datu Marioriase
+1 NOTE Keterangan: Datu Marioriase
+1 NOTE Nama lengkap: I panangngareng datue ri marioriase matinroe ri ujung tanah
+1 FAMS @F129130@
+1 FAMC @F116117@
+0 @I131@ INDI
+1 NAME Andi /Panguriseng addatuang sidenreng/
+2 GIVN Andi
+2 SURN Panguriseng addatuang sidenreng
+1 SEX M
+1 NOTE Nama lengkap: Andi Panguriseng addatuang sidenreng
+1 FAMS @F131132@
+0 @I132@ INDI
+1 NAME I /Baji/
+2 GIVN I
+2 SURN Baji
+1 SEX F
+1 NOTE Nama lengkap: I Baji
+1 FAMS @F131132@
+0 @I133@ INDI
+1 NAME La /Pattedungi Datu ri pattia/
+2 GIVN La
+2 SURN Pattedungi Datu ri pattia
+1 SEX M
+1 NOTE Nama lengkap: La Pattedungi Datu ri pattia
+1 FAMS @F133134@
+0 @I134@ INDI
+1 NAME besse /tarung ana'na arung sarassa/
+2 GIVN besse
+2 SURN tarung ana'na arung sarassa
+1 SEX F
+1 NOTE Nama lengkap: besse tarung ana'na arung sarassa
+1 FAMS @F133134@
+0 @I135@ INDI
+1 NAME I /Takkalalla ana'na arung xxx/
+2 GIVN I
+2 SURN Takkalalla ana'na arung xxx
+1 SEX F
+1 NOTE Nama lengkap: I Takkalalla ana'na arung xxx
+1 FAMS @F135136@
+0 @I136@ INDI
+1 NAME La /Samappa Petta Jangko Petta Cambangnge arung palincong manorangsalo ri batubatu/
+2 GIVN La
+2 SURN Samappa Petta Jangko Petta Cambangnge arung palincong manorangsalo ri batubatu
+1 SEX M
+1 NOTE Nama lengkap: La Samappa Petta Jangko Petta Cambangnge arung palincong manorangsalo ri batubatu
+1 FAMS @F135136@
+1 FAMC @F127128@
+0 @I137@ INDI
+1 NAME Arunge /Daeng Situju/
+2 GIVN Arunge
+2 SURN Daeng Situju
+1 SEX M
+1 NOTE Nama lengkap: Arunge Daeng Situju
+1 FAMS @F137138@
+0 @I138@ INDI
+1 NAME Arunge /daeng mattungke/
+2 GIVN Arunge
+2 SURN daeng mattungke
+1 SEX F
+1 NOTE Nama lengkap: Arunge daeng mattungke
+1 FAMS @F137138@
+0 @I139@ INDI
+1 NAME Syekh /Mario Surusi Ibrahima/
+2 GIVN Syekh
+2 SURN Mario Surusi Ibrahima
+1 SEX M
+1 NOTE Nama lengkap: Syekh Mario Surusi Ibrahima
+1 FAMS @F139140@
+1 FAMC @F123124@
+0 @I140@ INDI
+1 NAME Besse /Mario/
+2 GIVN Besse
+2 SURN Mario
+1 SEX F
+1 NOTE Nama lengkap: Besse Mario
+1 FAMS @F139140@
+0 @I141@ INDI
+1 NAME La /Sessu' Petta Pajjalae Mappada'oroanae sinasiamai la nyalla petta lolo arung liu/
+2 GIVN La
+2 SURN Sessu' Petta Pajjalae Mappada'oroanae sinasiamai la nyalla petta lolo arung liu
+1 SEX M
+1 NOTE Nama lengkap: La Sessu' Petta Pajjalae Mappada'oroanae sinasiamai la nyalla petta lolo arung liu
+1 FAMS @F141142@
+1 FAMC @F125126@
+0 @I142@ INDI
+1 NAME I /Kalassa Ana'na Petta La Bollo matinroe ri cina/
+2 GIVN I
+2 SURN Kalassa Ana'na Petta La Bollo matinroe ri cina
+1 SEX F
+1 NOTE Nama lengkap: I Kalassa Ana'na Petta La Bollo matinroe ri cina
+1 FAMS @F141142@
+0 @I143@ INDI
+1 NAME La /Mallanio xxx arung kawukawu/
+2 GIVN La
+2 SURN Mallanio xxx arung kawukawu
+1 SEX M
+1 NOTE Nama lengkap: La Mallanio xxx arung kawukawu
+1 FAMS @F143144@
+1 FAMC @F119120@
+0 @I144@ INDI
+1 NAME I /Ya xxx/
+2 GIVN I
+2 SURN Ya xxx
+1 SEX F
+1 NOTE Nama lengkap: I Ya xxx
+1 FAMS @F143144@
+1 FAMC @F121122@
+0 @I145@ INDI
+1 NAME La /Tatta Lapotobune' datue ri bakke' matinroe ri ana'keteng/
+2 GIVN La
+2 SURN Tatta Lapotobune' datue ri bakke' matinroe ri ana'keteng
+1 SEX M
+1 NOTE Nama lengkap: La Tatta Lapotobune' datue ri bakke' matinroe ri ana'keteng
+1 FAMS @F145146@
+1 FAMC @F129130@
+0 @I146@ INDI
+1 NAME Ameng /madina petta mabolla barue/
+2 GIVN Ameng
+2 SURN madina petta mabolla barue
+1 SEX F
+1 NOTE Nama lengkap: Ameng madina petta mabolla barue
+1 FAMS @F145146@
+1 FAMC @F131132@
+0 @I147@ INDI
+1 NAME La /Tenri Datu botto matinroe ri mualla/
+2 GIVN La
+2 SURN Tenri Datu botto matinroe ri mualla
+1 SEX M
+1 NOTE Nama lengkap: La Tenri Datu botto matinroe ri mualla
+1 FAMS @F147148@
+1 FAMC @F131132@
+0 @I148@ INDI
+1 NAME I /Pesona/
+2 GIVN I
+2 SURN Pesona
+1 SEX F
+1 NOTE Nama lengkap: I Pesona
+1 FAMS @F147148@
+0 @I149@ INDI
+1 NAME La /Palalloi arunge daeng riaja/
+2 GIVN La
+2 SURN Palalloi arunge daeng riaja
+1 SEX M
+1 NOTE Nama lengkap: La Palalloi arunge daeng riaja
+1 FAMS @F149150@
+1 FAMC @F135136@
+0 @I150@ INDI
+1 NAME I /Bato ana'na petta daeng mangembang eppo wakanna petta xxx matinroe lagosi/
+2 GIVN I
+2 SURN Bato ana'na petta daeng mangembang eppo wakanna petta xxx matinroe lagosi
+1 SEX F
+1 NOTE Nama lengkap: I Bato ana'na petta daeng mangembang eppo wakanna petta xxx  matinroe lagosi
+1 FAMS @F149150@
+0 @I151@ INDI
+1 NAME La /Tenri Dolla matinroe ri mattoanging/
+2 GIVN La
+2 SURN Tenri Dolla matinroe ri mattoanging
+1 SEX M
+1 NOTE Nama lengkap: La Tenri Dolla matinroe ri mattoanging
+1 FAMS @F151152@
+0 @I152@ INDI
+1 NAME Andi /baru irajeng arubikla/
+2 GIVN Andi
+2 SURN baru irajeng arubikla
+1 SEX F
+1 NOTE Nama lengkap: Andi baru irajeng arubikla
+1 FAMS @F151152@
+0 @I153@ INDI
+1 NAME La /Pakkanna Sulewata Kebo mamesa mariangnge/
+2 GIVN La
+2 SURN Pakkanna Sulewata Kebo mamesa mariangnge
+1 SEX M
+1 NOTE Nama lengkap: La Pakkanna Sulewata Kebo mamesa mariangnge
+1 FAMS @F153154@
+1 FAMC @F145146@
+0 @I154@ INDI
+1 NAME I /Lollo/
+2 GIVN I
+2 SURN Lollo
+1 SEX F
+1 NOTE Nama lengkap: I Lollo
+1 FAMS @F153154@
+0 @I155@ INDI
+1 NAME Pueng /Guru/
+2 GIVN Pueng
+2 SURN Guru
+1 SEX M
+1 NOTE Nama lengkap: Pueng Guru
+1 FAMS @F155156@
+1 FAMC @F139140@
+0 @I156@ INDI
+1 NAME I /Salepu' arung walliye'/
+2 GIVN I
+2 SURN Salepu' arung walliye'
+1 SEX F
+1 NOTE Nama lengkap: I Salepu' arung walliye'
+1 FAMS @F155156@
+1 FAMC @F137138@
+0 @I157@ INDI
+1 NAME La /Saga daeng sirua karaeng manisa/
+2 GIVN La
+2 SURN Saga daeng sirua karaeng manisa
+1 SEX M
+1 NOTE Nama lengkap: La Saga daeng sirua karaeng manisa
+1 FAMS @F157158@
+0 @I158@ INDI
+1 NAME I /Yumpu/
+2 GIVN I
+2 SURN Yumpu
+1 SEX F
+1 NOTE Nama lengkap: I Yumpu
+1 FAMS @F157158@
+1 FAMC @F139140@
+0 @I159@ INDI
+1 NAME La /Palompai arunge daeng riaja/
+2 GIVN La
+2 SURN Palompai arunge daeng riaja
+1 SEX M
+1 NOTE Nama lengkap: La Palompai arunge daeng riaja
+1 FAMS @F159160@
+1 FAMC @F133134@
+0 @I160@ INDI
+1 NAME I /dumena daeng palene/
+2 GIVN I
+2 SURN dumena daeng palene
+1 SEX F
+1 NOTE Nama lengkap: I dumena daeng palene
+1 FAMS @F159160@
+1 FAMC @F141142@
+0 @I161@ INDI
+1 NAME Petta /Pagarrae/
+2 GIVN Petta
+2 SURN Pagarrae
+1 SEX M
+1 NOTE Nama lengkap: Petta Pagarrae
+1 FAMS @F161162@
+0 @I163@ INDI
+1 NAME La /Hao/
+2 GIVN La
+2 SURN Hao
+1 SEX M
+1 NOTE Nama lengkap: La Hao
+1 FAMS @F163164@
+1 FAMC @F143144@
+0 @I165@ INDI
+1 NAME La /jani/
+2 GIVN La
+2 SURN jani
+1 SEX M
+1 NOTE Nama lengkap: La jani
+1 FAMS @F165166@
+1 FAMC @F143144@
+0 @I166@ INDI
+1 NAME I /Dewa/
+2 GIVN I
+2 SURN Dewa
+1 SEX F
+1 NOTE Nama lengkap: I Dewa
+1 FAMS @F165166@
+0 @I167@ INDI
+1 NAME La /Pattau Petta Jangko Arung Leworeng/
+2 GIVN La
+2 SURN Pattau Petta Jangko Arung Leworeng
+1 SEX M
+1 NOTE Nama lengkap: La Pattau Petta Jangko Arung Leworeng
+1 FAMS @F167168@
+1 FAMC @F151152@
+0 @I168@ INDI
+1 NAME Petta /Kanang/
+2 GIVN Petta
+2 SURN Kanang
+1 SEX F
+1 NOTE Nama lengkap: Petta Kanang
+1 FAMS @F167168@
+1 FAMC @F147148@
+0 @I170@ INDI
+1 NAME I /Kanrenni Tau Beceng/
+2 GIVN I
+2 SURN Kanrenni Tau Beceng
+1 SEX F
+1 NOTE Nama lengkap: I Kanrenni Tau Beceng
+1 FAMS @F170171@
+0 @I171@ INDI
+1 NAME La /Sabbara Arunge daeng masua/
+2 GIVN La
+2 SURN Sabbara Arunge daeng masua
+1 SEX M
+1 NOTE Nama lengkap: La Sabbara Arunge daeng masua
+1 FAMS @F170171@
+1 FAMC @F149150@
+0 @I172@ INDI
+1 NAME La /Bampe arungnge daeng pabella/
+2 GIVN La
+2 SURN Bampe arungnge daeng pabella
+1 SEX M
+1 NOTE Nama lengkap: La Bampe arungnge daeng pabella
+1 FAMS @F172173@
+1 FAMC @F157158@
+0 @I173@ INDI
+1 NAME I /renda/
+2 GIVN I
+2 SURN renda
+1 SEX F
+1 NOTE Nama lengkap: I renda
+1 FAMS @F172173@
+1 FAMC @F155156@
+0 @I174@ INDI
+1 NAME La /Pammadeng lapaguttu arunge daeng palette/
+2 GIVN La
+2 SURN Pammadeng lapaguttu arunge daeng palette
+1 SEX M
+1 NOTE Nama lengkap: La Pammadeng lapaguttu arunge daeng palette
+1 FAMS @F174175@
+1 FAMC @F159160@
+0 @I175@ INDI
+1 NAME I /sadia ana'na labaco daeng pasakka appo wakanna arumpogi arung bellawa petta manyijie/
+2 GIVN I
+2 SURN sadia ana'na labaco daeng pasakka appo wakanna arumpogi arung bellawa petta manyijie
+1 SEX F
+1 NOTE Nama lengkap: I sadia ana'na labaco daeng pasakka appo wakanna arumpogi arung bellawa petta manyijie
+1 FAMS @F174175@
+0 @I176@ INDI
+1 NAME La /kadu/
+2 GIVN La
+2 SURN kadu
+1 SEX M
+1 NOTE Nama lengkap: La kadu
+1 FAMS @F176177@
+1 FAMC @F161162@
+0 @I177@ INDI
+1 NAME I /Mina/
+2 GIVN I
+2 SURN Mina
+1 SEX F
+1 NOTE Nama lengkap: I Mina
+1 FAMS @F176177@
+0 @I178@ INDI
+1 NAME La /Malluru dokongnge/
+2 GIVN La
+2 SURN Malluru dokongnge
+1 SEX M
+1 NOTE Nama lengkap: La Malluru dokongnge
+1 FAMS @F178179@
+1 FAMC @F165166@
+0 @I179@ INDI
+1 NAME I /Dahang/
+2 GIVN I
+2 SURN Dahang
+1 SEX F
+1 NOTE Nama lengkap: I Dahang
+1 FAMS @F178179@
+0 @I180@ INDI
+1 NAME I /Wesso/
+2 GIVN I
+2 SURN Wesso
+1 SEX F
+1 NOTE Nama lengkap: I Wesso
+1 FAMS @F180181@
+0 @I181@ INDI
+1 NAME La /Pato arungnge ambo roki/
+2 GIVN La
+2 SURN Pato arungnge ambo roki
+1 SEX M
+1 NOTE Nama lengkap: La Pato arungnge ambo roki
+1 FAMS @F180181@
+0 @I182@ INDI
+1 NAME Andi /Pawisei Petta ambo'na amereng/
+2 GIVN Andi
+2 SURN Pawisei Petta ambo'na amereng
+1 SEX M
+1 NOTE Nama lengkap: Andi Pawisei Petta ambo'na amereng
+1 FAMS @F182183@
+1 FAMC @F167168@
+0 @I183@ INDI
+1 NAME Andi /Jamila I Jama/
+2 GIVN Andi
+2 SURN Jamila I Jama
+1 SEX F
+1 NOTE Nama lengkap: Andi Jamila I Jama
+1 FAMS @F182183@
+0 @I184@ INDI
+1 NAME La /sidellang daeng mangile/
+2 GIVN La
+2 SURN sidellang daeng mangile
+1 SEX M
+1 NOTE Nama lengkap: La sidellang daeng mangile
+1 FAMS @F184185@
+1 FAMC @F172173@
+0 @I185@ INDI
+1 NAME I /Kalla/
+2 GIVN I
+2 SURN Kalla
+1 SEX F
+1 NOTE Nama lengkap: I Kalla
+1 FAMS @F184185@
+0 @I186@ INDI
+1 NAME La /Cekke daeng mattebba tau warani anre' guru pa'barisi'/
+2 GIVN La
+2 SURN Cekke daeng mattebba tau warani anre' guru pa'barisi'
+1 SEX M
+1 NOTE Nama lengkap: La Cekke daeng mattebba tau warani anre' guru pa'barisi'
+1 FAMS @F186187@
+1 FAMC @F174175@
+0 @I187@ INDI
+1 NAME I /Tija makunrai warani/
+2 GIVN I
+2 SURN Tija makunrai warani
+1 SEX F
+1 NOTE Nama lengkap: I Tija makunrai warani
+1 FAMS @F186187@
+1 FAMC @F176177@
+0 @I188@ INDI
+1 NAME La /Oji/
+2 GIVN La
+2 SURN Oji
+1 SEX M
+1 NOTE Nama lengkap: La Oji
+1 FAMS @F188189@
+0 @I189@ INDI
+1 NAME I /Balanti/
+2 GIVN I
+2 SURN Balanti
+1 SEX F
+1 NOTE Nama lengkap: I Balanti
+1 FAMS @F188189@
+0 @I190@ INDI
+1 NAME La /dolli/
+2 GIVN La
+2 SURN dolli
+1 SEX M
+1 NOTE Nama lengkap: La dolli
+1 FAMS @F190191@
+1 FAMC @F163164@
+0 @I191@ INDI
+1 NAME I /Helang/
+2 GIVN I
+2 SURN Helang
+1 SEX F
+1 NOTE Nama lengkap: I Helang
+1 FAMS @F190191@
+0 @I192@ INDI
+1 NAME I /Gonggeng/
+2 GIVN I
+2 SURN Gonggeng
+1 SEX F
+1 NOTE Nama lengkap: I Gonggeng
+1 FAMS @F192193@
+1 FAMC @F178179@
+0 @I193@ INDI
+1 NAME La /Panakkasi' daeng makatu/
+2 GIVN La
+2 SURN Panakkasi' daeng makatu
+1 SEX M
+1 NOTE Nama lengkap: La Panakkasi' daeng makatu
+1 FAMS @F192193@
+1 FAMC @F170171@
+0 @I194@ INDI
+1 NAME La /Baleke' daeng masiki puweng ambo nembu/
+2 GIVN La
+2 SURN Baleke' daeng masiki puweng ambo nembu
+1 SEX M
+1 NOTE Nama lengkap: La Baleke' daeng masiki puweng ambo nembu
+1 FAMS @F194195@
+1 FAMC @F180181@
+0 @I195@ INDI
+1 NAME Andi /Pewenni Massappisengi andi muhammad taher arung enrekeng/
+2 GIVN Andi
+2 SURN Pewenni Massappisengi andi muhammad taher arung enrekeng
+1 SEX F
+1 NOTE Nama lengkap: Andi Pewenni Massappisengi andi muhammad taher arung enrekeng
+1 FAMS @F194195@
+1 FAMC @F182183@
+0 @I196@ INDI
+1 NAME La /Kellumang daeng sitakka/
+2 GIVN La
+2 SURN Kellumang daeng sitakka
+1 SEX M
+1 NOTE Nama lengkap: La Kellumang daeng sitakka
+1 FAMS @F196197@
+1 FAMC @F184185@
+0 @I197@ INDI
+1 NAME I /Baja Puweng indo renda/
+2 GIVN I
+2 SURN Baja Puweng indo renda
+1 SEX F
+1 NOTE Nama lengkap: I Baja Puweng indo renda
+1 FAMS @F196197@
+1 FAMC @F186187@
+0 @I198@ INDI
+1 NAME I /Sale Cenno Kawarang/
+2 GIVN I
+2 SURN Sale Cenno Kawarang
+1 SEX F
+1 NOTE Nama lengkap: I Sale Cenno Kawarang
+1 FAMS @F198199@
+1 FAMC @F188189@
+0 @I199@ INDI
+1 NAME La /Hadu Gurue/
+2 GIVN La
+2 SURN Hadu Gurue
+1 SEX M
+1 NOTE Nama lengkap: La Hadu Gurue
+1 FAMS @F198199@
+1 FAMC @F190191@
+0 @I200@ INDI
+1 NAME I /Hasia/
+2 GIVN I
+2 SURN Hasia
+1 SEX F
+1 NOTE Nama lengkap: I Hasia
+1 FAMS @F200201@
+1 FAMC @F192193@
+0 @I201@ INDI
+1 NAME Andi /Pakkanna Daeng Mabella Kapala Kawarang/
+2 GIVN Andi
+2 SURN Pakkanna Daeng Mabella Kapala Kawarang
+1 SEX M
+1 NOTE Nama lengkap: Andi Pakkanna Daeng Mabella Kapala Kawarang
+1 FAMS @F200201@
+1 FAMC @F194195@
+0 @I202@ INDI
+1 NAME La /badodo tau makkuwali/
+2 GIVN La
+2 SURN badodo tau makkuwali
+1 SEX M
+1 NOTE Nama lengkap: La badodo tau makkuwali
+1 FAMS @F202203@
+0 @I203@ INDI
+1 NAME I /Wewang/
+2 GIVN I
+2 SURN Wewang
+1 SEX F
+1 NOTE Nama lengkap: I Wewang
+1 FAMS @F202203@
+0 @I204@ INDI
+1 NAME La /Paneng/
+2 GIVN La
+2 SURN Paneng
+1 SEX M
+1 NOTE Nama lengkap: La Paneng
+1 FAMS @F204205@
+1 FAMC @F196197@
+0 @I205@ INDI
+1 NAME I /Halipa/
+2 GIVN I
+2 SURN Halipa
+1 SEX F
+1 NOTE Nama lengkap: I Halipa
+1 FAMS @F204205@
+1 FAMC @F198199@
+0 @I206@ INDI
+1 NAME Andi /Abdul Karim Laboto daeng pa'beta/
+2 GIVN Andi
+2 SURN Abdul Karim Laboto daeng pa'beta
+1 SEX M
+1 NOTE Nama lengkap: Andi Abdul Karim Laboto daeng pa'beta
+1 FAMS @F206207@
+1 FAMC @F200201@
+0 @I207@ INDI
+1 NAME I /Maipa/
+2 GIVN I
+2 SURN Maipa
+1 SEX F
+1 NOTE Nama lengkap: I Maipa
+1 FAMS @F206207@
+1 FAMC @F202203@
+0 @I208@ INDI
+1 NAME Muhammad /Yunusu/
+2 GIVN Muhammad
+2 SURN Yunusu
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Yunusu
+1 FAMS @F208209@
+1 FAMC @F204205@
+0 @I209@ INDI
+1 NAME Siti /Aminah/
+2 GIVN Siti
+2 SURN Aminah
+1 SEX F
+1 NOTE Nama lengkap: Siti Aminah
+1 FAMS @F208209@
+1 FAMC @F206207@
+0 @I210@ INDI
+1 NAME Muhammad /Nehru Raji/
+2 GIVN Muhammad
+2 SURN Nehru Raji
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Nehru Raji
+1 FAMC @F208209@
+0 @I211@ INDI
+1 NAME Siti /Mir'atul Ginayah/
+2 GIVN Siti
+2 SURN Mir'atul Ginayah
+1 SEX F
+1 NOTE Nama lengkap: Siti Mir'atul Ginayah
+1 FAMC @F208209@
+0 @I212@ INDI
+1 NAME Siti /Sahar Inayah/
+2 GIVN Siti
+2 SURN Sahar Inayah
+1 SEX F
+1 NOTE Nama lengkap: Siti Sahar Inayah
+1 FAMC @F208209@
+0 @I213@ INDI
+1 NAME Muhammad /Raisuddin/
+2 GIVN Muhammad
+2 SURN Raisuddin
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Raisuddin
+1 FAMC @F208209@
+0 @I214@ INDI
+1 NAME Siti /Murnada Khairah/
+2 GIVN Siti
+2 SURN Murnada Khairah
+1 SEX F
+1 NOTE Nama lengkap: Siti Murnada Khairah
+1 FAMC @F208209@
+0 @I215@ INDI
+1 NAME Muhammad /Fankar Umran/
+2 GIVN Muhammad
+2 SURN Fankar Umran
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Fankar Umran
+1 FAMC @F208209@
+0 @I215a@ INDI
+1 NAME Sitti /Yunna Juhaidar/
+2 GIVN Sitti
+2 SURN Yunna Juhaidar
+1 SEX F
+1 NOTE Nama lengkap: Sitti Yunna Juhaidar
+1 FAMC @F208209@
+0 @I216@ INDI
+1 NAME Muhammad /Hamdar Arraya/
+2 GIVN Muhammad
+2 SURN Hamdar Arraya
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Hamdar Arraya
+1 FAMC @F208209@
+0 @I217@ INDI
+1 NAME Muhammad /Khairul Qadar/
+2 GIVN Muhammad
+2 SURN Khairul Qadar
+1 SEX M
+1 NOTE Nama lengkap: Muhammad Khairul Qadar
+1 FAMC @F208209@
+0 @I217a@ INDI
+1 NAME Syamsuarni //
+2 GIVN Syamsuarni
+1 SEX F
+1 NOTE Nama lengkap: Syamsuarni
+1 FAMC @F208209@
+0 @F34@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I8@
+0 @F78@ FAM
+1 HUSB @I8@
+1 WIFE @I7@
+1 CHIL @I9@
+1 CHIL @I10@
+0 @F56@ FAM
+1 HUSB @I6@
+1 WIFE @I5@
+1 CHIL @I13@
+0 @F1314@ FAM
+1 HUSB @I13@
+1 WIFE @I14@
+1 CHIL @I15@
+0 @F109@ FAM
+1 HUSB @I10@
+1 WIFE @I9@
+1 CHIL @I18@
+0 @F1516@ FAM
+1 HUSB @I16@
+1 WIFE @I15@
+1 CHIL @I20@
+1 CHIL @I21@
+1 CHIL @I23@
+0 @F1718@ FAM
+1 HUSB @I17@
+1 WIFE @I18@
+1 CHIL @I25@
+1 CHIL @I27@
+0 @F2122@ FAM
+1 HUSB @I22@
+1 WIFE @I21@
+1 CHIL @I29@
+0 @F2324@ FAM
+1 HUSB @I23@
+1 WIFE @I24@
+1 CHIL @I30@
+0 @F2526@ FAM
+1 HUSB @I25@
+1 WIFE @I26@
+1 CHIL @I32@
+0 @F2728@ FAM
+1 HUSB @I27@
+1 WIFE @I28@
+1 CHIL @I33@
+1 CHIL @I35@
+0 @F1920@ FAM
+1 HUSB @I20@
+1 WIFE @I19@
+1 CHIL @I36@
+0 @F2930@ FAM
+1 HUSB @I30@
+1 WIFE @I29@
+1 CHIL @I37@
+0 @F3031@ FAM
+1 HUSB @I30@
+1 WIFE @I31@
+1 CHIL @I39@
+1 CHIL @I56@
+1 CHIL @I63@
+0 @F3233@ FAM
+1 HUSB @I32@
+1 WIFE @I33@
+1 CHIL @I41@
+0 @F3435@ FAM
+1 HUSB @I35@
+1 WIFE @I34@
+1 CHIL @I44@
+0 @F4142@ FAM
+1 HUSB @I41@
+1 WIFE @I42@
+1 CHIL @I45@
+1 CHIL @I47@
+0 @F4344@ FAM
+1 HUSB @I43@
+1 WIFE @I44@
+1 CHIL @I48@
+0 @F4546@ FAM
+1 HUSB @I45@
+1 WIFE @I46@
+1 CHIL @I50@
+1 CHIL @I51@
+0 @F4748@ FAM
+1 HUSB @I48@
+1 WIFE @I47@
+1 CHIL @I52@
+0 @F4950@ FAM
+1 HUSB @I50@
+1 WIFE @I49@
+1 CHIL @I58@
+0 @F5152@ FAM
+1 HUSB @I51@
+1 WIFE @I52@
+1 CHIL @I59@
+0 @F5354@ FAM
+1 HUSB @I54@
+1 WIFE @I53@
+1 CHIL @I61@
+0 @F3839@ FAM
+1 HUSB @I39@
+1 WIFE @I38@
+1 CHIL @I62@
+0 @F5758@ FAM
+1 HUSB @I57@
+1 WIFE @I58@
+1 CHIL @I64@
+0 @F5960@ FAM
+1 HUSB @I59@
+1 WIFE @I60@
+1 CHIL @I66@
+0 @F5556@ FAM
+1 HUSB @I55@
+1 WIFE @I56@
+1 CHIL @I67@
+0 @F6364@ FAM
+1 HUSB @I64@
+1 WIFE @I63@
+1 CHIL @I68@
+0 @F6566@ FAM
+1 HUSB @I66@
+1 WIFE @I65@
+1 CHIL @I70@
+0 @F6768@ FAM
+1 HUSB @I67@
+1 WIFE @I68@
+1 CHIL @I74@
+0 @F6162@ FAM
+1 HUSB @I61@
+1 WIFE @I62@
+1 CHIL @I75@
+0 @F7071@ FAM
+1 HUSB @I70@
+1 WIFE @I71@
+1 CHIL @I77@
+0 @F6869@ FAM
+1 HUSB @I69@
+1 WIFE @I68@
+1 CHIL @I79@
+0 @F7374@ FAM
+1 HUSB @I73@
+1 WIFE @I74@
+1 CHIL @I82@
+1 CHIL @I84@
+1 CHIL @I86@
+0 @F7576@ FAM
+1 HUSB @I75@
+1 WIFE @I76@
+1 CHIL @I85@
+0 @F7980@ FAM
+1 HUSB @I80@
+1 WIFE @I79@
+1 CHIL @I88@
+0 @F8687@ FAM
+1 HUSB @I87@
+1 WIFE @I86@
+1 CHIL @I90@
+0 @F8889@ FAM
+1 HUSB @I88@
+1 WIFE @I89@
+1 CHIL @I92@
+0 @F8485@ FAM
+1 HUSB @I85@
+1 WIFE @I84@
+1 CHIL @I95@
+0 @F7273@ FAM
+1 HUSB @I73@
+1 WIFE @I72@
+1 CHIL @I96@
+0 @F9697@ FAM
+1 HUSB @I96@
+1 WIFE @I97@
+1 CHIL @I100@
+0 @F9091@ FAM
+1 HUSB @I91@
+1 WIFE @I90@
+1 CHIL @I103@
+0 @F8182@ FAM
+1 HUSB @I82@
+1 WIFE @I81@
+1 CHIL @I104@
+0 @F9899@ FAM
+1 HUSB @I99@
+1 WIFE @I98@
+1 CHIL @I106@
+0 @F9293@ FAM
+1 HUSB @I92@
+1 WIFE @I93@
+1 CHIL @I108@
+0 @F104105@ FAM
+1 HUSB @I105@
+1 WIFE @I104@
+1 CHIL @I112@
+0 @F106107@ FAM
+1 HUSB @I106@
+1 WIFE @I107@
+1 CHIL @I114@
+0 @F100101@ FAM
+1 HUSB @I100@
+1 WIFE @I101@
+1 CHIL @I116@
+0 @F102103@ FAM
+1 HUSB @I102@
+1 WIFE @I103@
+1 CHIL @I117@
+0 @F108109@ FAM
+1 HUSB @I108@
+1 WIFE @I109@
+1 CHIL @I118@
+0 @F110111@ FAM
+1 HUSB @I111@
+1 WIFE @I110@
+1 CHIL @I123@
+0 @F112113@ FAM
+1 HUSB @I112@
+1 WIFE @I113@
+1 CHIL @I125@
+0 @F114115@ FAM
+1 HUSB @I115@
+1 WIFE @I114@
+1 CHIL @I129@
+0 @F116117@ FAM
+1 HUSB @I116@
+1 WIFE @I117@
+1 CHIL @I130@
+0 @F127128@ FAM
+1 HUSB @I127@
+1 WIFE @I128@
+1 CHIL @I136@
+0 @F123124@ FAM
+1 HUSB @I123@
+1 WIFE @I124@
+1 CHIL @I139@
+0 @F125126@ FAM
+1 HUSB @I125@
+1 WIFE @I126@
+1 CHIL @I141@
+0 @F119120@ FAM
+1 HUSB @I119@
+1 WIFE @I120@
+1 CHIL @I143@
+0 @F121122@ FAM
+1 HUSB @I121@
+1 WIFE @I122@
+1 CHIL @I144@
+0 @F129130@ FAM
+1 HUSB @I129@
+1 WIFE @I130@
+1 CHIL @I145@
+0 @F131132@ FAM
+1 HUSB @I131@
+1 WIFE @I132@
+1 CHIL @I146@
+1 CHIL @I147@
+0 @F135136@ FAM
+1 HUSB @I136@
+1 WIFE @I135@
+1 CHIL @I149@
+0 @F145146@ FAM
+1 HUSB @I145@
+1 WIFE @I146@
+1 CHIL @I153@
+0 @F139140@ FAM
+1 HUSB @I139@
+1 WIFE @I140@
+1 CHIL @I155@
+1 CHIL @I158@
+0 @F137138@ FAM
+1 HUSB @I137@
+1 WIFE @I138@
+1 CHIL @I156@
+0 @F133134@ FAM
+1 HUSB @I133@
+1 WIFE @I134@
+1 CHIL @I159@
+0 @F141142@ FAM
+1 HUSB @I141@
+1 WIFE @I142@
+1 CHIL @I160@
+0 @F143144@ FAM
+1 HUSB @I143@
+1 WIFE @I144@
+1 CHIL @I163@
+1 CHIL @I165@
+0 @F151152@ FAM
+1 HUSB @I151@
+1 WIFE @I152@
+1 CHIL @I167@
+0 @F147148@ FAM
+1 HUSB @I147@
+1 WIFE @I148@
+1 CHIL @I168@
+0 @F149150@ FAM
+1 HUSB @I149@
+1 WIFE @I150@
+1 CHIL @I171@
+0 @F157158@ FAM
+1 HUSB @I157@
+1 WIFE @I158@
+1 CHIL @I172@
+0 @F155156@ FAM
+1 HUSB @I155@
+1 WIFE @I156@
+1 CHIL @I173@
+0 @F159160@ FAM
+1 HUSB @I159@
+1 WIFE @I160@
+1 CHIL @I174@
+0 @F161162@ FAM
+1 HUSB @I161@
+1 CHIL @I176@
+0 @F165166@ FAM
+1 HUSB @I165@
+1 WIFE @I166@
+1 CHIL @I178@
+0 @F167168@ FAM
+1 HUSB @I167@
+1 WIFE @I168@
+1 CHIL @I182@
+0 @F172173@ FAM
+1 HUSB @I172@
+1 WIFE @I173@
+1 CHIL @I184@
+0 @F174175@ FAM
+1 HUSB @I174@
+1 WIFE @I175@
+1 CHIL @I186@
+0 @F176177@ FAM
+1 HUSB @I176@
+1 WIFE @I177@
+1 CHIL @I187@
+0 @F163164@ FAM
+1 HUSB @I163@
+1 CHIL @I190@
+0 @F178179@ FAM
+1 HUSB @I178@
+1 WIFE @I179@
+1 CHIL @I192@
+0 @F170171@ FAM
+1 HUSB @I171@
+1 WIFE @I170@
+1 CHIL @I193@
+0 @F180181@ FAM
+1 HUSB @I181@
+1 WIFE @I180@
+1 CHIL @I194@
+0 @F182183@ FAM
+1 HUSB @I182@
+1 WIFE @I183@
+1 CHIL @I195@
+0 @F184185@ FAM
+1 HUSB @I184@
+1 WIFE @I185@
+1 CHIL @I196@
+0 @F186187@ FAM
+1 HUSB @I186@
+1 WIFE @I187@
+1 CHIL @I197@
+0 @F188189@ FAM
+1 HUSB @I188@
+1 WIFE @I189@
+1 CHIL @I198@
+0 @F190191@ FAM
+1 HUSB @I190@
+1 WIFE @I191@
+1 CHIL @I199@
+0 @F192193@ FAM
+1 HUSB @I193@
+1 WIFE @I192@
+1 CHIL @I200@
+0 @F194195@ FAM
+1 HUSB @I194@
+1 WIFE @I195@
+1 CHIL @I201@
+0 @F196197@ FAM
+1 HUSB @I196@
+1 WIFE @I197@
+1 CHIL @I204@
+0 @F198199@ FAM
+1 HUSB @I199@
+1 WIFE @I198@
+1 CHIL @I205@
+0 @F200201@ FAM
+1 HUSB @I201@
+1 WIFE @I200@
+1 CHIL @I206@
+0 @F202203@ FAM
+1 HUSB @I202@
+1 WIFE @I203@
+1 CHIL @I207@
+0 @F204205@ FAM
+1 HUSB @I204@
+1 WIFE @I205@
+1 CHIL @I208@
+0 @F206207@ FAM
+1 HUSB @I206@
+1 WIFE @I207@
+1 CHIL @I209@
+0 @F208209@ FAM
+1 HUSB @I208@
+1 WIFE @I209@
+1 CHIL @I210@
+1 CHIL @I211@
+1 CHIL @I212@
+1 CHIL @I213@
+1 CHIL @I214@
+1 CHIL @I215@
+1 CHIL @I215a@
+1 CHIL @I216@
+1 CHIL @I217@
+1 CHIL @I217a@
+0 @F12@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F3637@ FAM
+1 HUSB @I36@
+1 WIFE @I37@
+0 @F4045@ FAM
+1 HUSB @I45@
+1 WIFE @I40@
+0 @F7778@ FAM
+1 HUSB @I78@
+1 WIFE @I77@
+0 @F8283@ FAM
+1 HUSB @I82@
+1 WIFE @I83@
+0 @F9495@ FAM
+1 HUSB @I95@
+1 WIFE @I94@
+0 @F117118@ FAM
+1 HUSB @I118@
+1 WIFE @I117@
+0 @F153154@ FAM
+1 HUSB @I153@
+1 WIFE @I154@
+0 TRLR

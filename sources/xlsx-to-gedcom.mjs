@@ -20,8 +20,8 @@ const XLSX = require('xlsx');
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-const INPUT = join(ROOT, 'sources', 'Family Tree WIJA_130202025_2.xlsx');
-const OUTPUT = join(ROOT, 'sources', 'Family Tree WIJA_13022025.ged');
+const INPUT = join(ROOT, 'sources', 'Family Tree WIJA_160202025_2.xlsx');
+const OUTPUT = join(ROOT, 'sources', 'Family_Tree_WIJA_16022025.ged');
 
 // ─── Read Excel ──────────────────────────────────────────────
 const workbook = XLSX.readFile(INPUT);

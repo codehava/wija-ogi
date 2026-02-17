@@ -94,6 +94,7 @@ function FamilyTreeInner({
     const [hoveredPerson, setHoveredPerson] = useState<{ person: Person; x: number; y: number } | null>(null);
     const [isArranging, setIsArranging] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [exportPaperSize, setExportPaperSize] = useState<'A4' | 'A3' | 'A2' | 'A1' | 'A0'>('A3');
     const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
     // Refs
@@ -557,11 +558,20 @@ function FamilyTreeInner({
     }, [persons, collapsedIds, relationships, familyId, onAllPositionsChange, buildNodesAndEdges,
         selectedPersonId, highlightedSet, ancestryPathIds, scriptMode, adaptiveSizes, setNodes, setEdges, reactFlowInstance]);
 
-    // PDF Export (WYSIWYG — hi-res capture by expanding container to full tree size)
+    // ── Paper sizes in mm (portrait) ──
+    const PAPER_SIZES: Record<string, { w: number; h: number }> = {
+        A4: { w: 210, h: 297 },
+        A3: { w: 297, h: 420 },
+        A2: { w: 420, h: 594 },
+        A1: { w: 594, h: 841 },
+        A0: { w: 841, h: 1189 },
+    };
+
+    // PDF Export (WYSIWYG — hi-res capture, multi-page, print-quality)
     const handleExportPDF = useCallback(async () => {
         if (isExporting || persons.length === 0) return;
         setIsExporting(true);
-        toast('📸 Mempersiapkan PDF hi-res...', { duration: 3000 });
+        toast('📸 Mempersiapkan PDF print-quality...', { duration: 4000 });
 
         try {
             const container = reactFlowRef.current;
@@ -580,19 +590,19 @@ function FamilyTreeInner({
             posMap.forEach(pos => {
                 minX = Math.min(minX, pos.x);
                 minY = Math.min(minY, pos.y);
-                maxX = Math.max(maxX, pos.x + NODE_WIDTH + 40); // extra for text overflow
-                maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 60); // extra for labels
+                maxX = Math.max(maxX, pos.x + NODE_WIDTH + 40);
+                maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 60);
             });
-            const padding = 60;
+            const padding = 80;
             minX -= padding; minY -= padding;
             maxX += padding; maxY += padding;
 
             const treeWidth = maxX - minX;
             const treeHeight = maxY - minY;
 
-            // Choose a zoom that keeps nodes readable but image not too huge
-            // For large trees (200+), use 0.5; for small trees, use 1.0
-            const exportZoom = persons.length > 150 ? 0.5 : persons.length > 50 ? 0.7 : 1.0;
+            // Higher zoom = more readable nodes for print
+            const exportZoom = persons.length > 150 ? 0.8 : persons.length > 50 ? 1.0 : 1.5;
+            const PIXEL_RATIO = 3; // 300 DPI equivalent for print
             const canvasWidth = Math.ceil(treeWidth * exportZoom);
             const canvasHeight = Math.ceil(treeHeight * exportZoom);
 
@@ -610,7 +620,7 @@ function FamilyTreeInner({
             });
 
             // Wait for React Flow to re-render at new size
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 800));
 
             // Hide UI overlays for clean capture
             const overlays = container.querySelectorAll<HTMLElement>(
@@ -632,7 +642,7 @@ function FamilyTreeInner({
 
             const dataUrl = await toPng(rfViewport, {
                 cacheBust: true,
-                pixelRatio: 2,
+                pixelRatio: PIXEL_RATIO,
                 width: canvasWidth,
                 height: canvasHeight,
                 backgroundColor: '#fafaf9',
@@ -646,7 +656,7 @@ function FamilyTreeInner({
                 },
             });
 
-            // Restore everything immediately
+            // Restore container immediately
             overlays.forEach(el => el.style.display = '');
             hiddenPanels.forEach(el => el.style.display = '');
             container.style.width = prevWidth;
@@ -655,7 +665,7 @@ function FamilyTreeInner({
             container.style.overflow = prevOverflow;
             reactFlowInstance.setViewport(prevViewport);
 
-            // Build PDF from the hi-res image
+            // Load the captured image
             const img = new Image();
             await new Promise<void>((resolve, reject) => {
                 img.onload = () => resolve();
@@ -663,56 +673,80 @@ function FamilyTreeInner({
                 img.src = dataUrl;
             });
 
-            const imgWidth = img.naturalWidth;
-            const imgHeight = img.naturalHeight;
-            const aspectRatio = imgWidth / imgHeight;
+            const imgWidthPx = img.naturalWidth;
+            const imgHeightPx = img.naturalHeight;
 
-            let pdfWidth: number, pdfHeight: number;
-            if (aspectRatio > 1.4) { pdfWidth = 297; pdfHeight = 210; }
-            else { pdfWidth = 210; pdfHeight = 297; }
+            // ── Paper dimensions ──
+            const paper = PAPER_SIZES[exportPaperSize] || PAPER_SIZES.A3;
+            const imgAspect = imgWidthPx / imgHeightPx;
+            // Auto landscape for wide trees, portrait for tall ones
+            const isLandscape = imgAspect > 1.0;
+            const pageW = isLandscape ? Math.max(paper.w, paper.h) : Math.min(paper.w, paper.h);
+            const pageH = isLandscape ? Math.min(paper.w, paper.h) : Math.max(paper.w, paper.h);
 
-            const marginTop = 20, marginBottom = 15, marginSide = 10;
-            const availableWidth = pdfWidth - (marginSide * 2);
-            const availableHeight = pdfHeight - marginTop - marginBottom;
-            const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
-            const finalWidth = imgWidth * ratio;
-            const finalHeight = imgHeight * ratio;
-            const xOffset = (pdfWidth - finalWidth) / 2;
-            const yOffset = marginTop + (availableHeight - finalHeight) / 2;
+            const marginTop = 18;
+            const marginBottom = 12;
+            const marginSide = 10;
+            const contentW = pageW - marginSide * 2;
+            const contentH = pageH - marginTop - marginBottom;
+
+            // ── Single hi-res page — fit entire tree on one page ──
+            const scale = Math.min(contentW / imgWidthPx, contentH / imgHeightPx);
+            const finalW = imgWidthPx * scale;
+            const finalH = imgHeightPx * scale;
+            const xOff = marginSide + (contentW - finalW) / 2;
+            const yOff = marginTop + (contentH - finalH) / 2;
+
+            const createdDate = new Date().toLocaleDateString('id-ID', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
 
             const pdf = new jsPDF({
-                orientation: aspectRatio > 1.4 ? 'landscape' : 'portrait',
-                unit: 'mm', format: 'a4'
+                orientation: isLandscape ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: [pageW, pageH],
             });
 
             // Header
-            pdf.setFontSize(18);
+            pdf.setFontSize(16);
             pdf.setFont('helvetica', 'bold');
-            pdf.text(familyName, pdfWidth / 2, 12, { align: 'center' });
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(100, 100, 100);
-            pdf.text('Pohon Keluarga', pdfWidth / 2, 18, { align: 'center' });
-            pdf.setTextColor(0, 0, 0);
+            pdf.setTextColor(20, 20, 20);
+            pdf.text(familyName, pageW / 2, 12, { align: 'center' });
 
-            // Tree image
-            pdf.addImage(dataUrl, 'PNG', xOffset, yOffset + 5, finalWidth, finalHeight);
+            // Tree image — full resolution on single page
+            pdf.addImage(dataUrl, 'PNG', xOff, yOff, finalW, finalH);
 
             // Footer
-            pdf.setFontSize(8);
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
+            const timeStr = now.toLocaleTimeString('id-ID', {
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'italic');
             pdf.setTextColor(100, 100, 100);
-            const createdDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-            pdf.text(`Created by WIJA apps • ${createdDate}`, pdfWidth / 2, pdfHeight - 5, { align: 'center' });
+            pdf.text('Warisan Jejak Keluarga Bugis', pageW / 2, pageH - 12, { align: 'center' });
+
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text('Created by wija-ogi.com', pageW / 2, pageH - 8, { align: 'center' });
+
+            pdf.setFontSize(7);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text(`${dateStr} ${timeStr}`, pageW / 2, pageH - 4.5, { align: 'center' });
+            pdf.setTextColor(0, 0, 0);
 
             const safeName = familyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-            const timestamp = new Date().toISOString().slice(0, 10);
-            pdf.save(`${safeName}-${timestamp}.pdf`);
+            const timestamp = now.toISOString().slice(0, 10);
+            pdf.save(`${safeName}-${exportPaperSize}-${timestamp}.pdf`);
 
-            toast.success('✅ PDF berhasil didownload!');
+            toast.success(`✅ PDF ${exportPaperSize} hi-res berhasil didownload!`);
         } catch (error) {
             console.error('PDF export error:', error);
             toast.error('Gagal mengexport PDF. Silakan coba lagi.');
-            // Attempt to restore on error
             if (reactFlowRef.current) {
                 reactFlowRef.current.style.width = '';
                 reactFlowRef.current.style.height = '';
@@ -722,7 +756,7 @@ function FamilyTreeInner({
         } finally {
             setIsExporting(false);
         }
-    }, [isExporting, persons.length, familyName, reactFlowInstance]);
+    }, [isExporting, persons.length, familyName, reactFlowInstance, exportPaperSize]);
 
     // MiniMap node colors
     const minimapNodeColor = useCallback((node: Node) => {
@@ -751,6 +785,18 @@ function FamilyTreeInner({
             <div className="absolute top-3 left-3 z-10 flex gap-2 print:hidden">
                 <div className="controls-panel flex gap-1.5 bg-white rounded-lg shadow p-1.5 border border-stone-200"
                     onMouseDown={(e) => e.stopPropagation()}>
+                    <select
+                        value={exportPaperSize}
+                        onChange={(e) => setExportPaperSize(e.target.value as 'A4' | 'A3' | 'A2' | 'A1' | 'A0')}
+                        className="h-8 px-1.5 rounded text-xs font-medium border border-stone-200 bg-white text-stone-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-300"
+                        title="Ukuran kertas PDF"
+                    >
+                        <option value="A4">A4</option>
+                        <option value="A3">A3</option>
+                        <option value="A2">A2</option>
+                        <option value="A1">A1</option>
+                        <option value="A0">A0</option>
+                    </select>
                     <button
                         type="button"
                         onClick={handleExportPDF}
@@ -758,9 +804,9 @@ function FamilyTreeInner({
                         className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border cursor-pointer select-none transition-colors ${isExporting ? 'bg-blue-100 text-blue-400 border-blue-200 cursor-wait'
                             : 'hover:bg-blue-50 text-blue-600 border-blue-200'
                             }`}
-                        title="Export ke file PDF"
+                        title="Export ke file PDF (print quality)"
                     >
-                        {isExporting ? '⏳' : '📥'} PDF
+                        {isExporting ? '⏳' : '🖨️'} PDF
                     </button>
                     <div className="w-px bg-stone-200 mx-0.5"></div>
                     <button
