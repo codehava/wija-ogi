@@ -248,7 +248,6 @@ export function calculateTreeLayout(
         marginx: config.margin,
         marginy: config.margin,
         ranker: useRanker,
-        align: 'UL',               // Up-left alignment for better top-down centering
     });
     g.setDefaultEdgeLabel(() => ({}));
 
@@ -436,9 +435,47 @@ export function calculateTreeLayout(
         }
     }
 
+    const MIN_GAP = config.minGap;
+
+    // --- 5.8. HORIZONTAL COMPACTION ---
+    // Close excess horizontal gaps per generation row while preserving dagre's ordering.
+    // This ensures the tree is as narrow as possible before centering.
+    {
+        const byRow = new Map<number, string[]>();
+        for (const [id, pos] of clusterPositions) {
+            const ry = Math.round(pos.y / 10) * 10;
+            if (!byRow.has(ry)) byRow.set(ry, []);
+            byRow.get(ry)!.push(id);
+        }
+
+        for (const [, ids] of byRow) {
+            if (ids.length < 2) continue;
+            // Sort by current X (preserve dagre ordering)
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+
+            // Compact: each cluster sits right after the previous one
+            for (let i = 1; i < ids.length; i++) {
+                const prevId = ids[i - 1];
+                const currId = ids[i];
+                const prevPos = clusterPositions.get(prevId);
+                const currPos = clusterPositions.get(currId);
+                const prevData = clusters.get(prevId);
+                const currData = clusters.get(currId);
+                if (!prevPos || !currPos || !prevData || !currData) continue;
+
+                const minX = prevPos.x + prevData.w / 2 + MIN_GAP + currData.w / 2;
+                if (currPos.x > minX + 100) {
+                    // Close at most 60% of excess gap (don't collapse completely)
+                    const excess = currPos.x - minX;
+                    currPos.x = minX + excess * 0.4;
+                    clusterPositions.set(currId, currPos);
+                }
+            }
+        }
+    }
+
     // --- 6. MULTI-PASS COLLISION RESOLUTION ---
     // More passes for larger trees, dynamic gap based on tree size
-    const MIN_GAP = config.minGap;
     const MAX_PASSES = persons.length > 100 ? 15 : 8;
 
     for (let pass = 0; pass < MAX_PASSES; pass++) {
@@ -579,7 +616,7 @@ export function calculateTreeLayout(
     // --- 6.7. PARENT CENTERING PASS (bottom-up) ---
     // Center each parent cluster above the midpoint of its children for pyramid look.
     // Process from deepest generation upward so adjustments cascade.
-    const centeringPasses = 3;
+    const centeringPasses = 5;
     for (let cp = 0; cp < centeringPasses; cp++) {
         const processedForCentering = new Set<string>();
 
@@ -681,6 +718,93 @@ export function calculateTreeLayout(
                 clusterPositions.set(parentCid, parentPos);
             }
         }
+    }
+
+    // --- 6.75. CHILD-TOWARD-PARENT PULL ---
+    // Pull children closer to their parent's X position to reduce long diagonal edges.
+    // This is the reverse of parent centering — works together for bidirectional alignment.
+    {
+        const processedChildren = new Set<string>();
+        visiblePersons.forEach(person => {
+            const parentClusterId = personToCluster.get(person.personId);
+            if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
+
+            const parentCluster = clusters.get(parentClusterId);
+            const parentPos = clusterPositions.get(parentClusterId);
+            if (!parentCluster || !parentPos) return;
+
+            parentCluster.members.forEach(member => {
+                member.relationships.childIds.forEach(childId => {
+                    if (!visibleIds.has(childId)) return;
+                    const childClusterId = personToCluster.get(childId);
+                    if (!childClusterId || !clustersInGraph.has(childClusterId)) return;
+                    if (processedChildren.has(childClusterId)) return;
+                    processedChildren.add(childClusterId);
+
+                    const childPos = clusterPositions.get(childClusterId);
+                    const childData = clusters.get(childClusterId);
+                    if (!childPos || !childData) return;
+
+                    // Only pull if horizontal distance is large (>200px)
+                    const hDist = Math.abs(childPos.x - parentPos.x);
+                    if (hDist < 200) return;
+
+                    // Pull 30% toward parent X
+                    const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.3;
+
+                    // Collision check within same row
+                    const childY = Math.round(childPos.y / 10) * 10;
+                    const halfW = childData.w / 2;
+                    let canMove = true;
+
+                    for (const [nId, nPos] of clusterPositions) {
+                        if (nId === childClusterId) continue;
+                        if (Math.round(nPos.y / 10) * 10 !== childY) continue;
+                        const nData = clusters.get(nId);
+                        if (!nData) continue;
+                        if (Math.abs(desiredX - nPos.x) < halfW + nData.w / 2 + MIN_GAP) {
+                            canMove = false;
+                            break;
+                        }
+                    }
+
+                    if (canMove) {
+                        childPos.x = desiredX;
+                        clusterPositions.set(childClusterId, childPos);
+                    }
+                });
+            });
+        });
+    }
+
+    // --- 6.76. FINAL COLLISION CLEANUP ---
+    // After centering and pulling, fix any new overlaps.
+    for (let pass = 0; pass < 5; pass++) {
+        let hadOverlap = false;
+        const byRank2 = new Map<number, string[]>();
+        for (const [id, pos] of clusterPositions) {
+            const ry = Math.round(pos.y / 10) * 10;
+            if (!byRank2.has(ry)) byRank2.set(ry, []);
+            byRank2.get(ry)!.push(id);
+        }
+        for (const [, ids] of byRank2) {
+            if (ids.length < 2) continue;
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+            for (let i = 0; i < ids.length - 1; i++) {
+                const posA = clusterPositions.get(ids[i]);
+                const posB = clusterPositions.get(ids[i + 1]);
+                const cA = clusters.get(ids[i]);
+                const cB = clusters.get(ids[i + 1]);
+                if (!posA || !posB || !cA || !cB) continue;
+                const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
+                if (overlap > 0) {
+                    hadOverlap = true;
+                    posA.x -= overlap / 2;
+                    posB.x += overlap / 2;
+                }
+            }
+        }
+        if (!hadOverlap) break;
     }
 
     // --- 6.8. TITLE-BASED COLUMN SOFT-NUDGE ---
