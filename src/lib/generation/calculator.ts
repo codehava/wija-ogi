@@ -129,6 +129,76 @@ export function calculateAllGenerationsFromMap(
 }
 
 /**
+ * Multi-root generation calculator.
+ * Finds ALL root ancestors (persons with no parents in the tree),
+ * runs BFS from each, and merges results.
+ * For persons reachable from multiple roots (cross-lineage marriages),
+ * keeps the MINIMUM generation number to align cross-lineage generations.
+ *
+ * @param personsMap - Map of all persons (id -> Person)
+ * @returns Map of personId -> generation number (1-based)
+ */
+export function calculateMultiRootGenerations(
+    personsMap: Map<string, Person>
+): Map<string, number> {
+    const generations = new Map<string, number>();
+    if (personsMap.size === 0) return generations;
+
+    // Find all root ancestors: persons whose parentIds don't reference anyone in the tree
+    const roots: Person[] = [];
+    for (const person of personsMap.values()) {
+        const hasParentInTree = (person.relationships?.parentIds || [])
+            .some(pid => personsMap.has(pid));
+        if (!hasParentInTree) {
+            roots.push(person);
+        }
+    }
+
+    // If no roots found, fall back to isRootAncestor flag
+    if (roots.length === 0) {
+        const flaggedRoot = findRootAncestor([...personsMap.values()]);
+        if (flaggedRoot) roots.push(flaggedRoot);
+    }
+
+    // BFS from each root, keeping minimum generation for cross-linked persons
+    for (const root of roots) {
+        const queue: Array<{ id: string; gen: number }> = [{ id: root.personId, gen: 1 }];
+        const visited = new Set<string>();
+
+        while (queue.length > 0) {
+            const { id, gen } = queue.shift()!;
+            if (visited.has(id)) continue;
+            visited.add(id);
+
+            // Keep minimum generation if already assigned from another root's BFS
+            const existing = generations.get(id);
+            if (existing === undefined || gen < existing) {
+                generations.set(id, gen);
+            }
+
+            const person = personsMap.get(id);
+            if (!person) continue;
+
+            // Traverse to spouses (same generation)
+            for (const spouseId of person.relationships?.spouseIds || []) {
+                if (!visited.has(spouseId)) {
+                    queue.push({ id: spouseId, gen });
+                }
+            }
+
+            // Traverse to children (next generation)
+            for (const childId of person.relationships?.childIds || []) {
+                if (!visited.has(childId)) {
+                    queue.push({ id: childId, gen: gen + 1 });
+                }
+            }
+        }
+    }
+
+    return generations;
+}
+
+/**
  * Get the maximum generation depth in the tree
  * @param persons - Array of all persons
  * @param rootId - ID of the root ancestor

@@ -1,5 +1,6 @@
 import dagre from 'dagre';
 import { Person, Relationship } from '@/types';
+import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
 
 interface NodePosition {
     x: number;
@@ -98,7 +99,8 @@ const LAYOUT_CONFIG = {
 export function calculateTreeLayout(
     persons: Person[],
     collapsedIds: Set<string> = new Set(),
-    relationships: Relationship[] = []
+    relationships: Relationship[] = [],
+    generationMap?: Map<string, number>
 ): Map<string, NodePosition> {
     const posMap = new Map<string, NodePosition>();
     if (persons.length === 0) return posMap;
@@ -395,6 +397,46 @@ export function calculateTreeLayout(
         const n = g.node(id);
         if (n) clusterPositions.set(id, { x: n.x, y: n.y });
     });
+
+    // --- 5.5. GENERATION Y-NORMALIZATION ---
+    // Force all same-generation clusters to the same Y row.
+    // This aligns multi-root lineages (Arumpone, Soppeng) side-by-side.
+    const genMap = generationMap ?? calculateMultiRootGenerations(personsMap);
+
+    if (genMap.size > 0) {
+        // Determine generation for each cluster (use representative member)
+        const clusterGen = new Map<string, number>();
+        clustersInGraph.forEach(clusterId => {
+            const data = clusters.get(clusterId);
+            if (!data) return;
+            // Use the minimum generation among cluster members
+            let minGen = Infinity;
+            for (const member of data.members) {
+                const gen = genMap.get(member.personId);
+                if (gen !== undefined && gen < minGen) minGen = gen;
+            }
+            if (minGen !== Infinity) {
+                clusterGen.set(clusterId, minGen);
+            }
+        });
+
+        // Compute target Y for each generation
+        const genYTarget = new Map<number, number>();
+        const rowHeight = NODE_HEIGHT + config.rankSep;
+        for (const gen of new Set(clusterGen.values())) {
+            genYTarget.set(gen, config.margin + (gen - 1) * rowHeight);
+        }
+
+        // Override Y positions to align by generation
+        for (const [clusterId, gen] of clusterGen) {
+            const pos = clusterPositions.get(clusterId);
+            const targetY = genYTarget.get(gen);
+            if (pos && targetY !== undefined) {
+                pos.y = targetY;
+                clusterPositions.set(clusterId, pos);
+            }
+        }
+    }
 
     // --- 6. MULTI-PASS COLLISION RESOLUTION ---
     // More passes for larger trees, dynamic gap based on tree size

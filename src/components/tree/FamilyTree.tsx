@@ -33,6 +33,7 @@ import { MaleNode } from './nodes/MaleNode';
 import { FemaleNode } from './nodes/FemaleNode';
 import { JunctionNode } from './nodes/JunctionNode';
 import { calculateTreeLayout, calculateSimplePosition, ViewportInfo } from '@/lib/layout/treeLayout';
+import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
 
 export interface FamilyTreeProps {
     persons: Person[];
@@ -147,7 +148,8 @@ function FamilyTreeInner({
             initialLayoutRef.current = new Map();
             return initialLayoutRef.current;
         }
-        initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships);
+        const genMap = calculateMultiRootGenerations(personsMap);
+        initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships, genMap);
         return initialLayoutRef.current;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -528,7 +530,8 @@ function FamilyTreeInner({
 
         setTimeout(async () => {
             try {
-                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships);
+                const genMap = calculateMultiRootGenerations(personsMap);
+                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships, genMap);
                 positionsRef.current = newPositions;
 
                 const { rfNodes, rfEdges } = buildNodesAndEdges(
