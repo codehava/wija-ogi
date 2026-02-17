@@ -88,8 +88,8 @@ export function calculateSimplePosition(
 
 // Standardized layout spacing — consistent regardless of tree size
 const LAYOUT_CONFIG = {
-    rankSep: 100,     // Vertical gap between generations
-    nodeSep: 40,      // Horizontal gap between sibling clusters
+    rankSep: 180,     // Vertical gap between generations (increased for clearer separation)
+    nodeSep: 50,      // Horizontal gap between sibling clusters
     spouseGap: 30,    // Gap between spouses in a cluster
     margin: 50,       // Canvas margin
     minGap: 25,       // Minimum gap for collision resolution
@@ -341,45 +341,12 @@ export function calculateTreeLayout(
         if (n) clusterPositions.set(id, { x: n.x, y: n.y });
     });
 
-    // --- 5.5. GENERATION Y-NORMALIZATION ---
-    // Force all same-generation clusters to the same Y row.
-    // This aligns multi-root lineages (Arumpone, Soppeng) side-by-side.
-    const genMap = generationMap ?? calculateMultiRootGenerations(personsMap);
-
-    if (genMap.size > 0) {
-        // Determine generation for each cluster (use representative member)
-        const clusterGen = new Map<string, number>();
-        clustersInGraph.forEach(clusterId => {
-            const data = clusters.get(clusterId);
-            if (!data) return;
-            // Use the minimum generation among cluster members
-            let minGen = Infinity;
-            for (const member of data.members) {
-                const gen = genMap.get(member.personId);
-                if (gen !== undefined && gen < minGen) minGen = gen;
-            }
-            if (minGen !== Infinity) {
-                clusterGen.set(clusterId, minGen);
-            }
-        });
-
-        // Compute target Y for each generation
-        const genYTarget = new Map<number, number>();
-        const rowHeight = NODE_HEIGHT + config.rankSep;
-        for (const gen of new Set(clusterGen.values())) {
-            genYTarget.set(gen, config.margin + (gen - 1) * rowHeight);
-        }
-
-        // Override Y positions to align by generation
-        for (const [clusterId, gen] of clusterGen) {
-            const pos = clusterPositions.get(clusterId);
-            const targetY = genYTarget.get(gen);
-            if (pos && targetY !== undefined) {
-                pos.y = targetY;
-                clusterPositions.set(clusterId, pos);
-            }
-        }
-    }
+    // --- 5.5. DAGRE RANK-BASED Y POSITIONS ---
+    // Trust dagre's rank assignment based on parent→child edges.
+    // Previously this section overrode dagre Y with a generation calculator that
+    // used "keep minimum gen" for cross-lineage marriages, which collapsed most
+    // nodes to generation 1-2, creating a flat horizontal band.
+    // Dagre's native ranking correctly positions ancestors above descendants.
 
     // --- 6. MULTI-PASS COLLISION RESOLUTION ---
     // More passes for larger trees, dynamic gap based on tree size
