@@ -259,7 +259,7 @@ function FamilyTreeInner({
                     sourceHandle: 'right',
                     targetHandle: 'left',
                     type: 'default', // Bezier curve — one smooth unbroken line
-                    style: { stroke: '#ec4899', strokeWidth: 2 },
+                    style: { stroke: '#dc2626', strokeWidth: 2 },
                 });
 
                 // Invisible junction node at midpoint (only for child edge routing)
@@ -733,36 +733,28 @@ function FamilyTreeInner({
             // Tree image — full resolution on single page
             pdf.addImage(dataUrl, 'PNG', xOff, yOff, finalW, finalH);
 
-            // Add Legend (if available) - Bottom Left
+            // Add Legend (if available) - Bottom Left, scaled by paper size
             if (legendRef.current) {
                 try {
                     const legendUrl = await toPng(legendRef.current, { cacheBust: true, pixelRatio: 3 });
                     const legendImg = new Image();
-                    legendImg.src = legendUrl;
+                    await new Promise<void>((resolve, reject) => {
+                        legendImg.onload = () => resolve();
+                        legendImg.onerror = reject;
+                        legendImg.src = legendUrl;
+                    });
 
-                    // Standard height for legend on A4 is approx 25mm. 
-                    // Scale it based on paper size factor `s`.
-                    const legendW_mm = 35 * s;
-                    const legendAspect = 300 / 150; // approx
-                    const legendH_mm = legendW_mm / 1.5; // Aspect ratio adjustment needed? 
-                    // Better: use natural aspect
-                    // But we can't await loading? toPng returns dataUrl, we can add directly.
-                    // jsPDF addImage supports dataUrl.
+                    // Use actual image aspect ratio for precise sizing
+                    const legendAspect = legendImg.naturalWidth / legendImg.naturalHeight;
+                    // Base legend width: 30mm on A4, scales with paper size
+                    const legendW = 30 * s;
+                    const legendH = legendW / legendAspect;
 
-                    // Position: Bottom Left, above footer
-                    // PageH - FooterSpace - LegendHeight - Margin
-                    // Footer ends at PageH - 3.5*s. Footer starts at PageH - 10*s.
-                    // Let's put legend at Bottom Left corner, aligned with marginSide.
+                    // Position: Bottom Left, above footer area
                     const legendX = marginSide;
-                    const legendY = pageH - (marginBottom + 10 * s + 30 * s); // 30*s is approx legend height space
+                    const legendY = pageH - marginBottom - 12 * s - legendH;
 
-                    // Actually, let's just make it proportional.
-                    const finalLegendW = 40 * s;
-                    // We don't know height. Let jsPDF handle aspect if we can, or assume square-ish.
-                    // Let's assume ratio width/height.
-                    // Instead of complex math, just place it.
-
-                    pdf.addImage(legendUrl, 'PNG', marginSide, pageH - (marginBottom + 35 * s), finalLegendW, 0); // 0 height = auto
+                    pdf.addImage(legendUrl, 'PNG', legendX, legendY, legendW, legendH);
                 } catch (e) {
                     console.error('Legend capture failed', e);
                 }
@@ -812,7 +804,7 @@ function FamilyTreeInner({
 
     // MiniMap node colors
     const minimapNodeColor = useCallback((node: Node) => {
-        return node.type === 'female' ? '#ec4899' : '#3b82f6';
+        return node.type === 'female' ? '#dc2626' : '#16a34a';
     }, []);
 
     // Mobile-friendly: Check window width for default legend state

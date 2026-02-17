@@ -68,11 +68,11 @@ function MaleNodeComponent({ data }: NodeProps) {
                         width: shapeSize, height: shapeSize,
                         background: hasTitle
                             ? 'linear-gradient(135deg, #fde68a, #f59e0b)'
-                            : 'linear-gradient(135deg, #93c5fd, #3b82f6)',
+                            : 'linear-gradient(135deg, #86efac, #16a34a)',
                         border: `2px solid ${hasTitle ? '#d97706' :
-                                d.isOnAncestryPath ? '#f59e0b' :
-                                    d.isSelected ? '#14b8a6' :
-                                        d.isHighlighted ? '#f59e0b' : '#2563eb'
+                            d.isOnAncestryPath ? '#f59e0b' :
+                                d.isSelected ? '#14b8a6' :
+                                    d.isHighlighted ? '#f59e0b' : '#15803d'
                             }`
                     }}
                 >

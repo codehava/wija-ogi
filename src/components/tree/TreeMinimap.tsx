@@ -181,7 +181,7 @@ export function TreeMinimap({
                 {/* Node dots */}
                 {Array.from(positions.entries()).map(([personId, pos]) => {
                     const person = personsMap.get(personId);
-                    const color = person?.gender === 'female' ? '#ec4899' : '#3b82f6';
+                    const color = person?.gender === 'female' ? '#dc2626' : '#16a34a';
                     const mp = toMinimap(pos.x + NODE_WIDTH / 2, pos.y + NODE_HEIGHT / 2);
                     return (
                         <circle

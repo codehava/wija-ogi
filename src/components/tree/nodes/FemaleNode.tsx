@@ -66,8 +66,8 @@ function FemaleNodeComponent({ data }: NodeProps) {
                                 <polygon points="28,50 4,10 52,10" />
                             </clipPath>
                             <linearGradient id={`grad-f-${d.person.personId}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={hasTitle ? '#fde68a' : '#f9a8d4'} />
-                                <stop offset="100%" stopColor={hasTitle ? '#f59e0b' : '#ec4899'} />
+                                <stop offset="0%" stopColor={hasTitle ? '#fde68a' : '#fca5a5'} />
+                                <stop offset="100%" stopColor={hasTitle ? '#f59e0b' : '#dc2626'} />
                             </linearGradient>
                         </defs>
                         {d.person.photoUrl ? (
@@ -90,7 +90,7 @@ function FemaleNodeComponent({ data }: NodeProps) {
                                 hasTitle ? '#d97706' :
                                     d.isOnAncestryPath ? '#f59e0b' :
                                         d.isSelected ? '#14b8a6' :
-                                            d.isHighlighted ? '#f59e0b' : '#db2777'
+                                            d.isHighlighted ? '#f59e0b' : '#b91c1c'
                             }
                             strokeWidth={d.isOnAncestryPath || d.isSelected || d.isHighlighted || hasTitle ? 3 : 2}
                             strokeLinejoin="round"
