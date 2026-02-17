@@ -544,6 +544,80 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────
+   GRAY TEXT/BG OVERRIDES — Additional Tailwind classes for visibility
+   ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Gray text colors → light equivalents */
+[data-theme="nusantara"] .text-gray-900 {
+    color: var(--nusantara-text-primary) !important;
+}
+
+[data-theme="nusantara"] .text-gray-800 {
+    color: var(--nusantara-text-primary) !important;
+}
+
+[data-theme="nusantara"] .text-gray-700 {
+    color: #c8d1e0 !important;
+}
+
+[data-theme="nusantara"] .text-gray-600 {
+    color: var(--nusantara-text-secondary) !important;
+}
+
+[data-theme="nusantara"] .text-gray-500 {
+    color: var(--nusantara-text-muted) !important;
+}
+
+[data-theme="nusantara"] .text-gray-400 {
+    color: var(--nusantara-text-muted) !important;
+}
+
+/* Gray backgrounds → nusantara dark equivalents */
+[data-theme="nusantara"] .bg-gray-50 {
+    background-color: var(--nusantara-bg-elevated) !important;
+}
+
+[data-theme="nusantara"] .bg-gray-100 {
+    background-color: rgba(25, 36, 62, 0.5) !important;
+}
+
+[data-theme="nusantara"] .bg-gray-200 {
+    background-color: rgba(25, 36, 62, 0.7) !important;
+}
+
+/* Black text → light */
+[data-theme="nusantara"] .text-black {
+    color: var(--nusantara-text-primary) !important;
+}
+
+/* Stone-900 text → light */
+[data-theme="nusantara"] .text-stone-900 {
+    color: var(--nusantara-text-primary) !important;
+}
+
+/* Ring colors for focus states */
+[data-theme="nusantara"] .ring-stone-200 {
+    --tw-ring-color: var(--nusantara-border) !important;
+}
+
+/* Hover backgrounds */
+[data-theme="nusantara"] .hover\:bg-stone-50:hover,
+[data-theme="nusantara"] .hover\:bg-gray-50:hover {
+    background-color: rgba(45, 212, 191, 0.08) !important;
+}
+
+[data-theme="nusantara"] .hover\:bg-stone-100:hover,
+[data-theme="nusantara"] .hover\:bg-gray-100:hover {
+    background-color: rgba(45, 212, 191, 0.12) !important;
+}
+
+/* Placeholder text overrides */
+[data-theme="nusantara"] .placeholder-stone-400::placeholder,
+[data-theme="nusantara"] .placeholder-gray-400::placeholder {
+    color: var(--nusantara-text-muted) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
    PRINT — Disable Nusantara theme for printing
    ───────────────────────────────────────────────────────────────────────────────── */
 

@@ -325,6 +325,67 @@ export function calculateTreeLayout(
         });
     });
 
+    // --- 3.5. VERTICAL ALIGNMENT FOR TITLES (User Request) ---
+    // Group by title and add high-weight edges to enforce vertical alignment
+    // "misa arumpone dalam garis vertikal yang sama"
+    const titleGroups = new Map<string, Person[]>();
+
+    visiblePersons.forEach(p => {
+        // Use reignTitle (Specific like "Arumpone") or title (Generic like "Datu")
+        // Priority to reignTitle as it is more specific for "Arumpone"
+        let key = p.reignTitle?.trim();
+        if (!key && p.title && p.title !== 'other') {
+            key = p.title; // e.g. "datu", "arung"
+        }
+
+        if (key) {
+            // Normalize key: remove " ke-XX" or numbers if needed?
+            // User: "Arumpone", "Soppeng"
+            // Simple normalization for now
+            const normalizedKey = key.toLowerCase();
+            if (!titleGroups.has(normalizedKey)) {
+                titleGroups.set(normalizedKey, []);
+            }
+            titleGroups.get(normalizedKey)!.push(p);
+        }
+    });
+
+    // Add virtual edges for title groups
+    titleGroups.forEach((group, title) => {
+        if (group.length < 2) return;
+
+        // Sort by birthDate (approximate generation order)
+        group.sort((a, b) => {
+            const dateA = a.birthDate ? new Date(a.birthDate).getTime() : 0;
+            const dateB = b.birthDate ? new Date(b.birthDate).getTime() : 0;
+            return dateA - dateB;
+        });
+
+        for (let i = 0; i < group.length - 1; i++) {
+            const p1 = group[i];
+            const p2 = group[i + 1];
+
+            const c1 = personToCluster.get(p1.personId);
+            const c2 = personToCluster.get(p2.personId);
+
+            if (c1 && c2 && clustersInGraph.has(c1) && clustersInGraph.has(c2) && c1 !== c2) {
+                // Check if edge already exists
+                const edgeKey = `${c1}->${c2}`;
+                if (!addedEdges.has(edgeKey)) {
+                    // Add STRONG vertical edge (weight 10)
+                    // This pulls them into the same vertical column if possible
+                    g.setEdge(c1, c2, { weight: 10, minlen: 1, style: 'invis' });
+                    addedEdges.add(edgeKey);
+                } else {
+                    // Start Update existing edge weight? 
+                    // Dagre doesn't support updating easily without re-set.
+                    // We can just overwrite.
+                    g.setEdge(c1, c2, { weight: 10, minlen: 1 });
+                }
+            }
+        }
+    });
+
     // --- 4. Run Dagre Layout ---
     dagre.layout(g);
 

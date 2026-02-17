@@ -38,6 +38,9 @@ export default function RootLayout({
     return (
         <html lang="id" suppressHydrationWarning>
             <head>
+                {/* PWA Manifest */}
+                <link rel="manifest" href="/manifest.json" />
+                <meta name="theme-color" content="#0d9488" />
                 {/* Favicons */}
                 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
                 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
