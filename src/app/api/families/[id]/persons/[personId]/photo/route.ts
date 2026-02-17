@@ -1,24 +1,17 @@
-// POST   /api/families/[id]/persons/[personId]/photo — uploadPersonPhoto
-// DELETE /api/families/[id]/persons/[personId]/photo — deletePersonPhoto
+// POST   /api/families/[id]/persons/[personId]/photo — uploadPersonPhoto (editor+)
+// DELETE /api/families/[id]/persons/[personId]/photo — deletePersonPhoto (editor+)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { uploadFile, deleteFile, getFileUrl, getPersonPhotoKey } from '@/lib/storage';
-import { isFamilyMember } from '@/lib/services/families';
+import { safeErrorResponse, requireRole } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string; personId: string }> };
 
 export async function POST(request: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id, personId } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireRole(id, 'editor');
+        if (!authResult.ok) return authResult.response;
 
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -39,26 +32,22 @@ export async function POST(request: NextRequest, { params }: Params) {
         const photoUrl = await getFileUrl(key);
 
         return NextResponse.json({ photoUrl, thumbnailUrl: photoUrl });
-    } catch (error: any) {
-        console.error('[API] POST photo error:', error);
-        return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to upload photo');
     }
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id, personId } = await params;
+        const authResult = await requireRole(id, 'editor');
+        if (!authResult.ok) return authResult.response;
 
         const key = getPersonPhotoKey(id, personId, 'photo.jpg');
         try { await deleteFile(key); } catch { /* ignore */ }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] DELETE photo error:', error);
-        return NextResponse.json({ error: error.message || 'Delete failed' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to delete photo');
     }
 }

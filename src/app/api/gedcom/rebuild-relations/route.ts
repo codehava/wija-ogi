@@ -3,12 +3,10 @@
 // Use this to fix trees that were imported before the denormalization fix
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { persons, relationships } from '@/db/schema';
-import { eq, and, or } from 'drizzle-orm';
-import { isFamilyMember } from '@/lib/services/families';
-import { safeErrorResponse, applyRateLimit } from '@/lib/apiHelpers';
+import { eq } from 'drizzle-orm';
+import { safeErrorResponse, applyRateLimit, requireRole } from '@/lib/apiHelpers';
 import { RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -17,11 +15,6 @@ export async function POST(request: NextRequest) {
         const rateLimited = applyRateLimit(request, RATE_LIMITS.SENSITIVE);
         if (rateLimited) return rateLimited;
 
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         const body = await request.json();
         const { treeId } = body;
 
@@ -29,10 +22,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'treeId is required' }, { status: 400 });
         }
 
-        const isMember = await isFamilyMember(treeId, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireRole(treeId, 'editor');
+        if (!authResult.ok) return authResult.response;
 
         // Fetch all relationships for this tree
         const rels = await db.select().from(relationships).where(eq(relationships.treeId, treeId));

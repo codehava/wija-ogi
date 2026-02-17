@@ -1,10 +1,11 @@
 // POST /api/gedcom/import
 // Upload and import a GEDCOM file into a new or existing tree
+// C3 FIX: Verify membership when importing into existing tree
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { importGedcom } from '@/lib/services/gedcom';
-import { safeErrorResponse, applyRateLimit } from '@/lib/apiHelpers';
+import { safeErrorResponse, applyRateLimit, requireRole } from '@/lib/apiHelpers';
 import { RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -27,8 +28,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
-        // M2 FIX: Limit file size to 10MB
-        const MAX_GEDCOM_SIZE = 10 * 1024 * 1024; // 10MB
+        // Limit file size to 10MB
+        const MAX_GEDCOM_SIZE = 10 * 1024 * 1024;
         if (file.size > MAX_GEDCOM_SIZE) {
             return NextResponse.json({ error: 'File too large. Maximum size is 10MB.' }, { status: 413 });
         }
@@ -36,6 +37,12 @@ export async function POST(request: NextRequest) {
         // Validate file extension
         if (!file.name.toLowerCase().endsWith('.ged')) {
             return NextResponse.json({ error: 'File must be a .ged file' }, { status: 400 });
+        }
+
+        // C3 FIX: Verify membership when importing into an existing tree
+        if (existingTreeId) {
+            const authResult = await requireRole(existingTreeId, 'editor');
+            if (!authResult.ok) return authResult.response;
         }
 
         // Read file content

@@ -1,25 +1,19 @@
 // GET    /api/families/[id]  — getFamily
-// PATCH  /api/families/[id]  — updateFamily
-// DELETE /api/families/[id]  — deleteFamily
+// PATCH  /api/families/[id]  — updateFamily (admin+)
+// DELETE /api/families/[id]  — deleteFamily (owner only)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { getFamily, updateFamily, deleteFamily, isFamilyMember } from '@/lib/services/families';
-import { safeErrorResponse } from '@/lib/apiHelpers';
+import { getFamily, updateFamily, deleteFamily } from '@/lib/services/families';
+import { safeErrorResponse, requireRole, requireMember } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireMember(id);
+        if (!authResult.ok) return authResult.response;
+
         const family = await getFamily(id);
         if (!family) {
             return NextResponse.json({ error: 'Family not found' }, { status: 404 });
@@ -32,15 +26,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PATCH(request: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireRole(id, 'admin');
+        if (!authResult.ok) return authResult.response;
+
         const updates = await request.json();
         await updateFamily(id, updates);
         return NextResponse.json({ success: true });
@@ -51,15 +40,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireRole(id, 'owner');
+        if (!authResult.ok) return authResult.response;
+
         await deleteFamily(id);
         return NextResponse.json({ success: true });
     } catch (error) {

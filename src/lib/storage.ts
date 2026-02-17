@@ -26,9 +26,14 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'wija-media';
 
-// M3 FIX: Sanitize S3 key to prevent path traversal
+// H2 FIX: Sanitize S3 key to prevent path traversal
 function sanitizeKey(key: string): string {
-    return key.replace(/\.\.\/|\.\.\\/g, '').replace(/[^a-zA-Z0-9\-_\/\.]/g, '_');
+    // Remove ../ and ..\ sequences, then strip any characters except safe ones
+    return key
+        .replace(/\.\.\/|\.\.\\|\.\.$/g, '')
+        .replace(/\/+/g, '/')
+        .replace(/^\//, '')
+        .replace(/[^a-zA-Z0-9\-_\/\.]/g, '_');
 }
 
 /**
@@ -39,24 +44,26 @@ export async function uploadFile(
     body: Buffer | Uint8Array | ReadableStream,
     contentType: string
 ): Promise<string> {
+    const safeKey = sanitizeKey(key);
     await s3Client.send(
         new PutObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: key,
+            Key: safeKey,
             Body: body,
             ContentType: contentType,
         })
     );
-    return key;
+    return safeKey;
 }
 
 /**
  * Get a pre-signed URL for downloading a file
  */
 export async function getFileUrl(key: string, expiresIn = 3600): Promise<string> {
+    const safeKey = sanitizeKey(key);
     const command = new GetObjectCommand({
         Bucket: BUCKET_NAME,
-        Key: key,
+        Key: safeKey,
     });
     return getSignedUrl(s3Client, command, { expiresIn });
 }
@@ -65,9 +72,10 @@ export async function getFileUrl(key: string, expiresIn = 3600): Promise<string>
  * Get a pre-signed URL for uploading a file
  */
 export async function getUploadUrl(key: string, contentType: string, expiresIn = 600): Promise<string> {
+    const safeKey = sanitizeKey(key);
     const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
-        Key: key,
+        Key: safeKey,
         ContentType: contentType,
     });
     return getSignedUrl(s3Client, command, { expiresIn });
@@ -77,10 +85,11 @@ export async function getUploadUrl(key: string, contentType: string, expiresIn =
  * Delete a file from S3/MinIO
  */
 export async function deleteFile(key: string): Promise<void> {
+    const safeKey = sanitizeKey(key);
     await s3Client.send(
         new DeleteObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: key,
+            Key: safeKey,
         })
     );
 }

@@ -1,22 +1,28 @@
-// POST /api/invitations/[id]/resend — resendInvitation
+// POST /api/invitations/[id]/resend — resendInvitation (admin+ of the family)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { resendInvitation } from '@/lib/services/invitations';
+import { getInvitation, resendInvitation } from '@/lib/services/invitations';
+import { safeErrorResponse, requireRole } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
+
+        // Need to find the invitation first to get the family
+        const invitation = await getInvitation(id);
+        if (!invitation) {
+            return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
+        }
+
+        // Require admin+ on the invitation's family
+        const authResult = await requireRole(invitation.familyId, 'admin');
+        if (!authResult.ok) return authResult.response;
+
         await resendInvitation(id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[API] POST resend error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to resend invitation');
     }
 }

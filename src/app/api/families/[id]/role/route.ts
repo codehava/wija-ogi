@@ -1,8 +1,9 @@
-// GET /api/families/[id]/role — getUserRole
+// GET /api/families/[id]/role — getUserRole (viewer+)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { getUserRole } from '@/lib/services/families';
+import { auth } from '@/auth';
+import { safeErrorResponse } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,9 +15,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
         }
         const { id } = await params;
         const role = await getUserRole(id, session.user.id);
+        if (!role) {
+            return NextResponse.json({ error: 'Not a member' }, { status: 403 });
+        }
         return NextResponse.json({ role });
-    } catch (error: any) {
-        console.error('[API] GET /api/families/[id]/role error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to get role');
     }
 }

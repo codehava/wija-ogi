@@ -1,26 +1,19 @@
-// GET  /api/families/[id]/relationships — getAllRelationships
-// POST /api/families/[id]/relationships — createRelationship
+// GET  /api/families/[id]/relationships — getAllRelationships (viewer+)
+// POST /api/families/[id]/relationships — createRelationship (editor+)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { getAllRelationships, createRelationship } from '@/lib/services/relationships';
-import { isFamilyMember } from '@/lib/services/families';
-import { safeErrorResponse } from '@/lib/apiHelpers';
+import { safeErrorResponse, requireRole, requireMember } from '@/lib/apiHelpers';
 import { CreateRelationshipSchema, validateInput } from '@/lib/validation';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireMember(id);
+        if (!authResult.ok) return authResult.response;
+
         const relationships = await getAllRelationships(id);
         return NextResponse.json(relationships);
     } catch (error) {
@@ -30,15 +23,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function POST(request: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
-        const isMember = await isFamilyMember(id, session.user.id);
-        if (!isMember) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireRole(id, 'editor');
+        if (!authResult.ok) return authResult.response;
+
         const raw = await request.json();
         const validated = validateInput(CreateRelationshipSchema, raw);
         if (!validated.success) {

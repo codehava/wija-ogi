@@ -1,22 +1,20 @@
-// GET /api/invitations/family/[id] — getInvitationsForFamily
+// GET /api/invitations/family/[id] — getInvitationsForFamily (admin+ required)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { getInvitationsForFamily } from '@/lib/services/invitations';
+import { safeErrorResponse, requireRole } from '@/lib/apiHelpers';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
         const { id } = await params;
+        const authResult = await requireRole(id, 'admin');
+        if (!authResult.ok) return authResult.response;
+
         const invitations = await getInvitationsForFamily(id);
         return NextResponse.json(invitations);
-    } catch (error: any) {
-        console.error('[API] GET /api/invitations/family/[id] error:', error);
-        return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    } catch (error) {
+        return safeErrorResponse(error, 'Failed to list invitations');
     }
 }
