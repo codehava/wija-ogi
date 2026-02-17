@@ -10,7 +10,8 @@ export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // ─── Rate limit auth endpoints (login/register): 10 per minute ───────
-    if (pathname.startsWith('/api/auth')) {
+    // EXCLUDE callback routes — these are OAuth return flows, not login attempts
+    if (pathname.startsWith('/api/auth') && !pathname.startsWith('/api/auth/callback')) {
         const key = getRateLimitKey(request);
         const result = checkRateLimit(key, RATE_LIMITS.AUTH);
 
