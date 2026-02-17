@@ -152,7 +152,7 @@ export function TreeSearch({
                             {/* Gender indicator */}
                             <span className={clsx(
                                 'w-8 h-8 rounded-full flex items-center justify-center text-white text-sm',
-                                person.gender === 'female' ? 'bg-pink-500' : 'bg-blue-500'
+                                person.gender === 'female' ? 'bg-red-600' : 'bg-green-600'
                             )}>
                                 {person.gender === 'female' ? '👩' : '👨'}
                             </span>

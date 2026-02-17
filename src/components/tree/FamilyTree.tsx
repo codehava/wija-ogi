@@ -812,7 +812,23 @@ function FamilyTreeInner({
         return node.type === 'female' ? '#ec4899' : '#3b82f6';
     }, []);
 
-    // Empty state
+    // Mobile-friendly: Check window width for default legend state
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                setIsLegendOpen(false);
+            } else {
+                setIsLegendOpen(true);
+            }
+        };
+        // Initial check
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const [isLegendOpen, setIsLegendOpen] = useState(true);
+
     if (persons.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-96 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border-2 border-dashed border-teal-300">
@@ -830,70 +846,96 @@ function FamilyTreeInner({
 
     return (
         <div ref={reactFlowRef} className="relative h-full w-full">
-            {/* Top Controls */}
-            <div className="absolute top-3 left-3 z-10 flex gap-2 print:hidden">
-                <div className="controls-panel flex gap-1.5 bg-white rounded-lg shadow p-1.5 border border-stone-200"
-                    onMouseDown={(e) => e.stopPropagation()}>
-                    <select
-                        value={exportPaperSize}
-                        onChange={(e) => setExportPaperSize(e.target.value as 'A4' | 'A3' | 'A2' | 'A1' | 'A0')}
-                        className="h-8 px-1.5 rounded text-xs font-medium border border-stone-200 bg-white text-stone-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-300"
-                        title="Ukuran kertas PDF"
-                    >
-                        <option value="A4">A4</option>
-                        <option value="A3">A3</option>
-                        <option value="A2">A2</option>
-                        <option value="A1">A1</option>
-                        <option value="A0">A0</option>
-                    </select>
-                    <button
-                        type="button"
-                        onClick={handleExportPDF}
-                        disabled={isExporting}
-                        className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border cursor-pointer select-none transition-colors ${isExporting ? 'bg-blue-100 text-blue-400 border-blue-200 cursor-wait'
-                            : 'hover:bg-blue-50 text-blue-600 border-blue-200'
-                            }`}
-                        title="Export ke file PDF (print quality)"
-                    >
-                        {isExporting ? '⏳' : '🖨️'} PDF
-                    </button>
-                    <div className="w-px bg-stone-200 mx-0.5"></div>
-                    <button
-                        onClick={handleAutoArrange}
-                        disabled={isArranging}
-                        className={`px-3 h-8 flex items-center justify-center gap-1 rounded text-sm font-medium border transition-colors ${isArranging ? 'bg-teal-100 text-teal-700 border-teal-300 cursor-wait'
-                            : 'hover:bg-teal-50 text-teal-600 border-teal-200'
-                            }`}
-                        title="Auto rapikan layout"
-                        type="button"
-                    >
-                        {isArranging ? '⏳ Merapikan...' : '✨ Rapihkan'}
-                    </button>
+            {/* Top Bar Container - Responsive */}
+            <div className="absolute top-0 left-0 right-0 z-10 p-3 flex flex-col md:flex-row justify-between gap-3 pointer-events-none print:hidden">
+
+                {/* Controls - Mobile: Order 2, Desktop: Order 1 */}
+                <div className="order-2 md:order-1 pointer-events-auto flex items-center gap-1.5 md:gap-2 overflow-x-auto max-w-full pb-1 md:pb-0 scrollbar-hide">
+                    <div className="flex gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-1.5 border border-stone-200 shrink-0" onMouseDown={(e) => e.stopPropagation()}>
+                        <select
+                            value={exportPaperSize}
+                            onChange={(e) => setExportPaperSize(e.target.value as 'A4' | 'A3' | 'A2' | 'A1' | 'A0')}
+                            className="h-8 md:h-9 px-2 rounded text-xs md:text-sm font-medium border border-stone-200 bg-white text-stone-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-300"
+                            title="Ukuran kertas PDF"
+                        >
+                            <option value="A4">A4</option>
+                            <option value="A3">A3</option>
+                            <option value="A2">A2</option>
+                            <option value="A1">A1</option>
+                            <option value="A0">A0</option>
+                        </select>
+                        <button
+                            type="button"
+                            onClick={handleExportPDF}
+                            disabled={isExporting}
+                            className={`px-3 md:px-4 h-8 md:h-9 flex items-center justify-center gap-1.5 rounded text-xs md:text-sm font-medium border cursor-pointer select-none transition-colors ${isExporting ? 'bg-blue-100 text-blue-400 border-blue-200 cursor-wait'
+                                : 'hover:bg-blue-50 text-blue-600 border-blue-200 bg-white'
+                                }`}
+                            title="Export ke file PDF (print quality)"
+                        >
+                            {isExporting ? '⏳' : '🖨️'} <span className="hidden sm:inline">PDF</span>
+                        </button>
+                        <div className="w-px bg-stone-200 mx-0.5"></div>
+                        <button
+                            onClick={handleAutoArrange}
+                            disabled={isArranging}
+                            className={`px-3 md:px-4 h-8 md:h-9 flex items-center justify-center gap-1.5 rounded text-xs md:text-sm font-medium border transition-colors ${isArranging ? 'bg-teal-100 text-teal-700 border-teal-300 cursor-wait'
+                                : 'hover:bg-teal-50 text-teal-600 border-teal-200 bg-white'
+                                }`}
+                            title="Auto rapikan layout"
+                            type="button"
+                        >
+                            {isArranging ? '⏳' : '✨'} <span className="hidden sm:inline">Rapihkan</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Search - Mobile: Order 1, Desktop: Order 2 */}
+                <div className="order-1 md:order-2 pointer-events-auto w-full md:w-64">
+                    <TreeSearch
+                        persons={persons}
+                        onSelect={focusOnPerson}
+                        onHighlight={setHighlightedIds}
+                        className="w-full shadow-sm"
+                    />
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="absolute top-3 right-3 z-10 print:hidden">
-                <TreeSearch
-                    persons={persons}
-                    onSelect={focusOnPerson}
-                    onHighlight={setHighlightedIds}
-                    className="w-64"
-                />
-            </div>
+            {/* Legend - Collapsible on Mobile */}
+            <div className="absolute bottom-20 md:bottom-3 left-3 z-10 print:hidden transition-all duration-300">
+                <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-stone-200 overflow-hidden">
+                    <button
+                        onClick={() => setIsLegendOpen(!isLegendOpen)}
+                        className="w-full flex items-center justify-between p-2 md:p-3 bg-stone-50/50 hover:bg-stone-100 transition-colors cursor-pointer text-xs md:text-sm font-medium text-stone-700 gap-2"
+                    >
+                        <span>ℹ️ Legenda</span>
+                        <span className={`transform transition-transform ${isLegendOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
 
-            {/* Legend */}
-            <div className="absolute bottom-3 left-3 z-10 text-xs bg-white/90 px-3 py-2 rounded-lg shadow border border-stone-200 print:hidden">
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-0.5 bg-pink-500"></div>
-                        <span className="text-stone-500">Pasangan</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-4 h-0.5 bg-teal-600"></div>
-                        <span className="text-stone-500">Orang tua-Anak</span>
-                    </div>
-                    <span className="text-stone-400">• {persons.length} anggota</span>
+                    {isLegendOpen && (
+                        <div className="p-3 border-t border-stone-100">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-green-600 border border-green-700 shadow-sm flex items-center justify-center text-white text-[10px] md:text-xs"></div>
+                                    <div>
+                                        <div className="text-xs md:text-sm font-semibold text-stone-700">Oroane</div>
+                                        <div className="text-[10px] md:text-xs font-lontara text-green-700">ᨕᨚᨑᨚᨕᨊᨙ</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+                                        <svg width="100%" height="100%" viewBox="0 0 50 50" className="drop-shadow-sm">
+                                            <polygon points="25,45 5,10 45,10" className="fill-red-600 stroke-red-700" strokeWidth="2" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs md:text-sm font-semibold text-stone-700">Makkunrai</div>
+                                        <div className="text-[10px] md:text-xs font-lontara text-red-700">ᨆᨀᨘᨋᨕᨗ</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -922,7 +964,7 @@ function FamilyTreeInner({
                 <Controls
                     position="bottom-right"
                     showInteractive={false}
-                    style={{ marginBottom: 60 }}
+                    className="m-2 md:m-4" // Responsive margin
                 />
                 <MiniMap
                     nodeColor={minimapNodeColor}
@@ -930,11 +972,15 @@ function FamilyTreeInner({
                     zoomable
                     pannable
                     position="bottom-right"
-                    style={{ width: 180, height: 120 }}
+                    style={{ width: 120, height: 80, marginBottom: 50, marginRight: 10 }}
+                    className="hidden md:block" // Hide minimap on mobile
                 />
             </ReactFlow>
 
-            {/* Hover Tooltip */}
+            {/* Hover Tooltip - Hidden on mobile or handled differently? 
+                React Flow doesn't hover on touch usually. 
+                Keep it as is, mouse only.
+            */}
             {hoveredPerson && (() => {
                 const hp = hoveredPerson;
                 const hpName = [hp.person.firstName, hp.person.middleName, hp.person.lastName].filter(Boolean).join(' ') || hp.person.fullName || 'N/A';
@@ -945,7 +991,7 @@ function FamilyTreeInner({
                 const cCount = persons.filter(p => p.relationships.parentIds.includes(hp.person.personId)).length;
                 return (
                     <div
-                        className="fixed z-[100] bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-stone-200 p-3 pointer-events-none"
+                        className="fixed z-[100] bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-stone-200 p-3 pointer-events-none hidden md:block" // Hide tooltip on mobile, use node click
                         style={{
                             left: Math.min(hp.x, typeof window !== 'undefined' ? window.innerWidth - 260 : hp.x),
                             top: Math.max(8, hp.y),
