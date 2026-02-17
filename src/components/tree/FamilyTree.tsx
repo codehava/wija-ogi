@@ -971,7 +971,7 @@ function FamilyTreeInner({
                 <div className="font-bold text-stone-800 mb-2 border-b border-stone-200 pb-1 text-sm">Legenda / Keterangan</div>
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-green-600 border border-green-700 shadow-sm flex items-center justify-center text-white text-xs">♂</div>
+                        <div className="w-8 h-8 rounded-full bg-green-600 border border-green-700 shadow-sm flex items-center justify-center text-white text-xs"></div>
                         <div>
                             <div className="text-sm font-semibold text-stone-700">Oroane</div>
                             <div className="text-xs font-lontara text-green-700">ᨕᨚᨑᨚᨕᨊᨙ</div>

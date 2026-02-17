@@ -141,7 +141,10 @@ export function PersonNode({
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-white text-lg">
-                            {person.gender === 'male' ? '♂' : '●'}
+                            {/* Empty for male as requested, keep dot for others? User said "simbol laki laki pada bulatan hilangkan". 
+                                I'll leave it empty for male. 
+                            */}
+                            {person.gender === 'male' ? '' : '●'}
                         </div>
                     )}
                 </div>
