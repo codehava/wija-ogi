@@ -341,12 +341,100 @@ export function calculateTreeLayout(
         if (n) clusterPositions.set(id, { x: n.x, y: n.y });
     });
 
-    // --- 5.5. DAGRE RANK-BASED Y POSITIONS ---
-    // Trust dagre's rank assignment based on parent→child edges.
-    // Previously this section overrode dagre Y with a generation calculator that
-    // used "keep minimum gen" for cross-lineage marriages, which collapsed most
-    // nodes to generation 1-2, creating a flat horizontal band.
-    // Dagre's native ranking correctly positions ancestors above descendants.
+    // --- 5.5. GENERATION Y-NORMALIZATION (FIXED) ---
+    // Align same-generation clusters to the same Y row.
+    // FIX: Uses MAX generation for clusters (not MIN), so children are ALWAYS
+    // below ALL their ancestors, even in cross-lineage marriages.
+    // Also uses a layout-specific generation that only follows parent→child edges
+    // (not spouse traversal) to prevent cross-lineage flattening.
+    {
+        // Build layout-specific generation map: parent→child only (no spouse traversal)
+        const layoutGen = new Map<string, number>();
+
+        // Find all roots (persons with no parents in the visible set)
+        const layoutRoots: string[] = [];
+        visiblePersons.forEach(p => {
+            const hasParentInTree = p.relationships.parentIds.some(pid => visibleIds.has(pid));
+            if (!hasParentInTree) {
+                layoutRoots.push(p.personId);
+            }
+        });
+
+        // BFS from each root — parent→child only, keep MAXIMUM generation
+        // (ensures children of cross-lineage marriages go BELOW the deeper parent)
+        for (const rootId of layoutRoots) {
+            const queue: Array<{ id: string; gen: number }> = [{ id: rootId, gen: 1 }];
+            const visited = new Set<string>();
+
+            while (queue.length > 0) {
+                const { id, gen } = queue.shift()!;
+                if (visited.has(id)) continue;
+                visited.add(id);
+
+                // Keep MAXIMUM generation (deeper parent wins)
+                const existing = layoutGen.get(id);
+                if (existing === undefined || gen > existing) {
+                    layoutGen.set(id, gen);
+                }
+
+                const person = personsMap.get(id);
+                if (!person) continue;
+
+                // Only traverse children (NOT spouses) — prevents cross-lineage flattening
+                for (const childId of person.relationships?.childIds || []) {
+                    if (visibleIds.has(childId) && !visited.has(childId)) {
+                        queue.push({ id: childId, gen: gen + 1 });
+                    }
+                }
+            }
+        }
+
+        // Second pass: ensure spouses share the MAX generation of either partner
+        visiblePersons.forEach(p => {
+            const myGen = layoutGen.get(p.personId);
+            if (myGen === undefined) return;
+            for (const spouseId of p.relationships.spouseIds) {
+                const spouseGen = layoutGen.get(spouseId);
+                if (spouseGen !== undefined) {
+                    const maxGen = Math.max(myGen, spouseGen);
+                    layoutGen.set(p.personId, maxGen);
+                    layoutGen.set(spouseId, maxGen);
+                }
+            }
+        });
+
+        // Determine generation for each cluster (use MAX among cluster members)
+        const clusterGen = new Map<string, number>();
+        clustersInGraph.forEach(clusterId => {
+            const data = clusters.get(clusterId);
+            if (!data) return;
+            let maxGen = 0;
+            for (const member of data.members) {
+                const gen = layoutGen.get(member.personId);
+                if (gen !== undefined && gen > maxGen) maxGen = gen;
+            }
+            if (maxGen > 0) {
+                clusterGen.set(clusterId, maxGen);
+            }
+        });
+
+        // Compute target Y for each generation row
+        const genYTarget = new Map<number, number>();
+        const rowHeight = NODE_HEIGHT + config.rankSep;
+        for (const gen of new Set(clusterGen.values())) {
+            genYTarget.set(gen, config.margin + (gen - 1) * rowHeight);
+        }
+
+        // Override Y positions to align by generation
+        for (const [clusterId, gen] of clusterGen) {
+            const pos = clusterPositions.get(clusterId);
+            const targetY = genYTarget.get(gen);
+            if (pos && targetY !== undefined) {
+                pos.y = targetY;
+                clusterPositions.set(clusterId, pos);
+            }
+        }
+    }
 
     // --- 6. MULTI-PASS COLLISION RESOLUTION ---
     // More passes for larger trees, dynamic gap based on tree size
