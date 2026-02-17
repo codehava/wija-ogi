@@ -684,8 +684,8 @@ function FamilyTreeInner({
             const pageW = isLandscape ? Math.max(paper.w, paper.h) : Math.min(paper.w, paper.h);
             const pageH = isLandscape ? Math.min(paper.w, paper.h) : Math.max(paper.w, paper.h);
 
-            const marginTop = 18;
-            const marginBottom = 12;
+            const marginTop = 14;
+            const marginBottom = 14;
             const marginSide = 10;
             const contentW = pageW - marginSide * 2;
             const contentH = pageH - marginTop - marginBottom;
@@ -711,7 +711,7 @@ function FamilyTreeInner({
             pdf.setFontSize(16);
             pdf.setFont('helvetica', 'bold');
             pdf.setTextColor(20, 20, 20);
-            pdf.text(familyName, pageW / 2, 12, { align: 'center' });
+            pdf.text(familyName, pageW / 2, 10, { align: 'center' });
 
             // Tree image — full resolution on single page
             pdf.addImage(dataUrl, 'PNG', xOff, yOff, finalW, finalH);
@@ -728,15 +728,15 @@ function FamilyTreeInner({
             pdf.setFontSize(9);
             pdf.setFont('helvetica', 'italic');
             pdf.setTextColor(100, 100, 100);
-            pdf.text('Warisan Jejak Keluarga Bugis', pageW / 2, pageH - 12, { align: 'center' });
+            pdf.text('Warisan Jejak Keluarga Bugis', pageW / 2, pageH - 10, { align: 'center' });
 
             pdf.setFontSize(8);
             pdf.setFont('helvetica', 'normal');
-            pdf.text('Created by wija-ogi.com', pageW / 2, pageH - 8, { align: 'center' });
+            pdf.text('Created by wija-ogi.com', pageW / 2, pageH - 6.5, { align: 'center' });
 
             pdf.setFontSize(7);
             pdf.setTextColor(150, 150, 150);
-            pdf.text(`${dateStr} ${timeStr}`, pageW / 2, pageH - 4.5, { align: 'center' });
+            pdf.text(`${dateStr} ${timeStr}`, pageW / 2, pageH - 3.5, { align: 'center' });
             pdf.setTextColor(0, 0, 0);
 
             const safeName = familyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
