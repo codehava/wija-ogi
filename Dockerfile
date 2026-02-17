@@ -61,14 +61,8 @@ COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/src/db ./src/db
 COPY --from=builder /app/package.json ./
 
-# Copy drizzle migration deps from deps stage (avoid slow global install)
-COPY --from=deps-all /app/node_modules/drizzle-kit ./node_modules/drizzle-kit
-COPY --from=deps-all /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
-COPY --from=deps-all /app/node_modules/postgres ./node_modules/postgres
-COPY --from=deps-all /app/node_modules/tsx ./node_modules/tsx
-COPY --from=deps-all /app/node_modules/esbuild ./node_modules/esbuild
-COPY --from=deps-all /app/node_modules/@esbuild ./node_modules/@esbuild
-COPY --from=deps-all /app/node_modules/.package-lock.json ./node_modules/.package-lock.json
+# Install only drizzle migration deps (lightweight, no devDeps)
+RUN npm install --no-save drizzle-kit drizzle-orm postgres
 
 # Copy startup script
 COPY start.sh ./
