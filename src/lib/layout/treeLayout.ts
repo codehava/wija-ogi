@@ -327,66 +327,9 @@ export function calculateTreeLayout(
         });
     });
 
-    // --- 3.5. VERTICAL ALIGNMENT FOR TITLES (User Request) ---
-    // Group by title and add high-weight edges to enforce vertical alignment
-    // "misa arumpone dalam garis vertikal yang sama"
-    const titleGroups = new Map<string, Person[]>();
-
-    visiblePersons.forEach(p => {
-        // Use reignTitle (Specific like "Arumpone") or title (Generic like "Datu")
-        // Priority to reignTitle as it is more specific for "Arumpone"
-        let key = p.reignTitle?.trim();
-        if (!key && p.title && p.title !== 'other') {
-            key = p.title; // e.g. "datu", "arung"
-        }
-
-        if (key) {
-            // Normalize key: remove " ke-XX" or numbers if needed?
-            // User: "Arumpone", "Soppeng"
-            // Simple normalization for now
-            const normalizedKey = key.toLowerCase();
-            if (!titleGroups.has(normalizedKey)) {
-                titleGroups.set(normalizedKey, []);
-            }
-            titleGroups.get(normalizedKey)!.push(p);
-        }
-    });
-
-    // Add virtual edges for title groups
-    titleGroups.forEach((group, title) => {
-        if (group.length < 2) return;
-
-        // Sort by birthDate (approximate generation order)
-        group.sort((a, b) => {
-            const dateA = a.birthDate ? new Date(a.birthDate).getTime() : 0;
-            const dateB = b.birthDate ? new Date(b.birthDate).getTime() : 0;
-            return dateA - dateB;
-        });
-
-        for (let i = 0; i < group.length - 1; i++) {
-            const p1 = group[i];
-            const p2 = group[i + 1];
-
-            const c1 = personToCluster.get(p1.personId);
-            const c2 = personToCluster.get(p2.personId);
-
-            if (c1 && c2 && clustersInGraph.has(c1) && clustersInGraph.has(c2) && c1 !== c2) {
-                // Check if edge already exists
-                const edgeKey = `${c1}->${c2}`;
-                if (!addedEdges.has(edgeKey)) {
-                    // Add STRONG vertical edge (weight 10)
-                    // This pulls them into the same vertical column if possible
-                    g.setEdge(c1, c2, { weight: 10, minlen: 1, style: 'invis' });
-                    addedEdges.add(edgeKey);
-                } else {
-                    // Start Update existing edge weight? 
-                    // Dagre doesn't support updating easily without re-set.
-                    // We can just overwrite.
-                    g.setEdge(c1, c2, { weight: 10, minlen: 1 });
-                }
-            }
-        }
-    });
+    // --- 3.5. Title-based alignment is done POST-dagre (see step 6.8) ---
+    // Previously this section added heavy chain-edges between same-title persons
+    // which collapsed the entire dagre layout into a single vertical column.
 
     // --- 4. Run Dagre Layout ---
     dagre.layout(g);
@@ -683,6 +626,87 @@ export function calculateTreeLayout(
                 clusterPositions.set(parentCid, parentPos);
             }
         }
+    }
+
+    // --- 6.8. TITLE-BASED COLUMN SOFT-NUDGE ---
+    // Softly nudge same-title clusters toward their group median X.
+    // This creates visible vertical clustering without collapsing the layout.
+    {
+        const titleGroups = new Map<string, string[]>(); // titleKey → clusterIds
+
+        clustersInGraph.forEach(clusterId => {
+            const data = clusters.get(clusterId);
+            if (!data) return;
+
+            for (const member of data.members) {
+                // Use reignTitle for specific titles like "Arumpone", "Soppeng"
+                let key = member.reignTitle?.trim();
+                if (!key && member.title && member.title !== 'other') {
+                    key = member.title;
+                }
+                if (key) {
+                    const normalizedKey = key.toLowerCase();
+                    if (!titleGroups.has(normalizedKey)) {
+                        titleGroups.set(normalizedKey, []);
+                    }
+                    const group = titleGroups.get(normalizedKey)!;
+                    if (!group.includes(clusterId)) {
+                        group.push(clusterId);
+                    }
+                    break; // Use the first member's title for the cluster
+                }
+            }
+        });
+
+        // For each title group with 2+ clusters, nudge toward median X
+        const NUDGE_STRENGTH = 0.6; // 60% toward median (soft, avoids collapse)
+
+        titleGroups.forEach((clusterIds) => {
+            if (clusterIds.length < 2) return;
+
+            // Compute median X of the group
+            const xPositions = clusterIds
+                .map(id => clusterPositions.get(id)?.x)
+                .filter((x): x is number => x !== undefined)
+                .sort((a, b) => a - b);
+
+            if (xPositions.length < 2) return;
+            const medianX = xPositions[Math.floor(xPositions.length / 2)];
+
+            // Nudge each cluster toward the median
+            for (const clusterId of clusterIds) {
+                const pos = clusterPositions.get(clusterId);
+                const clusterData = clusters.get(clusterId);
+                if (!pos || !clusterData) continue;
+
+                const desiredX = pos.x + (medianX - pos.x) * NUDGE_STRENGTH;
+
+                // Check for collisions with same-generation neighbors
+                const posY = Math.round(pos.y / 10) * 10;
+                const halfW = clusterData.w / 2;
+                let canMove = true;
+
+                for (const [neighborId, neighborPos] of clusterPositions) {
+                    if (neighborId === clusterId) continue;
+                    if (Math.round(neighborPos.y / 10) * 10 !== posY) continue;
+
+                    const neighborData = clusters.get(neighborId);
+                    if (!neighborData) continue;
+
+                    const neighborHalfW = neighborData.w / 2;
+                    const distance = Math.abs(desiredX - neighborPos.x);
+                    if (distance < halfW + neighborHalfW + MIN_GAP) {
+                        canMove = false;
+                        break;
+                    }
+                }
+
+                if (canMove) {
+                    pos.x = desiredX;
+                    clusterPositions.set(clusterId, pos);
+                }
+            }
+        });
     }
 
     // --- 7. Expand to Individual Positions ---
