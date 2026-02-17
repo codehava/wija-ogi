@@ -84,6 +84,8 @@ function FamilyTreeInner({
     onAllPositionsChange
 }: FamilyTreeProps) {
     const reactFlowInstance = useReactFlow();
+    const reactFlowRef = useRef<HTMLDivElement>(null);
+    const legendRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -101,7 +103,6 @@ function FamilyTreeInner({
     const initialLayoutRef = useRef<Map<string, { x: number; y: number }> | null>(null);
     const prevPersonCount = useRef(0);
     const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-    const reactFlowRef = useRef<HTMLDivElement>(null);
 
     // Adaptive sizes
     const adaptiveSizes = useMemo(() => getAdaptiveSizes(persons.length), [persons.length]);
@@ -729,6 +730,41 @@ function FamilyTreeInner({
             // Tree image — full resolution on single page
             pdf.addImage(dataUrl, 'PNG', xOff, yOff, finalW, finalH);
 
+            // Add Legend (if available) - Bottom Left
+            if (legendRef.current) {
+                try {
+                    const legendUrl = await toPng(legendRef.current, { cacheBust: true, pixelRatio: 3 });
+                    const legendImg = new Image();
+                    legendImg.src = legendUrl;
+
+                    // Standard height for legend on A4 is approx 25mm. 
+                    // Scale it based on paper size factor `s`.
+                    const legendW_mm = 35 * s;
+                    const legendAspect = 300 / 150; // approx
+                    const legendH_mm = legendW_mm / 1.5; // Aspect ratio adjustment needed? 
+                    // Better: use natural aspect
+                    // But we can't await loading? toPng returns dataUrl, we can add directly.
+                    // jsPDF addImage supports dataUrl.
+
+                    // Position: Bottom Left, above footer
+                    // PageH - FooterSpace - LegendHeight - Margin
+                    // Footer ends at PageH - 3.5*s. Footer starts at PageH - 10*s.
+                    // Let's put legend at Bottom Left corner, aligned with marginSide.
+                    const legendX = marginSide;
+                    const legendY = pageH - (marginBottom + 10 * s + 30 * s); // 30*s is approx legend height space
+
+                    // Actually, let's just make it proportional.
+                    const finalLegendW = 40 * s;
+                    // We don't know height. Let jsPDF handle aspect if we can, or assume square-ish.
+                    // Let's assume ratio width/height.
+                    // Instead of complex math, just place it.
+
+                    pdf.addImage(legendUrl, 'PNG', marginSide, pageH - (marginBottom + 35 * s), finalLegendW, 0); // 0 height = auto
+                } catch (e) {
+                    console.error('Legend capture failed', e);
+                }
+            }
+
             // Footer
             const now = new Date();
             const dateStr = now.toLocaleDateString('id-ID', {
@@ -930,6 +966,31 @@ function FamilyTreeInner({
                     </div>
                 );
             })()}
+            {/* Hidden Legend for Capture */}
+            <div ref={legendRef} className="bg-white p-4 rounded-lg border border-stone-800 shadow-sm inline-block" style={{ position: 'absolute', top: -9999, left: -9999, width: 'fit-content' }}>
+                <div className="font-bold text-stone-800 mb-2 border-b border-stone-200 pb-1 text-sm">Legenda / Keterangan</div>
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-600 border border-green-700 shadow-sm flex items-center justify-center text-white text-xs">♂</div>
+                        <div>
+                            <div className="text-sm font-semibold text-stone-700">Oroane</div>
+                            <div className="text-xs font-lontara text-green-700">ᨕᨚᨑᨚᨕᨊᨙ</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-8 h-8 flex items-center justify-center">
+                            <svg width="32" height="32" viewBox="0 0 50 50" className="drop-shadow-sm">
+                                <polygon points="25,45 5,10 45,10" className="fill-red-600 stroke-red-700" strokeWidth="2" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div className="text-sm font-semibold text-stone-700">Makkunrai</div>
+                            <div className="text-xs font-lontara text-red-700">ᨆᨀᨘᨋᨕᨗ</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 }

@@ -43,19 +43,19 @@ export function PersonNode({
         return transliterateLatin(displayName).lontara;
     }, [displayName, person.lontaraNameCustom]);
 
-    // Gender-based styling - NEW: Circle for male, Triangle for female
+    // Gender-based styling - Updated: Green for male, Red for female
     const genderConfig = {
         male: {
-            shapeColor: 'bg-blue-500',
-            shapeBorder: 'border-blue-600',
-            textColor: 'text-blue-900',
-            bgColor: 'bg-blue-50',
+            shapeColor: 'bg-green-600',
+            shapeBorder: 'border-green-700',
+            textColor: 'text-green-900',
+            bgColor: 'bg-green-50',
         },
         female: {
-            shapeColor: 'bg-pink-500',
-            shapeBorder: 'border-pink-600',
-            textColor: 'text-pink-900',
-            bgColor: 'bg-pink-50',
+            shapeColor: 'bg-red-600',
+            shapeBorder: 'border-red-700',
+            textColor: 'text-red-900',
+            bgColor: 'bg-red-50',
         },
         other: {
             shapeColor: 'bg-purple-500',
@@ -71,7 +71,7 @@ export function PersonNode({
         }
     };
 
-    const config = genderConfig[person.gender];
+    const config = genderConfig[person.gender] || genderConfig.unknown;
     const generationText = generation > 0 ? getGenerationLabel(generation) : null;
     const shapeSize = compact ? 40 : 50;
     const hasTitle = !!person.title || !!person.reignTitle;
@@ -79,10 +79,14 @@ export function PersonNode({
     // Render gender shape (circle or triangle)
     const renderShape = () => {
         if (person.gender === 'female') {
-            // Inverted Triangle for female
+            // Inverted Triangle for female - Red
             return (
                 <div
-                    className="relative flex-shrink-0"
+                    className={clsx(
+                        "relative flex-shrink-0",
+                        // Add gold ring if titled
+                        hasTitle && 'ring-2 ring-amber-400 rounded-sm' // Triangle tricky with border, use ring on container or just svg stroke
+                    )}
                     style={{ width: shapeSize, height: shapeSize }}
                 >
                     <svg
@@ -90,11 +94,13 @@ export function PersonNode({
                         height={shapeSize}
                         viewBox="0 0 50 50"
                         className="drop-shadow-md"
+                        style={hasTitle ? { filter: 'drop-shadow(0 0 2px #fbbf24)' } : undefined}
                     >
                         <polygon
                             points="25,45 5,10 45,10"
-                            className={clsx('fill-pink-500 stroke-pink-600')}
-                            strokeWidth="2"
+                            className={clsx('fill-red-600 stroke-red-700')}
+                            strokeWidth={hasTitle ? "3" : "2"}
+                            stroke={hasTitle ? "#fbbf24" : undefined} // Gold stroke if titled
                         />
                         {person.photoUrl ? (
                             <clipPath id={`clip-${person.personId}`}>
@@ -113,15 +119,17 @@ export function PersonNode({
                 </div>
             );
         } else {
-            // Circle for male (and other/unknown)
-            const colorClass = person.gender === 'male' ? 'bg-blue-500 border-blue-600' :
+            // Circle for male (and other/unknown) - Green
+            const baseColorClass = person.gender === 'male' ? 'bg-green-600 border-green-700' :
                 person.gender === 'other' ? 'bg-purple-500 border-purple-600' :
                     'bg-gray-500 border-gray-600';
+
             return (
                 <div
                     className={clsx(
                         'rounded-full flex-shrink-0 border-2 overflow-hidden drop-shadow-md',
-                        hasTitle ? 'border-amber-400 ring-2 ring-amber-300' : colorClass
+                        // If titled: keep bg color, add gold border/ring
+                        hasTitle ? clsx(baseColorClass.split(' ')[0], 'border-amber-400 ring-2 ring-amber-300') : baseColorClass
                     )}
                     style={{ width: shapeSize, height: shapeSize }}
                 >
