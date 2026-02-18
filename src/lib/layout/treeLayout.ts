@@ -474,55 +474,209 @@ export function calculateTreeLayout(
         }
     }
 
-    // --- 6. MULTI-PASS COLLISION RESOLUTION ---
-    // More passes for larger trees, dynamic gap based on tree size
-    const MAX_PASSES = persons.length > 100 ? 15 : 8;
+    // --- 6. REINGOLD-TILFORD SUBTREE SHIFT (collision resolution) ---
+    // Instead of pushing individual nodes apart (which breaks parent-child alignment),
+    // shift ENTIRE subtrees as units — preserving internal family structure.
 
+    // 6a. Build parent→children cluster tree
+    const clusterChildren = new Map<string, string[]>();
+    const clusterParent = new Map<string, string>();
+    const clusterRoots: string[] = [];
+    {
+        const processedPC = new Set<string>();
+        visiblePersons.forEach(person => {
+            const parentClusterId = personToCluster.get(person.personId);
+            if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
+            if (processedPC.has(parentClusterId)) return;
+            processedPC.add(parentClusterId);
+
+            const parentCluster = clusters.get(parentClusterId);
+            if (!parentCluster) return;
+
+            parentCluster.members.forEach(member => {
+                member.relationships.childIds.forEach(childId => {
+                    if (!visibleIds.has(childId)) return;
+                    const childClusterId = personToCluster.get(childId);
+                    if (!childClusterId || !clustersInGraph.has(childClusterId)) return;
+                    if (childClusterId === parentClusterId) return;
+
+                    if (!clusterChildren.has(parentClusterId)) {
+                        clusterChildren.set(parentClusterId, []);
+                    }
+                    const children = clusterChildren.get(parentClusterId)!;
+                    if (!children.includes(childClusterId)) {
+                        children.push(childClusterId);
+                        // Track parent (first parent wins for subtree membership)
+                        if (!clusterParent.has(childClusterId)) {
+                            clusterParent.set(childClusterId, parentClusterId);
+                        }
+                    }
+                });
+            });
+        });
+
+        // Identify root clusters (no parent in the cluster tree)
+        clustersInGraph.forEach(cid => {
+            if (!clusterParent.has(cid)) {
+                clusterRoots.push(cid);
+            }
+        });
+    }
+
+    // 6b. Compute subtree members (all descendants) for each cluster
+    const getSubtreeMembers = (rootCid: string): string[] => {
+        const members: string[] = [rootCid];
+        const stack = [rootCid];
+        while (stack.length > 0) {
+            const cid = stack.pop()!;
+            const children = clusterChildren.get(cid) ?? [];
+            for (const child of children) {
+                members.push(child);
+                stack.push(child);
+            }
+        }
+        return members;
+    };
+
+    // 6c. Shift entire subtree by deltaX
+    const shiftSubtree = (rootCid: string, deltaX: number) => {
+        const members = getSubtreeMembers(rootCid);
+        for (const mid of members) {
+            const pos = clusterPositions.get(mid);
+            if (pos) {
+                pos.x += deltaX;
+                clusterPositions.set(mid, pos);
+            }
+        }
+    };
+
+    // 6d. Subtree contour: leftmost and rightmost X at each generation level
+    const getSubtreeContour = (rootCid: string): Map<number, { left: number; right: number }> => {
+        const contour = new Map<number, { left: number; right: number }>();
+        const members = getSubtreeMembers(rootCid);
+        for (const mid of members) {
+            const pos = clusterPositions.get(mid);
+            const data = clusters.get(mid);
+            if (!pos || !data) continue;
+            const ry = Math.round(pos.y / 10) * 10;
+            const leftEdge = pos.x - data.w / 2;
+            const rightEdge = pos.x + data.w / 2;
+            const existing = contour.get(ry);
+            if (!existing) {
+                contour.set(ry, { left: leftEdge, right: rightEdge });
+            } else {
+                contour.set(ry, {
+                    left: Math.min(existing.left, leftEdge),
+                    right: Math.max(existing.right, rightEdge)
+                });
+            }
+        }
+        return contour;
+    };
+
+    // 6e. Multi-pass subtree collision resolution
+    const MAX_PASSES = persons.length > 100 ? 12 : 6;
     for (let pass = 0; pass < MAX_PASSES; pass++) {
-        let hadOverlap = false;
+        let hadShift = false;
 
-        // Group clusters by Y level (same generation)
-        const byRank = new Map<number, string[]>();
-        for (const [id, pos] of clusterPositions) {
-            const roundedY = Math.round(pos.y / 10) * 10; // Bucket by ~10px
-            if (!byRank.has(roundedY)) byRank.set(roundedY, []);
-            byRank.get(roundedY)!.push(id);
+        // Process sibling groups: for each parent, check its child subtrees
+        const processedParents = new Set<string>();
+        const parentList = [...clusterRoots];
+        // Also process all non-root parents
+        for (const [pid] of clusterChildren) {
+            if (!parentList.includes(pid)) parentList.push(pid);
         }
 
-        // For each generation row, resolve overlaps left-to-right
-        for (const [, ids] of byRank) {
-            if (ids.length < 2) continue;
+        for (const parentCid of parentList) {
+            if (processedParents.has(parentCid)) continue;
+            processedParents.add(parentCid);
 
-            // Sort by X position
-            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+            const childCids = clusterChildren.get(parentCid) ?? [];
+            if (childCids.length < 2) continue;
 
-            for (let i = 0; i < ids.length - 1; i++) {
-                const idA = ids[i];
-                const idB = ids[i + 1];
-                const posA = clusterPositions.get(idA);
-                const posB = clusterPositions.get(idB);
-                const clusterA = clusters.get(idA);
-                const clusterB = clusters.get(idB);
+            // Sort children by X position
+            childCids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
 
-                if (!posA || !posB || !clusterA || !clusterB) continue;
+            // For each pair of adjacent sibling subtrees, check contour overlap
+            for (let i = 0; i < childCids.length - 1; i++) {
+                const leftChild = childCids[i];
+                const rightChild = childCids[i + 1];
 
-                const rightEdgeA = posA.x + clusterA.w / 2;
-                const leftEdgeB = posB.x - clusterB.w / 2;
-                const overlap = rightEdgeA + MIN_GAP - leftEdgeB;
+                const leftContour = getSubtreeContour(leftChild);
+                const rightContour = getSubtreeContour(rightChild);
 
-                if (overlap > 0) {
-                    hadOverlap = true;
-                    // Push apart equally (each moves half)
-                    const shift = overlap / 2;
-                    posA.x -= shift;
-                    posB.x += shift;
-                    clusterPositions.set(idA, posA);
-                    clusterPositions.set(idB, posB);
+                // Find maximum overlap across all shared generation levels
+                let maxOverlap = 0;
+                for (const [ry, leftBounds] of leftContour) {
+                    const rightBounds = rightContour.get(ry);
+                    if (!rightBounds) continue;
+                    const overlap = leftBounds.right + MIN_GAP - rightBounds.left;
+                    if (overlap > maxOverlap) maxOverlap = overlap;
+                }
+
+                if (maxOverlap > 0) {
+                    hadShift = true;
+                    // Shift right subtree rightward, left subtree leftward (50/50 split)
+                    shiftSubtree(leftChild, -maxOverlap * 0.3);
+                    shiftSubtree(rightChild, maxOverlap * 0.7);
                 }
             }
         }
 
-        if (!hadOverlap) break; // Converged
+        // Also resolve overlaps between root-level subtrees
+        if (clusterRoots.length > 1) {
+            clusterRoots.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+            for (let i = 0; i < clusterRoots.length - 1; i++) {
+                const leftRoot = clusterRoots[i];
+                const rightRoot = clusterRoots[i + 1];
+
+                const leftContour = getSubtreeContour(leftRoot);
+                const rightContour = getSubtreeContour(rightRoot);
+
+                let maxOverlap = 0;
+                for (const [ry, leftBounds] of leftContour) {
+                    const rightBounds = rightContour.get(ry);
+                    if (!rightBounds) continue;
+                    const overlap = leftBounds.right + MIN_GAP - rightBounds.left;
+                    if (overlap > maxOverlap) maxOverlap = overlap;
+                }
+
+                if (maxOverlap > 0) {
+                    hadShift = true;
+                    shiftSubtree(leftRoot, -maxOverlap * 0.3);
+                    shiftSubtree(rightRoot, maxOverlap * 0.7);
+                }
+            }
+        }
+
+        // Fallback: per-row overlap fix for clusters not caught by subtree logic
+        // (e.g., cross-lineage marriage clusters that share rows with unrelated families)
+        const byRank = new Map<number, string[]>();
+        for (const [id, pos] of clusterPositions) {
+            const roundedY = Math.round(pos.y / 10) * 10;
+            if (!byRank.has(roundedY)) byRank.set(roundedY, []);
+            byRank.get(roundedY)!.push(id);
+        }
+
+        for (const [, ids] of byRank) {
+            if (ids.length < 2) continue;
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+            for (let i = 0; i < ids.length - 1; i++) {
+                const posA = clusterPositions.get(ids[i]);
+                const posB = clusterPositions.get(ids[i + 1]);
+                const cA = clusters.get(ids[i]);
+                const cB = clusters.get(ids[i + 1]);
+                if (!posA || !posB || !cA || !cB) continue;
+                const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
+                if (overlap > 0) {
+                    hadShift = true;
+                    posA.x -= overlap / 2;
+                    posB.x += overlap / 2;
+                }
+            }
+        }
+
+        if (!hadShift) break;
     }
 
     // --- 6.5. SIBLING REORDERING POST-PROCESSING ---
@@ -670,19 +824,21 @@ export function calculateTreeLayout(
             const parentPos = clusterPositions.get(parentCid);
             if (!parentPos) continue;
 
-            // Compute center X of all children
-            let sumX = 0;
-            let count = 0;
+            // Compute MEDIAN X of children (more resistant to outliers than mean)
+            const childXPositions: number[] = [];
             for (const childCid of childCids) {
                 const childPos = clusterPositions.get(childCid);
                 if (childPos) {
-                    sumX += childPos.x;
-                    count++;
+                    childXPositions.push(childPos.x);
                 }
             }
-            if (count === 0) continue;
+            if (childXPositions.length === 0) continue;
 
-            const childrenCenterX = sumX / count;
+            childXPositions.sort((a, b) => a - b);
+            const mid = Math.floor(childXPositions.length / 2);
+            const childrenCenterX = childXPositions.length % 2 === 0
+                ? (childXPositions[mid - 1] + childXPositions[mid]) / 2
+                : childXPositions[mid];
             const desiredX = childrenCenterX;
 
             // Only move if it doesn't cause collisions with same-rank neighbors
