@@ -1,4 +1,3 @@
-import dagre from 'dagre';
 import { Person, Relationship } from '@/types';
 
 interface NodePosition {
@@ -7,7 +6,7 @@ interface NodePosition {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SIMPLE POSITION CALCULATION (for new persons - avoids expensive dagre)
+// SIMPLE POSITION CALCULATION (for new persons - avoids expensive layout)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const NODE_WIDTH = 140;
@@ -21,13 +20,8 @@ export interface ViewportInfo {
 }
 
 /**
- * Calculate a simple position for a new person without running full dagre layout.
- * This is O(1) and should be used when adding new persons to avoid 10+ second delays.
- * 
- * Strategy:
- * - If person has a parent with known position → place below parent with offset
- * - If person has a spouse with known position → place next to spouse
- * - Otherwise → place in current viewport area (where user is looking)
+ * Calculate a simple position for a new person without running full layout.
+ * This is O(1) and should be used when adding new persons to avoid delays.
  */
 export function calculateSimplePosition(
     newPerson: Person,
@@ -35,11 +29,9 @@ export function calculateSimplePosition(
     personsMap: Map<string, Person>,
     viewport?: ViewportInfo
 ): NodePosition {
-    // Try to find a parent with a known position
     for (const parentId of newPerson.relationships.parentIds) {
         const parentPos = existingPositions.get(parentId);
         if (parentPos) {
-            // Place below parent with slight random offset to avoid overlap
             const siblingCount = personsMap.get(parentId)?.relationships.childIds.length ?? 1;
             const offsetX = (Math.random() - 0.5) * (siblingCount * 50);
             return {
@@ -49,11 +41,9 @@ export function calculateSimplePosition(
         }
     }
 
-    // Try to find a spouse with a known position
     for (const spouseId of newPerson.relationships.spouseIds) {
         const spousePos = existingPositions.get(spouseId);
         if (spousePos) {
-            // Place next to spouse
             return {
                 x: spousePos.x + NODE_WIDTH + 30,
                 y: spousePos.y
@@ -61,8 +51,6 @@ export function calculateSimplePosition(
         }
     }
 
-    // Fallback: Place at BOTTOM-LEFT of existing nodes
-    // This makes it easy to find new persons
     if (existingPositions.size > 0) {
         let minX = Infinity;
         let maxY = 0;
@@ -70,30 +58,46 @@ export function calculateSimplePosition(
             minX = Math.min(minX, pos.x);
             maxY = Math.max(maxY, pos.y);
         });
-
-        // Place below and to the left of existing nodes
         return {
-            x: minX + (Math.random() * 100), // Slight random to avoid overlap
+            x: minX + (Math.random() * 100),
             y: maxY + NODE_HEIGHT + 80 + (Math.random() * 50)
         };
     }
 
-    // Empty tree - start at top-left with padding
     return {
         x: 100 + Math.random() * 50,
         y: 100 + Math.random() * 50
     };
 }
 
-// Standardized layout spacing — consistent regardless of tree size
+// Standardized layout spacing
 const LAYOUT_CONFIG = {
-    rankSep: 180,     // Vertical gap between generations (increased for clearer separation)
+    rankSep: 180,     // Vertical gap between generations
     nodeSep: 50,      // Horizontal gap between sibling clusters
     spouseGap: 30,    // Gap between spouses in a cluster
     margin: 50,       // Canvas margin
     minGap: 25,       // Minimum gap for collision resolution
     orphanGap: 150,   // Gap before orphan section
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WALKER'S ALGORITHM — Bottom-up recursive subtree layout for family trees
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Algorithm Overview:
+// 1. Identify visible nodes (handle collapsed subtrees)
+// 2. Cluster spouses into layout units
+// 3. Build parent→children tree (cluster level)
+// 4. Assign generations via BFS from roots
+// 5. Recursively layout each subtree bottom-up (Walker's algorithm)
+//    - Leaf nodes: width = cluster width
+//    - Parent nodes: children placed left-to-right, parent centered above
+//    - Subtree width = MAX(own cluster width, total children width)
+// 6. Place root trees side by side (cross-lineage trees close together)
+// 7. Resolve any remaining overlaps
+// 8. Expand cluster positions to individual person positions
+// 9. Handle orphans
+// 10. Normalize coordinates
 
 export function calculateTreeLayout(
     persons: Person[],
@@ -118,7 +122,6 @@ export function calculateTreeLayout(
     });
 
     const processedForVisibility = new Set<string>();
-
     while (queue.length > 0) {
         const p = queue.shift()!;
         if (processedForVisibility.has(p.personId)) continue;
@@ -143,7 +146,7 @@ export function calculateTreeLayout(
     const visiblePersons = persons.filter(p => visibleIds.has(p.personId));
     const config = LAYOUT_CONFIG;
 
-    // P3 FIX: Pre-build relationship lookup map — O(1) instead of O(n) per lookup
+    // Pre-build relationship lookup map — O(1) instead of O(n) per lookup
     const relMap = new Map<string, Relationship>();
     relationships.forEach(r => {
         const key = [r.person1Id, r.person2Id].sort().join('|');
@@ -184,49 +187,38 @@ export function calculateTreeLayout(
             }
         }
 
-        // P3 FIX: Use pre-built map instead of relationships.find()
+        // Marriage order-based sorting
         const getMarriageOrder = (personA: Person, personB: Person): number => {
             const key = [personA.personId, personB.personId].sort().join('|');
             const rel = relMap.get(key);
             return rel?.marriage?.marriageOrder ?? 1;
         };
 
-        // Count wives in this cluster
         const wives = members.filter(m => m.gender === 'female');
         const husband = members.find(m => m.gender === 'male');
         const wifeCount = wives.length;
 
         // SPOUSE LAYOUT RULES:
-        // - 1 wife: [Husband] - [Wife] (standard layout)
-        // - 2 wives: [Wife 1] - [Husband] - [Wife 2] (husband in center)
-        // - 3+ wives: [Husband] - [Wife 1] - [Wife 2] - [Wife 3] (husband left)
-
+        // - 1 wife: [Husband] - [Wife]
+        // - 2 wives: [Wife 1] - [Husband] - [Wife 2] (centered)
+        // - 3+ wives: [Husband] - [Wife 1] - [Wife 2] - ... (sequential)
         if (wifeCount === 2 && husband) {
-            // Special case: 2 wives - husband in the middle
-            // Sort wives by marriageOrder
             wives.sort((a, b) => {
                 const orderA = getMarriageOrder(husband, a);
                 const orderB = getMarriageOrder(husband, b);
                 return orderA - orderB;
             });
-            // Reorder: [Wife 1] - [Husband] - [Wife 2]
             members.length = 0;
             members.push(wives[0], husband, wives[1]);
         } else {
-            // Standard case: husband left, wives sorted by marriageOrder
             members.sort((a, b) => {
-                // Males first (husband on left)
                 if (a.gender === 'male' && b.gender !== 'male') return -1;
                 if (a.gender !== 'male' && b.gender === 'male') return 1;
-
-                // Both are same gender - if both female, sort by marriageOrder
                 if (a.gender === 'female' && b.gender === 'female' && husband) {
                     const orderA = getMarriageOrder(husband, a);
                     const orderB = getMarriageOrder(husband, b);
                     if (orderA !== orderB) return orderA - orderB;
                 }
-
-                // Fallback to personId for consistent ordering
                 return a.personId.localeCompare(b.personId);
             });
         }
@@ -235,691 +227,25 @@ export function calculateTreeLayout(
         clusters.set(clusterId, { members, w: width, h: NODE_HEIGHT });
     });
 
-    // --- 3. Build Dagre Graph ---
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 3. BUILD CLUSTER TREE (parent→children + child→parent maps)
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    const g = new dagre.graphlib.Graph();
-    // Use tight-tree ranker for large trees (significantly fewer edge crossings)
-    // and network-simplex for smaller trees (better centering)
-    const useRanker = persons.length > 80 ? 'tight-tree' : 'network-simplex';
-    g.setGraph({
-        rankdir: 'TB',
-        ranksep: config.rankSep,
-        nodesep: config.nodeSep,
-        marginx: config.margin,
-        marginy: config.margin,
-        ranker: useRanker,
-    });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    const clustersInGraph = new Set<string>();
-
-    clusters.forEach((data, id) => {
-        let hasEdges = false;
-        for (const m of data.members) {
-            const hasParents = m.relationships.parentIds.some(pid => visibleIds.has(pid));
-            const hasChildren = m.relationships.childIds.some(cid => visibleIds.has(cid));
-            if (hasParents || hasChildren) {
-                hasEdges = true;
-                break;
-            }
-        }
-        if (hasEdges) {
-            g.setNode(id, { width: data.w, height: data.h });
-            clustersInGraph.add(id);
-        }
-    });
-
-    // --- Helper: Sort children by birthDate or birthOrder (eldest first = left) ---
+    // Sort children by birthDate or birthOrder (eldest first = left)
     const sortChildIds = (childIds: string[]): string[] => {
         return [...childIds].sort((a, b) => {
             const childA = personsMap.get(a);
             const childB = personsMap.get(b);
             if (!childA || !childB) return 0;
 
-            // First priority: birthDate (earliest first)
             const dateA = childA.birthDate ? new Date(childA.birthDate).getTime() : Infinity;
             const dateB = childB.birthDate ? new Date(childB.birthDate).getTime() : Infinity;
-            if (dateA !== Infinity && dateB !== Infinity && dateA !== dateB) {
-                return dateA - dateB; // Earlier date first (elder left)
-            }
+            if (dateA !== Infinity && dateB !== Infinity && dateA !== dateB) return dateA - dateB;
 
-            // Second priority: birthOrder (lower number first)
             const orderA = childA.birthOrder ?? Infinity;
             const orderB = childB.birthOrder ?? Infinity;
-            if (orderA !== Infinity && orderB !== Infinity && orderA !== orderB) {
-                return orderA - orderB; // Lower order first (elder left)
-            }
+            if (orderA !== Infinity && orderB !== Infinity && orderA !== orderB) return orderA - orderB;
 
-            // If one has date and other doesn't, dated one comes first
-            if (dateA !== Infinity && dateB === Infinity) return -1;
-            if (dateB !== Infinity && dateA === Infinity) return 1;
-
-            // If one has birthOrder and other doesn't, ordered one comes first
-            if (orderA !== Infinity && orderB === Infinity) return -1;
-            if (orderB !== Infinity && orderA === Infinity) return 1;
-
-            return 0; // Keep original order
-        });
-    };
-
-    // Add Edges (children in sorted order for proper left-to-right placement)
-    const addedEdges = new Set<string>();
-    visiblePersons.forEach(person => {
-        const sourceCluster = personToCluster.get(person.personId);
-        if (!sourceCluster || !clustersInGraph.has(sourceCluster)) return;
-
-        // Sort children before adding edges (elder left, younger right)
-        const sortedChildIds = sortChildIds(person.relationships.childIds);
-
-        sortedChildIds.forEach(childId => {
-            if (!visibleIds.has(childId)) return;
-            const targetCluster = personToCluster.get(childId);
-            if (!targetCluster || !clustersInGraph.has(targetCluster)) return;
-            if (sourceCluster === targetCluster) return;
-
-            const edgeKey = `${sourceCluster}->${targetCluster}`;
-            if (!addedEdges.has(edgeKey)) {
-                g.setEdge(sourceCluster, targetCluster, { weight: 2, minlen: 1 });
-                addedEdges.add(edgeKey);
-            }
-        });
-    });
-
-    // --- 3.5. Title-based alignment is done POST-dagre (see step 6.8) ---
-    // Previously this section added heavy chain-edges between same-title persons
-    // which collapsed the entire dagre layout into a single vertical column.
-
-    // --- 4. Run Dagre Layout ---
-    dagre.layout(g);
-
-    // --- 5. Extract Positions ---
-    const clusterPositions = new Map<string, { x: number, y: number }>();
-    g.nodes().forEach(id => {
-        const n = g.node(id);
-        if (n) clusterPositions.set(id, { x: n.x, y: n.y });
-    });
-
-    // --- 5.5. GENERATION Y-NORMALIZATION (FIXED) ---
-    // Align same-generation clusters to the same Y row.
-    // FIX: Uses MAX generation for clusters (not MIN), so children are ALWAYS
-    // below ALL their ancestors, even in cross-lineage marriages.
-    // Also uses a layout-specific generation that only follows parent→child edges
-    // (not spouse traversal) to prevent cross-lineage flattening.
-    // Build layout-specific generation map: parent→child only (no spouse traversal)
-    // Hoisted out of block scope so Y-validation (step 6.77) can reference it later.
-    const layoutGen = new Map<string, number>();
-    {
-        // layoutGen populated below
-
-        // Find all roots (persons with no parents in the visible set)
-        const layoutRoots: string[] = [];
-        visiblePersons.forEach(p => {
-            const hasParentInTree = p.relationships.parentIds.some(pid => visibleIds.has(pid));
-            if (!hasParentInTree) {
-                layoutRoots.push(p.personId);
-            }
-        });
-
-        // BFS from each root — parent→child only, keep MAXIMUM generation
-        // (ensures children of cross-lineage marriages go BELOW the deeper parent)
-        // NOTE: No per-root 'visited' set — we allow re-visiting nodes if a later
-        // root provides a HIGHER generation (deeper path wins).
-        for (const rootId of layoutRoots) {
-            const queue: Array<{ id: string; gen: number }> = [{ id: rootId, gen: 1 }];
-
-            while (queue.length > 0) {
-                const { id, gen } = queue.shift()!;
-
-                // Only process if this gen is higher than what we already have
-                const existing = layoutGen.get(id);
-                if (existing !== undefined && gen <= existing) continue;
-                layoutGen.set(id, gen);
-
-                const person = personsMap.get(id);
-                if (!person) continue;
-
-                // Only traverse children (NOT spouses) — prevents cross-lineage flattening
-                for (const childId of person.relationships?.childIds || []) {
-                    if (visibleIds.has(childId)) {
-                        const childExisting = layoutGen.get(childId);
-                        if (childExisting === undefined || gen + 1 > childExisting) {
-                            queue.push({ id: childId, gen: gen + 1 });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Second pass: ensure spouses share the MAX generation of either partner
-        visiblePersons.forEach(p => {
-            const myGen = layoutGen.get(p.personId);
-            if (myGen === undefined) return;
-            for (const spouseId of p.relationships.spouseIds) {
-                const spouseGen = layoutGen.get(spouseId);
-                if (spouseGen !== undefined) {
-                    const maxGen = Math.max(myGen, spouseGen);
-                    layoutGen.set(p.personId, maxGen);
-                    layoutGen.set(spouseId, maxGen);
-                }
-            }
-        });
-
-        // Determine generation for each cluster (use MAX among cluster members)
-        const clusterGen = new Map<string, number>();
-        clustersInGraph.forEach(clusterId => {
-            const data = clusters.get(clusterId);
-            if (!data) return;
-            let maxGen = 0;
-            for (const member of data.members) {
-                const gen = layoutGen.get(member.personId);
-                if (gen !== undefined && gen > maxGen) maxGen = gen;
-            }
-            if (maxGen > 0) {
-                clusterGen.set(clusterId, maxGen);
-            }
-        });
-
-        // Compute target Y for each generation row
-        const genYTarget = new Map<number, number>();
-        const rowHeight = NODE_HEIGHT + config.rankSep;
-        for (const gen of new Set(clusterGen.values())) {
-            genYTarget.set(gen, config.margin + (gen - 1) * rowHeight);
-        }
-
-        // Override Y positions to align by generation
-        for (const [clusterId, gen] of clusterGen) {
-            const pos = clusterPositions.get(clusterId);
-            const targetY = genYTarget.get(gen);
-            if (pos && targetY !== undefined) {
-                pos.y = targetY;
-                clusterPositions.set(clusterId, pos);
-            }
-        }
-    }
-
-    const MIN_GAP = config.minGap;
-
-    // --- 5.8. HORIZONTAL COMPACTION ---
-    // Close excess horizontal gaps per generation row while preserving dagre's ordering.
-    // This ensures the tree is as narrow as possible before centering.
-    {
-        const byRow = new Map<number, string[]>();
-        for (const [id, pos] of clusterPositions) {
-            const ry = Math.round(pos.y / 10) * 10;
-            if (!byRow.has(ry)) byRow.set(ry, []);
-            byRow.get(ry)!.push(id);
-        }
-
-        for (const [, ids] of byRow) {
-            if (ids.length < 2) continue;
-            // Sort by current X (preserve dagre ordering)
-            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-
-            // Compact: each cluster sits right after the previous one
-            for (let i = 1; i < ids.length; i++) {
-                const prevId = ids[i - 1];
-                const currId = ids[i];
-                const prevPos = clusterPositions.get(prevId);
-                const currPos = clusterPositions.get(currId);
-                const prevData = clusters.get(prevId);
-                const currData = clusters.get(currId);
-                if (!prevPos || !currPos || !prevData || !currData) continue;
-
-                const minX = prevPos.x + prevData.w / 2 + MIN_GAP + currData.w / 2;
-                if (currPos.x > minX + 100) {
-                    // Close at most 60% of excess gap (don't collapse completely)
-                    const excess = currPos.x - minX;
-                    currPos.x = minX + excess * 0.4;
-                    clusterPositions.set(currId, currPos);
-                }
-            }
-        }
-    }
-
-    // --- 5.9. BARYCENTER CROSSING MINIMIZATION ---
-    // The KEY missing algorithm: reorder clusters within each generation row
-    // to minimize edge crossings. Uses the barycenter heuristic — for each
-    // cluster, compute the average index of its connected clusters in adjacent
-    // rows, then sort by this value. Repeat top-down then bottom-up for 6 rounds.
-    //
-    // This is the standard algorithm from Sugiyama graph drawing framework,
-    // used by all professional genealogy software (Gramps, FamilySearch, etc.).
-    {
-        // Build parent→child adjacency (cluster level) for crossing minimization
-        const adjChildren = new Map<string, string[]>();   // parent cluster → child clusters
-        const adjParents = new Map<string, string[]>();    // child cluster → parent clusters
-        {
-            const processedAdj = new Set<string>();
-            visiblePersons.forEach(person => {
-                const parentCid = personToCluster.get(person.personId);
-                if (!parentCid || !clustersInGraph.has(parentCid)) return;
-                if (processedAdj.has(parentCid)) return;
-                processedAdj.add(parentCid);
-
-                const parentCluster = clusters.get(parentCid);
-                if (!parentCluster) return;
-
-                parentCluster.members.forEach(member => {
-                    member.relationships.childIds.forEach(childId => {
-                        if (!visibleIds.has(childId)) return;
-                        const childCid = personToCluster.get(childId);
-                        if (!childCid || !clustersInGraph.has(childCid) || childCid === parentCid) return;
-
-                        // parent → child
-                        if (!adjChildren.has(parentCid)) adjChildren.set(parentCid, []);
-                        const ch = adjChildren.get(parentCid)!;
-                        if (!ch.includes(childCid)) ch.push(childCid);
-
-                        // child → parent (reverse)
-                        if (!adjParents.has(childCid)) adjParents.set(childCid, []);
-                        const pa = adjParents.get(childCid)!;
-                        if (!pa.includes(parentCid)) pa.push(parentCid);
-                    });
-                });
-            });
-        }
-
-        // Group clusters by generation row (rounded Y)
-        const rowClusters = new Map<number, string[]>();
-        const clusterRow = new Map<string, number>();
-        for (const [cid, pos] of clusterPositions) {
-            const ry = Math.round(pos.y / 10) * 10;
-            if (!rowClusters.has(ry)) rowClusters.set(ry, []);
-            rowClusters.get(ry)!.push(cid);
-            clusterRow.set(cid, ry);
-        }
-
-        // Sort rows top-to-bottom
-        const sortedRows = [...rowClusters.keys()].sort((a, b) => a - b);
-
-        // Initialize ordering: sort each row by current X position (Dagre's initial order)
-        for (const [, ids] of rowClusters) {
-            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-        }
-
-        // Helper: get index of a cluster in its row's ordering
-        const getIndex = (cid: string): number => {
-            const ry = clusterRow.get(cid);
-            if (ry === undefined) return 0;
-            const row = rowClusters.get(ry);
-            if (!row) return 0;
-            return row.indexOf(cid);
-        };
-
-        // Barycenter crossing minimization: 6 rounds of top-down + bottom-up sweeps
-        const CROSSING_ROUNDS = 6;
-        for (let round = 0; round < CROSSING_ROUNDS; round++) {
-
-            // ─── Top-down sweep: sort each row by avg index of PARENTS in row above ───
-            for (let ri = 1; ri < sortedRows.length; ri++) {
-                const rowY = sortedRows[ri];
-                const row = rowClusters.get(rowY);
-                if (!row || row.length < 2) continue;
-
-                // Compute barycenter for each cluster
-                const barycenters = new Map<string, number>();
-                for (const cid of row) {
-                    const parents = adjParents.get(cid);
-                    if (parents && parents.length > 0) {
-                        let sum = 0;
-                        let count = 0;
-                        for (const pid of parents) {
-                            sum += getIndex(pid);
-                            count++;
-                        }
-                        barycenters.set(cid, sum / count);
-                    } else {
-                        // No parents — keep current relative position
-                        barycenters.set(cid, getIndex(cid));
-                    }
-                }
-
-                // Sort row by barycenter (stable sort preserves order for equal values)
-                row.sort((a, b) => (barycenters.get(a) ?? 0) - (barycenters.get(b) ?? 0));
-            }
-
-            // ─── Bottom-up sweep: sort each row by avg index of CHILDREN in row below ───
-            for (let ri = sortedRows.length - 2; ri >= 0; ri--) {
-                const rowY = sortedRows[ri];
-                const row = rowClusters.get(rowY);
-                if (!row || row.length < 2) continue;
-
-                const barycenters = new Map<string, number>();
-                for (const cid of row) {
-                    const children = adjChildren.get(cid);
-                    if (children && children.length > 0) {
-                        let sum = 0;
-                        let count = 0;
-                        for (const ch of children) {
-                            sum += getIndex(ch);
-                            count++;
-                        }
-                        barycenters.set(cid, sum / count);
-                    } else {
-                        barycenters.set(cid, getIndex(cid));
-                    }
-                }
-
-                row.sort((a, b) => (barycenters.get(a) ?? 0) - (barycenters.get(b) ?? 0));
-            }
-        }
-
-        // --- 5.95. X-COORDINATE ASSIGNMENT FROM OPTIMIZED ORDERING ---
-        // Replace Dagre's X positions with positions derived from the
-        // crossing-minimized ordering. Sequential left-to-right placement
-        // within each row with consistent gaps.
-        const baseGap = config.nodeSep;  // Gap between clusters
-        for (const rowY of sortedRows) {
-            const row = rowClusters.get(rowY);
-            if (!row) continue;
-
-            // Calculate total width of this row
-            let totalWidth = 0;
-            for (const cid of row) {
-                const data = clusters.get(cid);
-                totalWidth += data ? data.w : NODE_WIDTH;
-            }
-            totalWidth += (row.length - 1) * baseGap;
-
-            // Center row around X=0 (will be shifted by later centering passes)
-            let x = -totalWidth / 2;
-            for (const cid of row) {
-                const data = clusters.get(cid);
-                const w = data ? data.w : NODE_WIDTH;
-                const pos = clusterPositions.get(cid);
-                if (pos) {
-                    pos.x = x + w / 2;
-                    clusterPositions.set(cid, pos);
-                }
-                x += w + baseGap;
-            }
-        }
-    }
-
-    // --- 6. REINGOLD-TILFORD SUBTREE SHIFT (collision resolution) ---
-    // Instead of pushing individual nodes apart (which breaks parent-child alignment),
-    // shift ENTIRE subtrees as units — preserving internal family structure.
-
-    // 6a. Build parent→children cluster tree
-    const clusterChildren = new Map<string, string[]>();
-    const clusterParent = new Map<string, string>();
-    const clusterRoots: string[] = [];
-    {
-        const processedPC = new Set<string>();
-        visiblePersons.forEach(person => {
-            const parentClusterId = personToCluster.get(person.personId);
-            if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
-            if (processedPC.has(parentClusterId)) return;
-            processedPC.add(parentClusterId);
-
-            const parentCluster = clusters.get(parentClusterId);
-            if (!parentCluster) return;
-
-            parentCluster.members.forEach(member => {
-                member.relationships.childIds.forEach(childId => {
-                    if (!visibleIds.has(childId)) return;
-                    const childClusterId = personToCluster.get(childId);
-                    if (!childClusterId || !clustersInGraph.has(childClusterId)) return;
-                    if (childClusterId === parentClusterId) return;
-
-                    if (!clusterChildren.has(parentClusterId)) {
-                        clusterChildren.set(parentClusterId, []);
-                    }
-                    const children = clusterChildren.get(parentClusterId)!;
-                    if (!children.includes(childClusterId)) {
-                        children.push(childClusterId);
-                        // Track parent (first parent wins for subtree membership)
-                        if (!clusterParent.has(childClusterId)) {
-                            clusterParent.set(childClusterId, parentClusterId);
-                        }
-                    }
-                });
-            });
-        });
-
-        // Identify root clusters (no parent in the cluster tree)
-        clustersInGraph.forEach(cid => {
-            if (!clusterParent.has(cid)) {
-                clusterRoots.push(cid);
-            }
-        });
-    }
-
-    // 6b. Compute subtree members (all descendants) for each cluster
-    // CRITICAL: Only follow children whose PRIMARY parent is the current node.
-    // Without this, cross-lineage marriage children appear in multiple subtrees
-    // and get shifted multiple times per pass, flying off-screen.
-    const getSubtreeMembers = (rootCid: string): string[] => {
-        const members: string[] = [rootCid];
-        const stack = [rootCid];
-        const visited = new Set<string>([rootCid]);
-        while (stack.length > 0) {
-            const cid = stack.pop()!;
-            const children = clusterChildren.get(cid) ?? [];
-            for (const child of children) {
-                // Only include if this is the child's PRIMARY parent
-                // (prevents double-membership in cross-lineage trees)
-                if (clusterParent.get(child) !== cid) continue;
-                if (visited.has(child)) continue;
-                visited.add(child);
-                members.push(child);
-                stack.push(child);
-            }
-        }
-        return members;
-    };
-
-    // 6c. Shift entire subtree by deltaX
-    const shiftSubtree = (rootCid: string, deltaX: number) => {
-        const members = getSubtreeMembers(rootCid);
-        for (const mid of members) {
-            const pos = clusterPositions.get(mid);
-            if (pos) {
-                pos.x += deltaX;
-                clusterPositions.set(mid, pos);
-            }
-        }
-    };
-
-    // 6d. Subtree contour: leftmost and rightmost X at each generation level
-    const getSubtreeContour = (rootCid: string): Map<number, { left: number; right: number }> => {
-        const contour = new Map<number, { left: number; right: number }>();
-        const members = getSubtreeMembers(rootCid);
-        for (const mid of members) {
-            const pos = clusterPositions.get(mid);
-            const data = clusters.get(mid);
-            if (!pos || !data) continue;
-            const ry = Math.round(pos.y / 10) * 10;
-            const leftEdge = pos.x - data.w / 2;
-            const rightEdge = pos.x + data.w / 2;
-            const existing = contour.get(ry);
-            if (!existing) {
-                contour.set(ry, { left: leftEdge, right: rightEdge });
-            } else {
-                contour.set(ry, {
-                    left: Math.min(existing.left, leftEdge),
-                    right: Math.max(existing.right, rightEdge)
-                });
-            }
-        }
-        return contour;
-    };
-
-    // 6e. Multi-pass subtree collision resolution
-    const MAX_PASSES = persons.length > 100 ? 12 : 6;
-    for (let pass = 0; pass < MAX_PASSES; pass++) {
-        let hadShift = false;
-
-        // Process sibling groups: for each parent, check its child subtrees
-        const processedParents = new Set<string>();
-        const parentList = [...clusterRoots];
-        // Also process all non-root parents
-        for (const [pid] of clusterChildren) {
-            if (!parentList.includes(pid)) parentList.push(pid);
-        }
-
-        for (const parentCid of parentList) {
-            if (processedParents.has(parentCid)) continue;
-            processedParents.add(parentCid);
-
-            const childCids = clusterChildren.get(parentCid) ?? [];
-            if (childCids.length < 2) continue;
-
-            // Sort children by X position
-            childCids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-
-            // For each pair of adjacent sibling subtrees, check contour overlap
-            for (let i = 0; i < childCids.length - 1; i++) {
-                const leftChild = childCids[i];
-                const rightChild = childCids[i + 1];
-
-                const leftContour = getSubtreeContour(leftChild);
-                const rightContour = getSubtreeContour(rightChild);
-
-                // Find maximum overlap across all shared generation levels
-                let maxOverlap = 0;
-                for (const [ry, leftBounds] of leftContour) {
-                    const rightBounds = rightContour.get(ry);
-                    if (!rightBounds) continue;
-                    const overlap = leftBounds.right + MIN_GAP - rightBounds.left;
-                    if (overlap > maxOverlap) maxOverlap = overlap;
-                }
-
-                if (maxOverlap > 0) {
-                    hadShift = true;
-                    // Symmetric 50/50 split — prevents rightward drift
-                    shiftSubtree(leftChild, -maxOverlap * 0.5);
-                    shiftSubtree(rightChild, maxOverlap * 0.5);
-                }
-            }
-        }
-
-        // Also resolve overlaps between root-level subtrees
-        if (clusterRoots.length > 1) {
-            clusterRoots.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-            for (let i = 0; i < clusterRoots.length - 1; i++) {
-                const leftRoot = clusterRoots[i];
-                const rightRoot = clusterRoots[i + 1];
-
-                const leftContour = getSubtreeContour(leftRoot);
-                const rightContour = getSubtreeContour(rightRoot);
-
-                let maxOverlap = 0;
-                for (const [ry, leftBounds] of leftContour) {
-                    const rightBounds = rightContour.get(ry);
-                    if (!rightBounds) continue;
-                    const overlap = leftBounds.right + MIN_GAP - rightBounds.left;
-                    if (overlap > maxOverlap) maxOverlap = overlap;
-                }
-
-                if (maxOverlap > 0) {
-                    hadShift = true;
-                    shiftSubtree(leftRoot, -maxOverlap * 0.5);
-                    shiftSubtree(rightRoot, maxOverlap * 0.5);
-                }
-            }
-        }
-
-        // Fallback: per-row overlap fix for clusters not caught by subtree logic
-        // (e.g., cross-lineage marriage clusters that share rows with unrelated families)
-        const byRank = new Map<number, string[]>();
-        for (const [id, pos] of clusterPositions) {
-            const roundedY = Math.round(pos.y / 10) * 10;
-            if (!byRank.has(roundedY)) byRank.set(roundedY, []);
-            byRank.get(roundedY)!.push(id);
-        }
-
-        for (const [, ids] of byRank) {
-            if (ids.length < 2) continue;
-            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-            for (let i = 0; i < ids.length - 1; i++) {
-                const posA = clusterPositions.get(ids[i]);
-                const posB = clusterPositions.get(ids[i + 1]);
-                const cA = clusters.get(ids[i]);
-                const cB = clusters.get(ids[i + 1]);
-                if (!posA || !posB || !cA || !cB) continue;
-                const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
-                if (overlap > 0) {
-                    hadShift = true;
-                    posA.x -= overlap / 2;
-                    posB.x += overlap / 2;
-                }
-            }
-        }
-
-        if (!hadShift) break;
-    }
-
-    // --- 6.5. SIBLING REORDERING POST-PROCESSING ---
-    // Sort child clusters by birthDate/birthOrder (eldest left, youngest right)
-    // Group children by their common parent cluster, then reassign X positions
-
-    const processedParentClusters = new Set<string>();
-
-    visiblePersons.forEach(person => {
-        const parentClusterId = personToCluster.get(person.personId);
-        if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
-        if (processedParentClusters.has(parentClusterId)) return;
-        processedParentClusters.add(parentClusterId);
-
-        // Get all visible children of this parent cluster
-        const childClusterIds: string[] = [];
-        const parentCluster = clusters.get(parentClusterId);
-        if (!parentCluster) return;
-
-        parentCluster.members.forEach(member => {
-            member.relationships.childIds.forEach(childId => {
-                if (!visibleIds.has(childId)) return;
-                const childClusterId = personToCluster.get(childId);
-                if (childClusterId && clustersInGraph.has(childClusterId) && !childClusterIds.includes(childClusterId)) {
-                    childClusterIds.push(childClusterId);
-                }
-            });
-        });
-
-        if (childClusterIds.length < 2) return; // No need to reorder single child
-
-        // Get current X positions of child clusters
-        const childPositions = childClusterIds.map(id => ({
-            clusterId: id,
-            x: clusterPositions.get(id)?.x ?? 0
-        }));
-
-        // Get the actual X positions in sorted order (for reassignment)
-        const sortedXPositions = [...childPositions].sort((a, b) => a.x - b.x).map(p => p.x);
-
-        // Sort child clusters by birthDate/birthOrder  
-        const sortedChildren = [...childClusterIds].sort((a, b) => {
-            // Get representative person from each cluster (prioritize by birthDate/birthOrder)
-            const clusterA = clusters.get(a);
-            const clusterB = clusters.get(b);
-            if (!clusterA || !clusterB) return 0;
-
-            // Get the child members from these clusters
-            const childA = clusterA.members.find(m =>
-                parentCluster.members.some(p => p.relationships.childIds.includes(m.personId))
-            );
-            const childB = clusterB.members.find(m =>
-                parentCluster.members.some(p => p.relationships.childIds.includes(m.personId))
-            );
-
-            if (!childA || !childB) return 0;
-
-            // First priority: birthDate
-            const dateA = childA.birthDate ? new Date(childA.birthDate).getTime() : Infinity;
-            const dateB = childB.birthDate ? new Date(childB.birthDate).getTime() : Infinity;
-            if (dateA !== Infinity && dateB !== Infinity && dateA !== dateB) {
-                return dateA - dateB; // Earlier date first (elder left)
-            }
-
-            // Second priority: birthOrder
-            const orderA = childA.birthOrder ?? Infinity;
-            const orderB = childB.birthOrder ?? Infinity;
-            if (orderA !== Infinity && orderB !== Infinity && orderA !== orderB) {
-                return orderA - orderB; // Lower order first (elder left)
-            }
-
-            // If one has data and other doesn't
             if (dateA !== Infinity && dateB === Infinity) return -1;
             if (dateB !== Infinity && dateA === Infinity) return 1;
             if (orderA !== Infinity && orderB === Infinity) return -1;
@@ -927,359 +253,341 @@ export function calculateTreeLayout(
 
             return 0;
         });
+    };
 
-        // Reassign X positions: eldest gets leftmost position, youngest gets rightmost
-        sortedChildren.forEach((clusterId, index) => {
-            const pos = clusterPositions.get(clusterId);
-            if (pos) {
-                pos.x = sortedXPositions[index];
-                clusterPositions.set(clusterId, pos);
+    // Identify clusters connected to tree (have parent or child edges)
+    const clustersInGraph = new Set<string>();
+    clusters.forEach((data, id) => {
+        for (const m of data.members) {
+            if (m.relationships.parentIds.some(pid => visibleIds.has(pid)) ||
+                m.relationships.childIds.some(cid => visibleIds.has(cid))) {
+                clustersInGraph.add(id);
+                break;
             }
-        });
+        }
     });
 
-    // --- 6.7. BIDIRECTIONAL CENTERING LOOP (alternating parent↔child) ---
-    // Merges parent centering, child pull, and collision cleanup into a
-    // single alternating loop. This prevents the previous issue where
-    // sequential passes would fight each other — parent centers, then
-    // child pull breaks it, then collision cleanup shifts everything.
-    // By alternating in each round, all three goals converge together.
-
-    // Pre-compute parent→children cluster map (stable across rounds)
-    const parentChildClusters = new Map<string, string[]>();
-    // Also build child→parent map for reverse lookup
-    const childParentClusters = new Map<string, string[]>();
+    // Build parent→children map (cluster level)
+    const clusterChildren = new Map<string, string[]>();
+    const clusterParent = new Map<string, string>();
     {
-        const processedForMap = new Set<string>();
+        const processed = new Set<string>();
         visiblePersons.forEach(person => {
-            const parentClusterId = personToCluster.get(person.personId);
-            if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
-            if (processedForMap.has(parentClusterId)) return;
-            processedForMap.add(parentClusterId);
+            const parentCid = personToCluster.get(person.personId);
+            if (!parentCid || !clustersInGraph.has(parentCid) || processed.has(parentCid)) return;
+            processed.add(parentCid);
 
-            const parentCluster = clusters.get(parentClusterId);
+            const parentCluster = clusters.get(parentCid);
             if (!parentCluster) return;
 
-            const childClusterIds: string[] = [];
+            // Collect all children across all members
+            const allChildIds: string[] = [];
             parentCluster.members.forEach(member => {
                 member.relationships.childIds.forEach(childId => {
-                    if (!visibleIds.has(childId)) return;
-                    const childClusterId = personToCluster.get(childId);
-                    if (childClusterId && clustersInGraph.has(childClusterId) && !childClusterIds.includes(childClusterId)) {
-                        childClusterIds.push(childClusterId);
+                    if (visibleIds.has(childId) && !allChildIds.includes(childId)) {
+                        allChildIds.push(childId);
                     }
                 });
             });
 
-            if (childClusterIds.length > 0) {
-                parentChildClusters.set(parentClusterId, childClusterIds);
-                // Build reverse map
-                for (const ccid of childClusterIds) {
-                    if (!childParentClusters.has(ccid)) childParentClusters.set(ccid, []);
-                    childParentClusters.get(ccid)!.push(parentClusterId);
+            // Sort by birth date
+            const sortedChildren = sortChildIds(allChildIds);
+
+            // Map to child cluster IDs (deduplicate)
+            const childCids: string[] = [];
+            for (const childId of sortedChildren) {
+                const childCid = personToCluster.get(childId);
+                if (!childCid || !clustersInGraph.has(childCid) || childCid === parentCid) continue;
+                if (!childCids.includes(childCid)) {
+                    childCids.push(childCid);
+                    // Primary parent only (first wins — avoids DAG issues in recursion)
+                    if (!clusterParent.has(childCid)) {
+                        clusterParent.set(childCid, parentCid);
+                    }
                 }
+            }
+
+            if (childCids.length > 0) {
+                clusterChildren.set(parentCid, childCids);
             }
         });
     }
 
-    // Pre-compute cluster depth ordering (leaf parents first → root)
-    const clusterDepths = new Map<string, number>();
-    const getClusterDepth = (cid: string, visited: Set<string> = new Set()): number => {
-        if (visited.has(cid)) return 0;
-        visited.add(cid);
-        if (clusterDepths.has(cid)) return clusterDepths.get(cid)!;
-        const children = parentChildClusters.get(cid) ?? [];
-        const depth = children.length > 0 ? 1 + Math.max(...children.map(c => getClusterDepth(c, visited))) : 0;
-        clusterDepths.set(cid, depth);
-        return depth;
-    };
-    for (const cid of parentChildClusters.keys()) {
-        getClusterDepth(cid);
-    }
+    // Find root clusters (no parent in tree)
+    const rootClusters: string[] = [];
+    clustersInGraph.forEach(cid => {
+        if (!clusterParent.has(cid)) rootClusters.push(cid);
+    });
 
-    const sortedParents = [...parentChildClusters.entries()]
-        .sort(([a], [b]) => (clusterDepths.get(a) ?? 0) - (clusterDepths.get(b) ?? 0));
-
-    // Helper: find left/right bounds for a cluster on its row
-    const findRowBounds = (targetCid: string, targetPos: { x: number; y: number }, halfW: number) => {
-        const targetY = Math.round(targetPos.y / 10) * 10;
-        let leftBound = -Infinity;
-        let rightBound = Infinity;
-
-        for (const [cid, pos] of clusterPositions) {
-            if (cid === targetCid) continue;
-            if (Math.round(pos.y / 10) * 10 !== targetY) continue;
-            const neighborData = clusters.get(cid);
-            if (!neighborData) continue;
-            const neighborHalfW = neighborData.w / 2;
-
-            if (pos.x < targetPos.x) {
-                leftBound = Math.max(leftBound, pos.x + neighborHalfW + MIN_GAP + halfW);
-            } else {
-                rightBound = Math.min(rightBound, pos.x - neighborHalfW - MIN_GAP - halfW);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 4. GENERATION ASSIGNMENT (BFS from roots)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const clusterGen = new Map<string, number>();
+    {
+        const personGen = new Map<string, number>();
+        const layoutRoots: string[] = [];
+        visiblePersons.forEach(p => {
+            if (!p.relationships.parentIds.some(pid => visibleIds.has(pid))) {
+                layoutRoots.push(p.personId);
             }
-        }
-        return { leftBound, rightBound };
-    };
+        });
 
-    // Helper: per-row collision cleanup
-    const cleanupCollisions = () => {
-        for (let pass = 0; pass < 3; pass++) {
-            let hadOverlap = false;
-            const byRank = new Map<number, string[]>();
-            for (const [id, pos] of clusterPositions) {
-                const ry = Math.round(pos.y / 10) * 10;
-                if (!byRank.has(ry)) byRank.set(ry, []);
-                byRank.get(ry)!.push(id);
-            }
-            for (const [, ids] of byRank) {
-                if (ids.length < 2) continue;
-                ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-                for (let i = 0; i < ids.length - 1; i++) {
-                    const posA = clusterPositions.get(ids[i]);
-                    const posB = clusterPositions.get(ids[i + 1]);
-                    const cA = clusters.get(ids[i]);
-                    const cB = clusters.get(ids[i + 1]);
-                    if (!posA || !posB || !cA || !cB) continue;
-                    const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
-                    if (overlap > 0) {
-                        hadOverlap = true;
-                        posA.x -= overlap / 2;
-                        posB.x += overlap / 2;
+        // BFS through parent→child edges
+        for (const rootId of layoutRoots) {
+            const bfsQueue: Array<{ id: string; gen: number }> = [{ id: rootId, gen: 1 }];
+            while (bfsQueue.length > 0) {
+                const { id, gen } = bfsQueue.shift()!;
+                const existing = personGen.get(id);
+                if (existing !== undefined && gen <= existing) continue;
+                personGen.set(id, gen);
+
+                const person = personsMap.get(id);
+                if (!person) continue;
+                for (const childId of person.relationships?.childIds || []) {
+                    if (visibleIds.has(childId)) {
+                        const childExisting = personGen.get(childId);
+                        if (childExisting === undefined || gen + 1 > childExisting) {
+                            bfsQueue.push({ id: childId, gen: gen + 1 });
+                        }
                     }
                 }
             }
-            if (!hadOverlap) break;
-        }
-    };
-
-    // ═══ MAIN ALTERNATING LOOP: 6 rounds ═══
-    const BIDIRECTIONAL_ROUNDS = 6;
-    for (let round = 0; round < BIDIRECTIONAL_ROUNDS; round++) {
-        // Damping decreases each round for finer convergence
-        const parentDamping = 0.8 - round * 0.05;   // 0.80 → 0.55
-        const childDamping = 0.65 - round * 0.04;    // 0.65 → 0.45
-
-        // ─── Pass A: Center parents above children (bottom-up) ───
-        for (const [parentCid, childCids] of sortedParents) {
-            const parentPos = clusterPositions.get(parentCid);
-            if (!parentPos) continue;
-
-            // Compute MEDIAN X of children
-            const childXPositions: number[] = [];
-            for (const childCid of childCids) {
-                const childPos = clusterPositions.get(childCid);
-                if (childPos) childXPositions.push(childPos.x);
-            }
-            if (childXPositions.length === 0) continue;
-
-            childXPositions.sort((a, b) => a - b);
-            const midIdx = Math.floor(childXPositions.length / 2);
-            const desiredX = childXPositions.length % 2 === 0
-                ? (childXPositions[midIdx - 1] + childXPositions[midIdx]) / 2
-                : childXPositions[midIdx];
-
-            const parentCluster = clusters.get(parentCid);
-            if (!parentCluster) continue;
-            const halfW = parentCluster.w / 2;
-
-            const { leftBound, rightBound } = findRowBounds(parentCid, parentPos, halfW);
-            const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
-
-            const moveX = clampedX - parentPos.x;
-            if (Math.abs(moveX) > 1) {
-                parentPos.x += moveX * parentDamping;
-                clusterPositions.set(parentCid, parentPos);
-            }
         }
 
-        // ─── Pass B: Pull children toward parents (top-down) ───
-        const processedChildren = new Set<string>();
-        for (const [parentCid, childCids] of sortedParents) {
-            const parentPos = clusterPositions.get(parentCid);
-            if (!parentPos) continue;
-
-            for (const childCid of childCids) {
-                if (processedChildren.has(childCid)) continue;
-                processedChildren.add(childCid);
-
-                const childPos = clusterPositions.get(childCid);
-                const childData = clusters.get(childCid);
-                if (!childPos || !childData) continue;
-
-                // Pull toward parent X — strength 50%
-                const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.5;
-                const halfW = childData.w / 2;
-
-                const { leftBound, rightBound } = findRowBounds(childCid, childPos, halfW);
-                const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
-
-                const moveX = clampedX - childPos.x;
-                if (Math.abs(moveX) > 1) {
-                    childPos.x += moveX * childDamping;
-                    clusterPositions.set(childCid, childPos);
+        // Spouses share MAX generation
+        visiblePersons.forEach(p => {
+            const myGen = personGen.get(p.personId);
+            if (myGen === undefined) return;
+            for (const spouseId of p.relationships.spouseIds) {
+                const spouseGen = personGen.get(spouseId);
+                if (spouseGen !== undefined) {
+                    const maxGen = Math.max(myGen, spouseGen);
+                    personGen.set(p.personId, maxGen);
+                    personGen.set(spouseId, maxGen);
                 }
             }
-        }
+        });
 
-        // ─── Pass C: Collision cleanup after each round ───
-        cleanupCollisions();
-    }
-
-    // --- 6.76. FINAL COLLISION CLEANUP ---
-    // One last cleanup pass after all centering rounds are done.
-    cleanupCollisions();
-
-    // --- 6.77. PARENT-CHILD Y-VALIDATION ---
-    // Safety net: ensure every parent is ABOVE its children (never inverted).
-    // Also detect and fix cases where parent-child vertical gap is excessive.
-    {
-        const maxGap = config.rankSep * 2.2; // Max ~2.2× normal rank separation
-        for (const [parentCid, childCids] of parentChildClusters) {
-            const parentPos = clusterPositions.get(parentCid);
-            if (!parentPos) continue;
-
-            for (const childCid of childCids) {
-                const childPos = clusterPositions.get(childCid);
-                if (!childPos) continue;
-
-                // FIX: Parent must be above child (lower Y = higher on screen)
-                if (parentPos.y >= childPos.y) {
-                    // Inversion detected — push child down by at least one rankSep
-                    childPos.y = parentPos.y + config.rankSep;
-                    clusterPositions.set(childCid, childPos);
-                }
-
-                // FIX: Prevent excessive vertical gaps
-                const gap = childPos.y - parentPos.y;
-                if (gap > maxGap) {
-                    // Pull child closer — reduce to 1.2× normal rankSep
-                    childPos.y = parentPos.y + config.rankSep * 1.2;
-                    clusterPositions.set(childCid, childPos);
-                }
-            }
-        }
-
-        // After Y-fixes, re-normalize same-generation clusters to same Y
-        const genYAfterFix = new Map<number, number[]>();
-        for (const [clusterId, pos] of clusterPositions) {
-            const clusterData = clusters.get(clusterId);
-            if (!clusterData) continue;
-            let maxGen = 0;
-            for (const member of clusterData.members) {
-                const gen = layoutGen.get(member.personId) ?? 0;
-                maxGen = Math.max(maxGen, gen);
-            }
-            if (maxGen > 0) {
-                if (!genYAfterFix.has(maxGen)) genYAfterFix.set(maxGen, []);
-                genYAfterFix.get(maxGen)!.push(pos.y);
-            }
-        }
-        // Set each generation to its median Y
-        const genYMedian = new Map<number, number>();
-        for (const [gen, ys] of genYAfterFix) {
-            ys.sort((a, b) => a - b);
-            const mid = Math.floor(ys.length / 2);
-            genYMedian.set(gen, ys.length % 2 === 0 ? (ys[mid - 1] + ys[mid]) / 2 : ys[mid]);
-        }
-        for (const [clusterId, pos] of clusterPositions) {
-            const clusterData = clusters.get(clusterId);
-            if (!clusterData) continue;
-            let maxGen = 0;
-            for (const member of clusterData.members) {
-                const gen = layoutGen.get(member.personId) ?? 0;
-                maxGen = Math.max(maxGen, gen);
-            }
-            const medY = genYMedian.get(maxGen);
-            if (medY !== undefined) {
-                pos.y = medY;
-                clusterPositions.set(clusterId, pos);
-            }
-        }
-    }
-
-    // --- 6.8. TITLE-BASED COLUMN SOFT-NUDGE ---
-    // Softly nudge same-title clusters toward their group median X.
-    // This creates visible vertical clustering without collapsing the layout.
-    {
-        const titleGroups = new Map<string, string[]>(); // titleKey → clusterIds
-
-        clustersInGraph.forEach(clusterId => {
-            const data = clusters.get(clusterId);
+        // Cluster generation = MAX of member generations
+        clustersInGraph.forEach(cid => {
+            const data = clusters.get(cid);
             if (!data) return;
-
+            let maxGen = 0;
             for (const member of data.members) {
-                // Use reignTitle for specific titles like "Arumpone", "Soppeng"
-                let key = member.reignTitle?.trim();
-                if (!key && member.title && member.title !== 'other') {
-                    key = member.title;
-                }
-                if (key) {
-                    const normalizedKey = key.toLowerCase();
-                    if (!titleGroups.has(normalizedKey)) {
-                        titleGroups.set(normalizedKey, []);
-                    }
-                    const group = titleGroups.get(normalizedKey)!;
-                    if (!group.includes(clusterId)) {
-                        group.push(clusterId);
-                    }
-                    break; // Use the first member's title for the cluster
-                }
+                const gen = personGen.get(member.personId);
+                if (gen !== undefined && gen > maxGen) maxGen = gen;
             }
-        });
-
-        // For each title group with 2+ clusters, nudge toward median X
-        const NUDGE_STRENGTH = 0.6; // 60% toward median (soft, avoids collapse)
-
-        titleGroups.forEach((clusterIds) => {
-            if (clusterIds.length < 2) return;
-
-            // Compute median X of the group
-            const xPositions = clusterIds
-                .map(id => clusterPositions.get(id)?.x)
-                .filter((x): x is number => x !== undefined)
-                .sort((a, b) => a - b);
-
-            if (xPositions.length < 2) return;
-            const medianX = xPositions[Math.floor(xPositions.length / 2)];
-
-            // Nudge each cluster toward the median
-            for (const clusterId of clusterIds) {
-                const pos = clusterPositions.get(clusterId);
-                const clusterData = clusters.get(clusterId);
-                if (!pos || !clusterData) continue;
-
-                const desiredX = pos.x + (medianX - pos.x) * NUDGE_STRENGTH;
-
-                // Check for collisions with same-generation neighbors
-                const posY = Math.round(pos.y / 10) * 10;
-                const halfW = clusterData.w / 2;
-                let canMove = true;
-
-                for (const [neighborId, neighborPos] of clusterPositions) {
-                    if (neighborId === clusterId) continue;
-                    if (Math.round(neighborPos.y / 10) * 10 !== posY) continue;
-
-                    const neighborData = clusters.get(neighborId);
-                    if (!neighborData) continue;
-
-                    const neighborHalfW = neighborData.w / 2;
-                    const distance = Math.abs(desiredX - neighborPos.x);
-                    if (distance < halfW + neighborHalfW + MIN_GAP) {
-                        canMove = false;
-                        break;
-                    }
-                }
-
-                if (canMove) {
-                    pos.x = desiredX;
-                    clusterPositions.set(clusterId, pos);
-                }
-            }
+            if (maxGen > 0) clusterGen.set(cid, maxGen);
         });
     }
 
-    // --- 7. Expand to Individual Positions ---
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 5. WALKER'S RECURSIVE SUBTREE LAYOUT
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // For each cluster, recursively layout its children first (bottom-up),
+    // then center the parent above them. This guarantees:
+    // - Parents always centered above their children
+    // - Siblings always adjacent and ordered by birth date
+    // - Subtrees compact with no wasted space
+    // - No overlap within a single root tree
+
+    const clusterPositions = new Map<string, { x: number, y: number }>();
+    const rowHeight = NODE_HEIGHT + config.rankSep;
+
+    // Returns the total width of the subtree rooted at this cluster.
+    // Places the cluster (and recursively all descendants) starting at x offset.
+    const layoutSubtree = (cid: string, x: number): number => {
+        const data = clusters.get(cid);
+        if (!data) return 0;
+
+        const gen = clusterGen.get(cid) ?? 1;
+        const y = config.margin + (gen - 1) * rowHeight;
+
+        const children = clusterChildren.get(cid);
+        const ownWidth = data.w;
+
+        // LEAF node — just place it
+        if (!children || children.length === 0) {
+            clusterPositions.set(cid, { x: x + ownWidth / 2, y });
+            return ownWidth;
+        }
+
+        // Recursively layout all children left-to-right
+        let childX = x;
+        const childCenters: number[] = [];
+
+        for (const childCid of children) {
+            const cw = layoutSubtree(childCid, childX);
+            const childPos = clusterPositions.get(childCid);
+            childCenters.push(childPos?.x ?? (childX + cw / 2));
+            childX += cw + config.nodeSep;
+        }
+
+        const totalChildrenWidth = childX - x - config.nodeSep;
+
+        // Center parent above the span of children centers
+        const leftChild = childCenters[0];
+        const rightChild = childCenters[childCenters.length - 1];
+        const childrenMidpoint = (leftChild + rightChild) / 2;
+
+        const finalWidth = Math.max(ownWidth, totalChildrenWidth);
+
+        if (ownWidth > totalChildrenWidth) {
+            // Parent wider than children: center children under parent
+            const parentCenter = x + ownWidth / 2;
+            const shift = parentCenter - childrenMidpoint;
+            for (const childCid of children) {
+                shiftSubtree(childCid, shift);
+            }
+            clusterPositions.set(cid, { x: parentCenter, y });
+        } else {
+            // Children wider: parent centers above children
+            clusterPositions.set(cid, { x: childrenMidpoint, y });
+        }
+
+        return finalWidth;
+    };
+
+    // Shift a cluster and ALL its descendants by deltaX
+    const shiftSubtree = (cid: string, deltaX: number) => {
+        const pos = clusterPositions.get(cid);
+        if (pos) {
+            pos.x += deltaX;
+        }
+        const ch = clusterChildren.get(cid);
+        if (ch) {
+            for (const childCid of ch) {
+                shiftSubtree(childCid, deltaX);
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 6. LAYOUT ROOT TREES SIDE BY SIDE
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // 6a: Group connected root trees (cross-lineage marriages make two
+    //     separate root trees "connected" — place them close together)
+    // 6b: Layout each group
+
+    // Map every cluster to its root ancestor
+    const clusterToRoot = new Map<string, string>();
+    const assignRoot = (cid: string, rootCid: string) => {
+        clusterToRoot.set(cid, rootCid);
+        const ch = clusterChildren.get(cid);
+        if (ch) {
+            for (const childCid of ch) {
+                assignRoot(childCid, rootCid);
+            }
+        }
+    };
+    for (const rootCid of rootClusters) {
+        assignRoot(rootCid, rootCid);
+    }
+
+    // Find cross-lineage connections (spouses from different root trees)
+    const rootConnections = new Map<string, Set<string>>();
+    for (const rootCid of rootClusters) {
+        rootConnections.set(rootCid, new Set());
+    }
+
+    visiblePersons.forEach(person => {
+        const cid = personToCluster.get(person.personId);
+        if (!cid) return;
+        const myRoot = clusterToRoot.get(cid);
+
+        person.relationships.spouseIds.forEach(spouseId => {
+            const spouseCid = personToCluster.get(spouseId);
+            if (!spouseCid) return;
+            const spouseRoot = clusterToRoot.get(spouseCid);
+
+            if (myRoot && spouseRoot && myRoot !== spouseRoot) {
+                rootConnections.get(myRoot)?.add(spouseRoot);
+                rootConnections.get(spouseRoot)?.add(myRoot);
+            }
+        });
+    });
+
+    // BFS to group connected root trees
+    const visitedRoots = new Set<string>();
+    const rootGroups: string[][] = [];
+
+    for (const rootCid of rootClusters) {
+        if (visitedRoots.has(rootCid)) continue;
+        const group: string[] = [];
+        const bfs = [rootCid];
+        while (bfs.length > 0) {
+            const r = bfs.shift()!;
+            if (visitedRoots.has(r)) continue;
+            visitedRoots.add(r);
+            group.push(r);
+            const connected = rootConnections.get(r);
+            if (connected) {
+                for (const conn of connected) {
+                    if (!visitedRoots.has(conn)) bfs.push(conn);
+                }
+            }
+        }
+        rootGroups.push(group);
+    }
+
+    // Largest group first
+    rootGroups.sort((a, b) => b.length - a.length);
+
+    // Layout each group — related trees close, unrelated trees far
+    let globalX = 0;
+    const GROUP_GAP = config.orphanGap;
+    const TREE_GAP = config.nodeSep * 2;
+
+    for (const group of rootGroups) {
+        let groupX = globalX;
+        for (const rootCid of group) {
+            const w = layoutSubtree(rootCid, groupX);
+            groupX += w + TREE_GAP;
+        }
+        globalX = groupX - TREE_GAP + GROUP_GAP;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 6.5. OVERLAP RESOLUTION (per-row scan)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Walker's algorithm guarantees no overlap within a single root tree,
+    // but cross-lineage clusters may cause overlaps between trees.
+    {
+        const byRow = new Map<number, string[]>();
+        for (const [cid, pos] of clusterPositions) {
+            const ry = Math.round(pos.y / 10) * 10;
+            if (!byRow.has(ry)) byRow.set(ry, []);
+            byRow.get(ry)!.push(cid);
+        }
+
+        for (const [, ids] of byRow) {
+            if (ids.length < 2) continue;
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+
+            for (let i = 1; i < ids.length; i++) {
+                const prevPos = clusterPositions.get(ids[i - 1]);
+                const currPos = clusterPositions.get(ids[i]);
+                const prevData = clusters.get(ids[i - 1]);
+                const currData = clusters.get(ids[i]);
+                if (!prevPos || !currPos || !prevData || !currData) continue;
+
+                const minX = prevPos.x + prevData.w / 2 + config.minGap + currData.w / 2;
+                if (currPos.x < minX) {
+                    const shift = minX - currPos.x;
+                    for (let j = i; j < ids.length; j++) {
+                        const p = clusterPositions.get(ids[j]);
+                        if (p) p.x += shift;
+                    }
+                }
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 7. EXPAND TO INDIVIDUAL POSITIONS
+    // ═══════════════════════════════════════════════════════════════════════════
     let currentMaxY = 0;
 
     clustersInGraph.forEach(clusterId => {
@@ -1299,7 +607,9 @@ export function calculateTreeLayout(
         });
     });
 
-    // --- 8. Handle Orphans --- place in a grid instead of single row
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 8. HANDLE ORPHANS (no parent AND no child connections — grid layout)
+    // ═══════════════════════════════════════════════════════════════════════════
     const orphansY = currentMaxY + config.orphanGap;
     let orphanCurrentX = 50;
     let orphanRow = 0;
@@ -1327,7 +637,9 @@ export function calculateTreeLayout(
         }
     });
 
-    // --- 9. Normalize ---
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 9. NORMALIZE — shift everything so top-left starts at (50, 50)
+    // ═══════════════════════════════════════════════════════════════════════════
     let minX = Infinity;
     let minY = Infinity;
     posMap.forEach(pos => {
