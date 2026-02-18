@@ -315,7 +315,7 @@ function FamilyTreeInner({
                         target: person.personId,
                         sourceHandle: 'bottom',
                         targetHandle: 'top',
-                        type: 'default', // Bezier curve
+                        type: 'smoothstep', // Orthogonal step edges — cleaner for family trees
                         style: edgeStyle,
                     });
                     return;
@@ -330,7 +330,7 @@ function FamilyTreeInner({
                 target: person.personId,
                 sourceHandle: 'bottom',
                 targetHandle: 'top',
-                type: 'default',
+                type: 'smoothstep',
                 style: edgeStyle,
             });
         });

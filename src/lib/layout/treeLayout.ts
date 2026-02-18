@@ -476,6 +476,166 @@ export function calculateTreeLayout(
         }
     }
 
+    // --- 5.9. BARYCENTER CROSSING MINIMIZATION ---
+    // The KEY missing algorithm: reorder clusters within each generation row
+    // to minimize edge crossings. Uses the barycenter heuristic — for each
+    // cluster, compute the average index of its connected clusters in adjacent
+    // rows, then sort by this value. Repeat top-down then bottom-up for 6 rounds.
+    //
+    // This is the standard algorithm from Sugiyama graph drawing framework,
+    // used by all professional genealogy software (Gramps, FamilySearch, etc.).
+    {
+        // Build parent→child adjacency (cluster level) for crossing minimization
+        const adjChildren = new Map<string, string[]>();   // parent cluster → child clusters
+        const adjParents = new Map<string, string[]>();    // child cluster → parent clusters
+        {
+            const processedAdj = new Set<string>();
+            visiblePersons.forEach(person => {
+                const parentCid = personToCluster.get(person.personId);
+                if (!parentCid || !clustersInGraph.has(parentCid)) return;
+                if (processedAdj.has(parentCid)) return;
+                processedAdj.add(parentCid);
+
+                const parentCluster = clusters.get(parentCid);
+                if (!parentCluster) return;
+
+                parentCluster.members.forEach(member => {
+                    member.relationships.childIds.forEach(childId => {
+                        if (!visibleIds.has(childId)) return;
+                        const childCid = personToCluster.get(childId);
+                        if (!childCid || !clustersInGraph.has(childCid) || childCid === parentCid) return;
+
+                        // parent → child
+                        if (!adjChildren.has(parentCid)) adjChildren.set(parentCid, []);
+                        const ch = adjChildren.get(parentCid)!;
+                        if (!ch.includes(childCid)) ch.push(childCid);
+
+                        // child → parent (reverse)
+                        if (!adjParents.has(childCid)) adjParents.set(childCid, []);
+                        const pa = adjParents.get(childCid)!;
+                        if (!pa.includes(parentCid)) pa.push(parentCid);
+                    });
+                });
+            });
+        }
+
+        // Group clusters by generation row (rounded Y)
+        const rowClusters = new Map<number, string[]>();
+        const clusterRow = new Map<string, number>();
+        for (const [cid, pos] of clusterPositions) {
+            const ry = Math.round(pos.y / 10) * 10;
+            if (!rowClusters.has(ry)) rowClusters.set(ry, []);
+            rowClusters.get(ry)!.push(cid);
+            clusterRow.set(cid, ry);
+        }
+
+        // Sort rows top-to-bottom
+        const sortedRows = [...rowClusters.keys()].sort((a, b) => a - b);
+
+        // Initialize ordering: sort each row by current X position (Dagre's initial order)
+        for (const [, ids] of rowClusters) {
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+        }
+
+        // Helper: get index of a cluster in its row's ordering
+        const getIndex = (cid: string): number => {
+            const ry = clusterRow.get(cid);
+            if (ry === undefined) return 0;
+            const row = rowClusters.get(ry);
+            if (!row) return 0;
+            return row.indexOf(cid);
+        };
+
+        // Barycenter crossing minimization: 6 rounds of top-down + bottom-up sweeps
+        const CROSSING_ROUNDS = 6;
+        for (let round = 0; round < CROSSING_ROUNDS; round++) {
+
+            // ─── Top-down sweep: sort each row by avg index of PARENTS in row above ───
+            for (let ri = 1; ri < sortedRows.length; ri++) {
+                const rowY = sortedRows[ri];
+                const row = rowClusters.get(rowY);
+                if (!row || row.length < 2) continue;
+
+                // Compute barycenter for each cluster
+                const barycenters = new Map<string, number>();
+                for (const cid of row) {
+                    const parents = adjParents.get(cid);
+                    if (parents && parents.length > 0) {
+                        let sum = 0;
+                        let count = 0;
+                        for (const pid of parents) {
+                            sum += getIndex(pid);
+                            count++;
+                        }
+                        barycenters.set(cid, sum / count);
+                    } else {
+                        // No parents — keep current relative position
+                        barycenters.set(cid, getIndex(cid));
+                    }
+                }
+
+                // Sort row by barycenter (stable sort preserves order for equal values)
+                row.sort((a, b) => (barycenters.get(a) ?? 0) - (barycenters.get(b) ?? 0));
+            }
+
+            // ─── Bottom-up sweep: sort each row by avg index of CHILDREN in row below ───
+            for (let ri = sortedRows.length - 2; ri >= 0; ri--) {
+                const rowY = sortedRows[ri];
+                const row = rowClusters.get(rowY);
+                if (!row || row.length < 2) continue;
+
+                const barycenters = new Map<string, number>();
+                for (const cid of row) {
+                    const children = adjChildren.get(cid);
+                    if (children && children.length > 0) {
+                        let sum = 0;
+                        let count = 0;
+                        for (const ch of children) {
+                            sum += getIndex(ch);
+                            count++;
+                        }
+                        barycenters.set(cid, sum / count);
+                    } else {
+                        barycenters.set(cid, getIndex(cid));
+                    }
+                }
+
+                row.sort((a, b) => (barycenters.get(a) ?? 0) - (barycenters.get(b) ?? 0));
+            }
+        }
+
+        // --- 5.95. X-COORDINATE ASSIGNMENT FROM OPTIMIZED ORDERING ---
+        // Replace Dagre's X positions with positions derived from the
+        // crossing-minimized ordering. Sequential left-to-right placement
+        // within each row with consistent gaps.
+        const baseGap = config.nodeSep;  // Gap between clusters
+        for (const rowY of sortedRows) {
+            const row = rowClusters.get(rowY);
+            if (!row) continue;
+
+            // Calculate total width of this row
+            let totalWidth = 0;
+            for (const cid of row) {
+                const data = clusters.get(cid);
+                totalWidth += data ? data.w : NODE_WIDTH;
+            }
+            totalWidth += (row.length - 1) * baseGap;
+
+            // Center row around X=0 (will be shifted by later centering passes)
+            let x = -totalWidth / 2;
+            for (const cid of row) {
+                const data = clusters.get(cid);
+                const w = data ? data.w : NODE_WIDTH;
+                const pos = clusterPositions.get(cid);
+                if (pos) {
+                    pos.x = x + w / 2;
+                    clusterPositions.set(cid, pos);
+                }
+                x += w + baseGap;
+            }
+        }
+    }
+
     // --- 6. REINGOLD-TILFORD SUBTREE SHIFT (collision resolution) ---
     // Instead of pushing individual nodes apart (which breaks parent-child alignment),
     // shift ENTIRE subtrees as units — preserving internal family structure.
