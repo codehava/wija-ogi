@@ -68,6 +68,12 @@ const nodeTypes = {
     junction: JunctionNode,
 };
 
+// Custom edge types — 'family' for bracket-style parent→child connections
+import FamilyEdge from './edges/FamilyEdge';
+const edgeTypes = {
+    family: FamilyEdge,
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Inner component that uses React Flow hooks (must be inside ReactFlowProvider)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -315,7 +321,7 @@ function FamilyTreeInner({
                         target: person.personId,
                         sourceHandle: 'bottom',
                         targetHandle: 'top',
-                        type: 'smoothstep', // Orthogonal step edges — cleaner for family trees
+                        type: 'family', // Custom bracket-style orthogonal edge
                         style: edgeStyle,
                     });
                     return;
@@ -330,7 +336,7 @@ function FamilyTreeInner({
                 target: person.personId,
                 sourceHandle: 'bottom',
                 targetHandle: 'top',
-                type: 'smoothstep',
+                type: 'family',
                 style: edgeStyle,
             });
         });
@@ -971,6 +977,7 @@ function FamilyTreeInner({
                 onNodeDragStop={handleNodeDragStop}
                 onPaneClick={handlePaneClick}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.15 }}
                 minZoom={0.05}
