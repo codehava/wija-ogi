@@ -24,7 +24,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import jsPDF from 'jspdf';
-import { toPng } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import toast from 'react-hot-toast';
 import { Person, Relationship, ScriptMode } from '@/types';
 import { findRootAncestor, calculateAllGenerations } from '@/lib/generation/calculator';
@@ -606,9 +606,24 @@ function FamilyTreeInner({
 
             // Higher zoom = more readable nodes for print
             const exportZoom = persons.length > 150 ? 0.8 : persons.length > 50 ? 1.0 : 1.5;
-            const PIXEL_RATIO = 3; // 300 DPI equivalent for print
+
+            // Dynamic PIXEL_RATIO per paper size — smaller paper needs lower ratio
+            // to avoid exceeding browser canvas limits (~16M pixels safe maximum)
+            const PIXEL_RATIO_MAP: Record<string, number> = {
+                A4: 1.5, A3: 2, A2: 2.5, A1: 2.5, A0: 3
+            };
+            let pixelRatio = PIXEL_RATIO_MAP[exportPaperSize] || 2;
+
             const canvasWidth = Math.ceil(treeWidth * exportZoom);
             const canvasHeight = Math.ceil(treeHeight * exportZoom);
+
+            // Safety: cap total pixel count to prevent browser canvas crash
+            const MAX_TOTAL_PIXELS = 16_000_000;
+            const rawPixels = canvasWidth * pixelRatio * canvasHeight * pixelRatio;
+            if (rawPixels > MAX_TOTAL_PIXELS) {
+                pixelRatio = Math.max(1, Math.floor(Math.sqrt(MAX_TOTAL_PIXELS / (canvasWidth * canvasHeight)) * 10) / 10);
+                console.warn(`PDF: Canvas too large, reducing pixelRatio to ${pixelRatio}`);
+            }
 
             // Temporarily expand container to full tree size
             container.style.width = `${canvasWidth}px`;
@@ -640,16 +655,17 @@ function FamilyTreeInner({
                 el.style.display = 'none';
             });
 
-            // Capture the full tree as hi-res PNG
+            // Capture the full tree as hi-res JPEG (much smaller than PNG)
             const rfViewport = container.querySelector<HTMLElement>('.react-flow__renderer')
                 || container;
 
-            const dataUrl = await toPng(rfViewport, {
+            const captureOptions = {
                 cacheBust: true,
-                pixelRatio: PIXEL_RATIO,
+                pixelRatio: pixelRatio,
                 width: canvasWidth,
                 height: canvasHeight,
                 backgroundColor: '#fafaf9',
+                quality: 0.92,
                 filter: (node: HTMLElement) => {
                     const cls = node.className?.toString?.() || '';
                     if (cls.includes('react-flow__controls')) return false;
@@ -658,7 +674,18 @@ function FamilyTreeInner({
                     if (cls.includes('react-flow__background')) return false;
                     return true;
                 },
-            });
+            };
+
+            let dataUrl: string;
+            try {
+                dataUrl = await toJpeg(rfViewport, captureOptions);
+            } catch (captureErr) {
+                // Fallback: retry at half resolution if JPEG capture fails
+                console.warn('PDF: First capture failed, retrying at lower resolution...', captureErr);
+                toast('⏳ Mengoptimalkan resolusi...', { duration: 2000 });
+                captureOptions.pixelRatio = Math.max(1, pixelRatio * 0.5);
+                dataUrl = await toJpeg(rfViewport, captureOptions);
+            }
 
             // Restore container immediately
             overlays.forEach(el => el.style.display = '');
@@ -731,7 +758,7 @@ function FamilyTreeInner({
             pdf.text(familyName, pageW / 2, 10 * s, { align: 'center' });
 
             // Tree image — full resolution on single page
-            pdf.addImage(dataUrl, 'PNG', xOff, yOff, finalW, finalH);
+            pdf.addImage(dataUrl, 'JPEG', xOff, yOff, finalW, finalH, undefined, 'MEDIUM');
 
             // Add Legend (if available) - Bottom Left, scaled by paper size
             if (legendRef.current) {

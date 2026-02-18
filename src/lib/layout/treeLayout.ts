@@ -345,9 +345,11 @@ export function calculateTreeLayout(
     // below ALL their ancestors, even in cross-lineage marriages.
     // Also uses a layout-specific generation that only follows parent→child edges
     // (not spouse traversal) to prevent cross-lineage flattening.
+    // Build layout-specific generation map: parent→child only (no spouse traversal)
+    // Hoisted out of block scope so Y-validation (step 6.77) can reference it later.
+    const layoutGen = new Map<string, number>();
     {
-        // Build layout-specific generation map: parent→child only (no spouse traversal)
-        const layoutGen = new Map<string, number>();
+        // layoutGen populated below
 
         // Find all roots (persons with no parents in the visible set)
         const layoutRoots: string[] = [];
@@ -776,22 +778,24 @@ export function calculateTreeLayout(
         });
     });
 
-    // --- 6.7. PARENT CENTERING PASS (bottom-up, gradient approach) ---
-    // Center each parent cluster above the median of its children.
-    // CRITICAL FIX: Instead of binary can/can't move, use gradient approach:
-    // find the maximum allowed move toward desired position bounded by neighbors.
-    // This ensures parents ALWAYS make progress toward centering.
-    const centeringPasses = 8;
-    for (let cp = 0; cp < centeringPasses; cp++) {
-        const processedForCentering = new Set<string>();
+    // --- 6.7. BIDIRECTIONAL CENTERING LOOP (alternating parent↔child) ---
+    // Merges parent centering, child pull, and collision cleanup into a
+    // single alternating loop. This prevents the previous issue where
+    // sequential passes would fight each other — parent centers, then
+    // child pull breaks it, then collision cleanup shifts everything.
+    // By alternating in each round, all three goals converge together.
 
-        // Build parent→children map for clusters
-        const parentChildClusters = new Map<string, string[]>();
+    // Pre-compute parent→children cluster map (stable across rounds)
+    const parentChildClusters = new Map<string, string[]>();
+    // Also build child→parent map for reverse lookup
+    const childParentClusters = new Map<string, string[]>();
+    {
+        const processedForMap = new Set<string>();
         visiblePersons.forEach(person => {
             const parentClusterId = personToCluster.get(person.personId);
             if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
-            if (processedForCentering.has(parentClusterId)) return;
-            processedForCentering.add(parentClusterId);
+            if (processedForMap.has(parentClusterId)) return;
+            processedForMap.add(parentClusterId);
 
             const parentCluster = clusters.get(parentClusterId);
             if (!parentCluster) return;
@@ -809,28 +813,94 @@ export function calculateTreeLayout(
 
             if (childClusterIds.length > 0) {
                 parentChildClusters.set(parentClusterId, childClusterIds);
+                // Build reverse map
+                for (const ccid of childClusterIds) {
+                    if (!childParentClusters.has(ccid)) childParentClusters.set(ccid, []);
+                    childParentClusters.get(ccid)!.push(parentClusterId);
+                }
             }
         });
+    }
 
-        // Sort parent clusters by depth (deepest children first = bottom-up)
-        const clusterDepths = new Map<string, number>();
-        const getClusterDepth = (cid: string, visited: Set<string> = new Set()): number => {
-            if (visited.has(cid)) return 0;
-            visited.add(cid);
-            if (clusterDepths.has(cid)) return clusterDepths.get(cid)!;
-            const children = parentChildClusters.get(cid) ?? [];
-            const depth = children.length > 0 ? 1 + Math.max(...children.map(c => getClusterDepth(c, visited))) : 0;
-            clusterDepths.set(cid, depth);
-            return depth;
-        };
-        for (const cid of parentChildClusters.keys()) {
-            getClusterDepth(cid);
+    // Pre-compute cluster depth ordering (leaf parents first → root)
+    const clusterDepths = new Map<string, number>();
+    const getClusterDepth = (cid: string, visited: Set<string> = new Set()): number => {
+        if (visited.has(cid)) return 0;
+        visited.add(cid);
+        if (clusterDepths.has(cid)) return clusterDepths.get(cid)!;
+        const children = parentChildClusters.get(cid) ?? [];
+        const depth = children.length > 0 ? 1 + Math.max(...children.map(c => getClusterDepth(c, visited))) : 0;
+        clusterDepths.set(cid, depth);
+        return depth;
+    };
+    for (const cid of parentChildClusters.keys()) {
+        getClusterDepth(cid);
+    }
+
+    const sortedParents = [...parentChildClusters.entries()]
+        .sort(([a], [b]) => (clusterDepths.get(a) ?? 0) - (clusterDepths.get(b) ?? 0));
+
+    // Helper: find left/right bounds for a cluster on its row
+    const findRowBounds = (targetCid: string, targetPos: { x: number; y: number }, halfW: number) => {
+        const targetY = Math.round(targetPos.y / 10) * 10;
+        let leftBound = -Infinity;
+        let rightBound = Infinity;
+
+        for (const [cid, pos] of clusterPositions) {
+            if (cid === targetCid) continue;
+            if (Math.round(pos.y / 10) * 10 !== targetY) continue;
+            const neighborData = clusters.get(cid);
+            if (!neighborData) continue;
+            const neighborHalfW = neighborData.w / 2;
+
+            if (pos.x < targetPos.x) {
+                leftBound = Math.max(leftBound, pos.x + neighborHalfW + MIN_GAP + halfW);
+            } else {
+                rightBound = Math.min(rightBound, pos.x - neighborHalfW - MIN_GAP - halfW);
+            }
         }
+        return { leftBound, rightBound };
+    };
 
-        // Process from shallowest depth to deepest (leaf parents first, then up)
-        const sortedParents = [...parentChildClusters.entries()]
-            .sort(([a], [b]) => (clusterDepths.get(a) ?? 0) - (clusterDepths.get(b) ?? 0));
+    // Helper: per-row collision cleanup
+    const cleanupCollisions = () => {
+        for (let pass = 0; pass < 3; pass++) {
+            let hadOverlap = false;
+            const byRank = new Map<number, string[]>();
+            for (const [id, pos] of clusterPositions) {
+                const ry = Math.round(pos.y / 10) * 10;
+                if (!byRank.has(ry)) byRank.set(ry, []);
+                byRank.get(ry)!.push(id);
+            }
+            for (const [, ids] of byRank) {
+                if (ids.length < 2) continue;
+                ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+                for (let i = 0; i < ids.length - 1; i++) {
+                    const posA = clusterPositions.get(ids[i]);
+                    const posB = clusterPositions.get(ids[i + 1]);
+                    const cA = clusters.get(ids[i]);
+                    const cB = clusters.get(ids[i + 1]);
+                    if (!posA || !posB || !cA || !cB) continue;
+                    const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
+                    if (overlap > 0) {
+                        hadOverlap = true;
+                        posA.x -= overlap / 2;
+                        posB.x += overlap / 2;
+                    }
+                }
+            }
+            if (!hadOverlap) break;
+        }
+    };
 
+    // ═══ MAIN ALTERNATING LOOP: 6 rounds ═══
+    const BIDIRECTIONAL_ROUNDS = 6;
+    for (let round = 0; round < BIDIRECTIONAL_ROUNDS; round++) {
+        // Damping decreases each round for finer convergence
+        const parentDamping = 0.8 - round * 0.05;   // 0.80 → 0.55
+        const childDamping = 0.65 - round * 0.04;    // 0.65 → 0.45
+
+        // ─── Pass A: Center parents above children (bottom-up) ───
         for (const [parentCid, childCids] of sortedParents) {
             const parentPos = clusterPositions.get(parentCid);
             if (!parentPos) continue;
@@ -839,9 +909,7 @@ export function calculateTreeLayout(
             const childXPositions: number[] = [];
             for (const childCid of childCids) {
                 const childPos = clusterPositions.get(childCid);
-                if (childPos) {
-                    childXPositions.push(childPos.x);
-                }
+                if (childPos) childXPositions.push(childPos.x);
             }
             if (childXPositions.length === 0) continue;
 
@@ -851,133 +919,123 @@ export function calculateTreeLayout(
                 ? (childXPositions[midIdx - 1] + childXPositions[midIdx]) / 2
                 : childXPositions[midIdx];
 
-            // GRADIENT APPROACH: Find max allowed move toward desired X
             const parentCluster = clusters.get(parentCid);
             if (!parentCluster) continue;
             const halfW = parentCluster.w / 2;
 
-            // Collect same-row neighbors
-            const parentY = Math.round(parentPos.y / 10) * 10;
-            let leftBound = -Infinity;  // leftmost allowed X
-            let rightBound = Infinity;  // rightmost allowed X
-
-            for (const [cid, pos] of clusterPositions) {
-                if (cid === parentCid) continue;
-                if (Math.round(pos.y / 10) * 10 !== parentY) continue;
-                const neighborData = clusters.get(cid);
-                if (!neighborData) continue;
-                const neighborHalfW = neighborData.w / 2;
-
-                if (pos.x < parentPos.x) {
-                    // Left neighbor: our left edge must be > neighbor's right edge + gap
-                    const minAllowedX = pos.x + neighborHalfW + MIN_GAP + halfW;
-                    leftBound = Math.max(leftBound, minAllowedX);
-                } else {
-                    // Right neighbor: our right edge must be < neighbor's left edge - gap
-                    const maxAllowedX = pos.x - neighborHalfW - MIN_GAP - halfW;
-                    rightBound = Math.min(rightBound, maxAllowedX);
-                }
-            }
-
-            // Clamp desired X to allowed range
+            const { leftBound, rightBound } = findRowBounds(parentCid, parentPos, halfW);
             const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
 
-            // Move toward clamped position (with damping to avoid oscillation)
             const moveX = clampedX - parentPos.x;
             if (Math.abs(moveX) > 1) {
-                parentPos.x += moveX * 0.7;  // 70% damping for convergence
+                parentPos.x += moveX * parentDamping;
                 clusterPositions.set(parentCid, parentPos);
             }
         }
-    }
 
-    // --- 6.75. CHILD-TOWARD-PARENT PULL (gradient approach) ---
-    // Pull children closer to their parent's X position to reduce long diagonal edges.
-    // Uses same gradient approach as parent centering — finds allowed range and moves within it.
-    {
+        // ─── Pass B: Pull children toward parents (top-down) ───
         const processedChildren = new Set<string>();
-        visiblePersons.forEach(person => {
-            const parentClusterId = personToCluster.get(person.personId);
-            if (!parentClusterId || !clustersInGraph.has(parentClusterId)) return;
+        for (const [parentCid, childCids] of sortedParents) {
+            const parentPos = clusterPositions.get(parentCid);
+            if (!parentPos) continue;
 
-            const parentCluster = clusters.get(parentClusterId);
-            const parentPos = clusterPositions.get(parentClusterId);
-            if (!parentCluster || !parentPos) return;
+            for (const childCid of childCids) {
+                if (processedChildren.has(childCid)) continue;
+                processedChildren.add(childCid);
 
-            parentCluster.members.forEach(member => {
-                member.relationships.childIds.forEach(childId => {
-                    if (!visibleIds.has(childId)) return;
-                    const childClusterId = personToCluster.get(childId);
-                    if (!childClusterId || !clustersInGraph.has(childClusterId)) return;
-                    if (processedChildren.has(childClusterId)) return;
-                    processedChildren.add(childClusterId);
+                const childPos = clusterPositions.get(childCid);
+                const childData = clusters.get(childCid);
+                if (!childPos || !childData) continue;
 
-                    const childPos = clusterPositions.get(childClusterId);
-                    const childData = clusters.get(childClusterId);
-                    if (!childPos || !childData) return;
+                // Pull toward parent X — strength 50%
+                const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.5;
+                const halfW = childData.w / 2;
 
-                    // Pull 50% toward parent X (no threshold — always try)
-                    const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.5;
+                const { leftBound, rightBound } = findRowBounds(childCid, childPos, halfW);
+                const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
 
-                    // Gradient: find left/right bounds from same-row neighbors
-                    const childY = Math.round(childPos.y / 10) * 10;
-                    const halfW = childData.w / 2;
-                    let leftBound = -Infinity;
-                    let rightBound = Infinity;
-
-                    for (const [nId, nPos] of clusterPositions) {
-                        if (nId === childClusterId) continue;
-                        if (Math.round(nPos.y / 10) * 10 !== childY) continue;
-                        const nData = clusters.get(nId);
-                        if (!nData) continue;
-                        const nHalfW = nData.w / 2;
-
-                        if (nPos.x < childPos.x) {
-                            leftBound = Math.max(leftBound, nPos.x + nHalfW + MIN_GAP + halfW);
-                        } else {
-                            rightBound = Math.min(rightBound, nPos.x - nHalfW - MIN_GAP - halfW);
-                        }
-                    }
-
-                    const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
-                    const moveX = clampedX - childPos.x;
-                    if (Math.abs(moveX) > 1) {
-                        childPos.x += moveX * 0.6; // 60% damping
-                        clusterPositions.set(childClusterId, childPos);
-                    }
-                });
-            });
-        });
-    }
-
-    // --- 6.76. FINAL COLLISION CLEANUP ---
-    // After centering and pulling, fix any new overlaps.
-    for (let pass = 0; pass < 5; pass++) {
-        let hadOverlap = false;
-        const byRank2 = new Map<number, string[]>();
-        for (const [id, pos] of clusterPositions) {
-            const ry = Math.round(pos.y / 10) * 10;
-            if (!byRank2.has(ry)) byRank2.set(ry, []);
-            byRank2.get(ry)!.push(id);
-        }
-        for (const [, ids] of byRank2) {
-            if (ids.length < 2) continue;
-            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
-            for (let i = 0; i < ids.length - 1; i++) {
-                const posA = clusterPositions.get(ids[i]);
-                const posB = clusterPositions.get(ids[i + 1]);
-                const cA = clusters.get(ids[i]);
-                const cB = clusters.get(ids[i + 1]);
-                if (!posA || !posB || !cA || !cB) continue;
-                const overlap = (posA.x + cA.w / 2 + MIN_GAP) - (posB.x - cB.w / 2);
-                if (overlap > 0) {
-                    hadOverlap = true;
-                    posA.x -= overlap / 2;
-                    posB.x += overlap / 2;
+                const moveX = clampedX - childPos.x;
+                if (Math.abs(moveX) > 1) {
+                    childPos.x += moveX * childDamping;
+                    clusterPositions.set(childCid, childPos);
                 }
             }
         }
-        if (!hadOverlap) break;
+
+        // ─── Pass C: Collision cleanup after each round ───
+        cleanupCollisions();
+    }
+
+    // --- 6.76. FINAL COLLISION CLEANUP ---
+    // One last cleanup pass after all centering rounds are done.
+    cleanupCollisions();
+
+    // --- 6.77. PARENT-CHILD Y-VALIDATION ---
+    // Safety net: ensure every parent is ABOVE its children (never inverted).
+    // Also detect and fix cases where parent-child vertical gap is excessive.
+    {
+        const maxGap = config.rankSep * 2.2; // Max ~2.2× normal rank separation
+        for (const [parentCid, childCids] of parentChildClusters) {
+            const parentPos = clusterPositions.get(parentCid);
+            if (!parentPos) continue;
+
+            for (const childCid of childCids) {
+                const childPos = clusterPositions.get(childCid);
+                if (!childPos) continue;
+
+                // FIX: Parent must be above child (lower Y = higher on screen)
+                if (parentPos.y >= childPos.y) {
+                    // Inversion detected — push child down by at least one rankSep
+                    childPos.y = parentPos.y + config.rankSep;
+                    clusterPositions.set(childCid, childPos);
+                }
+
+                // FIX: Prevent excessive vertical gaps
+                const gap = childPos.y - parentPos.y;
+                if (gap > maxGap) {
+                    // Pull child closer — reduce to 1.2× normal rankSep
+                    childPos.y = parentPos.y + config.rankSep * 1.2;
+                    clusterPositions.set(childCid, childPos);
+                }
+            }
+        }
+
+        // After Y-fixes, re-normalize same-generation clusters to same Y
+        const genYAfterFix = new Map<number, number[]>();
+        for (const [clusterId, pos] of clusterPositions) {
+            const clusterData = clusters.get(clusterId);
+            if (!clusterData) continue;
+            let maxGen = 0;
+            for (const member of clusterData.members) {
+                const gen = layoutGen.get(member.personId) ?? 0;
+                maxGen = Math.max(maxGen, gen);
+            }
+            if (maxGen > 0) {
+                if (!genYAfterFix.has(maxGen)) genYAfterFix.set(maxGen, []);
+                genYAfterFix.get(maxGen)!.push(pos.y);
+            }
+        }
+        // Set each generation to its median Y
+        const genYMedian = new Map<number, number>();
+        for (const [gen, ys] of genYAfterFix) {
+            ys.sort((a, b) => a - b);
+            const mid = Math.floor(ys.length / 2);
+            genYMedian.set(gen, ys.length % 2 === 0 ? (ys[mid - 1] + ys[mid]) / 2 : ys[mid]);
+        }
+        for (const [clusterId, pos] of clusterPositions) {
+            const clusterData = clusters.get(clusterId);
+            if (!clusterData) continue;
+            let maxGen = 0;
+            for (const member of clusterData.members) {
+                const gen = layoutGen.get(member.personId) ?? 0;
+                maxGen = Math.max(maxGen, gen);
+            }
+            const medY = genYMedian.get(maxGen);
+            if (medY !== undefined) {
+                pos.y = medY;
+                clusterPositions.set(clusterId, pos);
+            }
+        }
     }
 
     // --- 6.8. TITLE-BASED COLUMN SOFT-NUDGE ---
