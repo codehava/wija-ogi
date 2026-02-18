@@ -625,9 +625,9 @@ export function calculateTreeLayout(
 
                 if (maxOverlap > 0) {
                     hadShift = true;
-                    // Shift right subtree rightward, left subtree leftward (50/50 split)
-                    shiftSubtree(leftChild, -maxOverlap * 0.3);
-                    shiftSubtree(rightChild, maxOverlap * 0.7);
+                    // Symmetric 50/50 split — prevents rightward drift
+                    shiftSubtree(leftChild, -maxOverlap * 0.5);
+                    shiftSubtree(rightChild, maxOverlap * 0.5);
                 }
             }
         }
@@ -652,8 +652,8 @@ export function calculateTreeLayout(
 
                 if (maxOverlap > 0) {
                     hadShift = true;
-                    shiftSubtree(leftRoot, -maxOverlap * 0.3);
-                    shiftSubtree(rightRoot, maxOverlap * 0.7);
+                    shiftSubtree(leftRoot, -maxOverlap * 0.5);
+                    shiftSubtree(rightRoot, maxOverlap * 0.5);
                 }
             }
         }
@@ -776,10 +776,12 @@ export function calculateTreeLayout(
         });
     });
 
-    // --- 6.7. PARENT CENTERING PASS (bottom-up) ---
-    // Center each parent cluster above the midpoint of its children for pyramid look.
-    // Process from deepest generation upward so adjustments cascade.
-    const centeringPasses = 5;
+    // --- 6.7. PARENT CENTERING PASS (bottom-up, gradient approach) ---
+    // Center each parent cluster above the median of its children.
+    // CRITICAL FIX: Instead of binary can/can't move, use gradient approach:
+    // find the maximum allowed move toward desired position bounded by neighbors.
+    // This ensures parents ALWAYS make progress toward centering.
+    const centeringPasses = 8;
     for (let cp = 0; cp < centeringPasses; cp++) {
         const processedForCentering = new Set<string>();
 
@@ -833,7 +835,7 @@ export function calculateTreeLayout(
             const parentPos = clusterPositions.get(parentCid);
             if (!parentPos) continue;
 
-            // Compute MEDIAN X of children (more resistant to outliers than mean)
+            // Compute MEDIAN X of children
             const childXPositions: number[] = [];
             for (const childCid of childCids) {
                 const childPos = clusterPositions.get(childCid);
@@ -844,50 +846,54 @@ export function calculateTreeLayout(
             if (childXPositions.length === 0) continue;
 
             childXPositions.sort((a, b) => a - b);
-            const mid = Math.floor(childXPositions.length / 2);
-            const childrenCenterX = childXPositions.length % 2 === 0
-                ? (childXPositions[mid - 1] + childXPositions[mid]) / 2
-                : childXPositions[mid];
-            const desiredX = childrenCenterX;
+            const midIdx = Math.floor(childXPositions.length / 2);
+            const desiredX = childXPositions.length % 2 === 0
+                ? (childXPositions[midIdx - 1] + childXPositions[midIdx]) / 2
+                : childXPositions[midIdx];
 
-            // Only move if it doesn't cause collisions with same-rank neighbors
-            const parentY = Math.round(parentPos.y / 10) * 10;
-            const sameRank: string[] = [];
-            for (const [cid, pos] of clusterPositions) {
-                if (cid !== parentCid && Math.round(pos.y / 10) * 10 === parentY) {
-                    sameRank.push(cid);
-                }
-            }
-
-            // Check if desired position would overlap with neighbors
+            // GRADIENT APPROACH: Find max allowed move toward desired X
             const parentCluster = clusters.get(parentCid);
             if (!parentCluster) continue;
             const halfW = parentCluster.w / 2;
-            let canMove = true;
 
-            for (const neighborCid of sameRank) {
-                const neighborPos = clusterPositions.get(neighborCid);
-                const neighborCluster = clusters.get(neighborCid);
-                if (!neighborPos || !neighborCluster) continue;
+            // Collect same-row neighbors
+            const parentY = Math.round(parentPos.y / 10) * 10;
+            let leftBound = -Infinity;  // leftmost allowed X
+            let rightBound = Infinity;  // rightmost allowed X
 
-                const neighborHalfW = neighborCluster.w / 2;
-                const distance = Math.abs(desiredX - neighborPos.x);
-                if (distance < halfW + neighborHalfW + MIN_GAP) {
-                    canMove = false;
-                    break;
+            for (const [cid, pos] of clusterPositions) {
+                if (cid === parentCid) continue;
+                if (Math.round(pos.y / 10) * 10 !== parentY) continue;
+                const neighborData = clusters.get(cid);
+                if (!neighborData) continue;
+                const neighborHalfW = neighborData.w / 2;
+
+                if (pos.x < parentPos.x) {
+                    // Left neighbor: our left edge must be > neighbor's right edge + gap
+                    const minAllowedX = pos.x + neighborHalfW + MIN_GAP + halfW;
+                    leftBound = Math.max(leftBound, minAllowedX);
+                } else {
+                    // Right neighbor: our right edge must be < neighbor's left edge - gap
+                    const maxAllowedX = pos.x - neighborHalfW - MIN_GAP - halfW;
+                    rightBound = Math.min(rightBound, maxAllowedX);
                 }
             }
 
-            if (canMove) {
-                parentPos.x = desiredX;
+            // Clamp desired X to allowed range
+            const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
+
+            // Move toward clamped position (with damping to avoid oscillation)
+            const moveX = clampedX - parentPos.x;
+            if (Math.abs(moveX) > 1) {
+                parentPos.x += moveX * 0.7;  // 70% damping for convergence
                 clusterPositions.set(parentCid, parentPos);
             }
         }
     }
 
-    // --- 6.75. CHILD-TOWARD-PARENT PULL ---
+    // --- 6.75. CHILD-TOWARD-PARENT PULL (gradient approach) ---
     // Pull children closer to their parent's X position to reduce long diagonal edges.
-    // This is the reverse of parent centering — works together for bidirectional alignment.
+    // Uses same gradient approach as parent centering — finds allowed range and moves within it.
     {
         const processedChildren = new Set<string>();
         visiblePersons.forEach(person => {
@@ -910,31 +916,33 @@ export function calculateTreeLayout(
                     const childData = clusters.get(childClusterId);
                     if (!childPos || !childData) return;
 
-                    // Only pull if horizontal distance is large (>200px)
-                    const hDist = Math.abs(childPos.x - parentPos.x);
-                    if (hDist < 200) return;
+                    // Pull 50% toward parent X (no threshold — always try)
+                    const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.5;
 
-                    // Pull 30% toward parent X
-                    const desiredX = childPos.x + (parentPos.x - childPos.x) * 0.3;
-
-                    // Collision check within same row
+                    // Gradient: find left/right bounds from same-row neighbors
                     const childY = Math.round(childPos.y / 10) * 10;
                     const halfW = childData.w / 2;
-                    let canMove = true;
+                    let leftBound = -Infinity;
+                    let rightBound = Infinity;
 
                     for (const [nId, nPos] of clusterPositions) {
                         if (nId === childClusterId) continue;
                         if (Math.round(nPos.y / 10) * 10 !== childY) continue;
                         const nData = clusters.get(nId);
                         if (!nData) continue;
-                        if (Math.abs(desiredX - nPos.x) < halfW + nData.w / 2 + MIN_GAP) {
-                            canMove = false;
-                            break;
+                        const nHalfW = nData.w / 2;
+
+                        if (nPos.x < childPos.x) {
+                            leftBound = Math.max(leftBound, nPos.x + nHalfW + MIN_GAP + halfW);
+                        } else {
+                            rightBound = Math.min(rightBound, nPos.x - nHalfW - MIN_GAP - halfW);
                         }
                     }
 
-                    if (canMove) {
-                        childPos.x = desiredX;
+                    const clampedX = Math.max(leftBound, Math.min(rightBound, desiredX));
+                    const moveX = clampedX - childPos.x;
+                    if (Math.abs(moveX) > 1) {
+                        childPos.x += moveX * 0.6; // 60% damping
                         clusterPositions.set(childClusterId, childPos);
                     }
                 });
