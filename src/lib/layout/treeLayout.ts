@@ -524,13 +524,22 @@ export function calculateTreeLayout(
     }
 
     // 6b. Compute subtree members (all descendants) for each cluster
+    // CRITICAL: Only follow children whose PRIMARY parent is the current node.
+    // Without this, cross-lineage marriage children appear in multiple subtrees
+    // and get shifted multiple times per pass, flying off-screen.
     const getSubtreeMembers = (rootCid: string): string[] => {
         const members: string[] = [rootCid];
         const stack = [rootCid];
+        const visited = new Set<string>([rootCid]);
         while (stack.length > 0) {
             const cid = stack.pop()!;
             const children = clusterChildren.get(cid) ?? [];
             for (const child of children) {
+                // Only include if this is the child's PRIMARY parent
+                // (prevents double-membership in cross-lineage trees)
+                if (clusterParent.get(child) !== cid) continue;
+                if (visited.has(child)) continue;
+                visited.add(child);
                 members.push(child);
                 stack.push(child);
             }
