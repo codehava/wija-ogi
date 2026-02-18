@@ -70,14 +70,42 @@ export function calculateSimplePosition(
     };
 }
 
-// Standardized layout spacing
+// ═══════════════════════════════════════════════════════════════════════════════
+// LAYOUT SPACING RULES (logic reference)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// L1: rankSep    — Vertical gap between generation rows
+//                  Controls how far parents are above children.
+//                  Too large = tree looks sparse vertically
+//                  Too small = generations overlap
+//
+// L2: nodeSep    — Horizontal gap between sibling clusters (same row)
+//                  This is the spacing between two sibling families.
+//                  Also used as base for TREE_GAP (cross-lineage trees).
+//
+// L3: spouseGap  — Gap between husband and wife nodes within one cluster
+//                  Should be small to keep couples visually united.
+//
+// L4: margin     — Canvas edge padding (top/left)
+//
+// L5: minGap     — Minimum gap enforced during overlap resolution
+//                  Safety buffer so nodes never touch/overlap.
+//
+// L6: orphanGap  — Vertical gap between main tree and orphan section
+//
+// L7: TREE_GAP   — Horizontal gap between cross-lineage related trees
+//                  = nodeSep * 1.5 (related families stay close)
+//
+// L8: GROUP_GAP  — Horizontal gap between completely unrelated tree groups
+//                  = orphanGap (separated clearly from each other)
+//
 const LAYOUT_CONFIG = {
-    rankSep: 180,     // Vertical gap between generations
-    nodeSep: 50,      // Horizontal gap between sibling clusters
-    spouseGap: 30,    // Gap between spouses in a cluster
-    margin: 50,       // Canvas margin
-    minGap: 25,       // Minimum gap for collision resolution
-    orphanGap: 150,   // Gap before orphan section
+    rankSep: 120,     // L1: vertical gap between generations
+    nodeSep: 35,      // L2: horizontal gap between sibling clusters
+    spouseGap: 20,    // L3: gap between spouses in a cluster
+    margin: 30,       // L4: canvas margin
+    minGap: 15,       // L5: minimum gap for collision resolution
+    orphanGap: 80,    // L6: gap before orphan section
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -537,8 +565,8 @@ export function calculateTreeLayout(
 
     // Layout each group — related trees close, unrelated trees far
     let globalX = 0;
-    const GROUP_GAP = config.orphanGap;
-    const TREE_GAP = config.nodeSep * 2;
+    const GROUP_GAP = config.orphanGap;              // L8: unrelated tree groups
+    const TREE_GAP = Math.round(config.nodeSep * 1.5); // L7: cross-lineage trees
 
     for (const group of rootGroups) {
         let groupX = globalX;
