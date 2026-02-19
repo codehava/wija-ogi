@@ -101,7 +101,7 @@ export function calculateSimplePosition(
 //
 const LAYOUT_CONFIG = {
     rankSep: 120,     // L1: vertical gap between generations
-    nodeSep: 35,      // L2: horizontal gap between sibling clusters
+    nodeSep: 20,      // L2: horizontal gap between sibling clusters
     spouseGap: 20,    // L3: gap between spouses in a cluster
     margin: 30,       // L4: canvas margin
     minGap: 15,       // L5: minimum gap for collision resolution
@@ -565,8 +565,8 @@ export function calculateTreeLayout(
 
     // Layout each group — related trees close, unrelated trees far
     let globalX = 0;
-    const GROUP_GAP = config.orphanGap;              // L8: unrelated tree groups
-    const TREE_GAP = Math.round(config.nodeSep * 1.5); // L7: cross-lineage trees
+    const GROUP_GAP = config.nodeSep * 3;              // L8: unrelated tree groups (60px)
+    const TREE_GAP = Math.round(config.nodeSep * 1.2); // L7: cross-lineage trees (24px)
 
     for (const group of rootGroups) {
         let groupX = globalX;
