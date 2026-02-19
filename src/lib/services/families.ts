@@ -50,10 +50,13 @@ export async function createFamily(
     input: CreateFamilyInput,
     userId: string
 ): Promise<Family> {
-    const slug = input.name
+    const baseSlug = input.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
+    // Append random suffix to ensure uniqueness
+    const suffix = Math.random().toString(36).substring(2, 7);
+    const slug = `${baseSlug}-${suffix}`;
 
     const [row] = await db
         .insert(trees)

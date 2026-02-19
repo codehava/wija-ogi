@@ -19,7 +19,7 @@ export interface EdgeSettings {
     spouseColor: string;          // E4: spouse edge color
     spouseWidth: number;          // E5: spouse stroke width
     edgeType: 'default' | 'straight' | 'step' | 'smoothstep'; // E6: edge curve type
-    connectorStyle: 'individual' | 'fork' | 'elbow'; // E7: family connector style
+    connectorStyle: 'individual' | 'fork' | 'elbow' | 'busbar'; // E7: family connector style
     edgeBundling: boolean;        // E8: edge bundling
 }
 
@@ -80,6 +80,7 @@ const SPACING_SETTINGS: SliderSetting[] = [
     { key: 'orphanGap', label: 'Orphan section gap', code: 'L6', min: 20, max: 200, step: 10, unit: 'px' },
     { key: 'treeGapMultiplier', label: 'Cross-lineage tree gap', code: 'L7', min: 0.5, max: 5, step: 0.1, unit: '×' },
     { key: 'groupGapMultiplier', label: 'Unrelated group gap', code: 'L8', min: 1, max: 10, step: 0.5, unit: '×' },
+    { key: 'siblingStackThreshold', label: 'Sibling stack threshold', code: 'L9', min: 3, max: 20, step: 1, unit: '' },
 ];
 
 // Toggle rules (boolean)
@@ -139,6 +140,8 @@ const RULE_SETTINGS: RuleSetting[] = [
             { value: 'loose', label: 'Loose' },
         ],
     },
+    { type: 'toggle', key: 'siblingStacking', label: 'Sibling stacking', code: 'R14', description: 'Grid layout for large sibling sets' },
+    { type: 'toggle', key: 'groupPacking', label: 'Group packing', code: 'R15', description: 'Pack groups in rows instead of linear' },
 ];
 
 const EDGE_TYPES = [
@@ -152,6 +155,7 @@ const CONNECTOR_STYLES = [
     { value: 'individual', label: 'Individual' },
     { value: 'fork', label: 'Fork' },
     { value: 'elbow', label: 'Elbow' },
+    { value: 'busbar', label: 'Bus-bar' },
 ] as const;
 
 const COLOR_PRESETS = [
@@ -252,8 +256,8 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 py-2 text-xs font-medium transition-colors ${activeTab === tab.id
-                                ? 'text-blue-400 border-b-2 border-blue-400 bg-zinc-800/50'
-                                : 'text-zinc-400 hover:text-zinc-200'
+                            ? 'text-blue-400 border-b-2 border-blue-400 bg-zinc-800/50'
+                            : 'text-zinc-400 hover:text-zinc-200'
                             }`}
                     >
                         {tab.label}
@@ -278,7 +282,9 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                     <span className="text-xs font-mono text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
                                         {setting.unit === '×'
                                             ? `×${(config[setting.key] as number).toFixed(1)}`
-                                            : `${config[setting.key]}px`
+                                            : setting.unit === ''
+                                                ? `${config[setting.key]}`
+                                                : `${config[setting.key]}px`
                                         }
                                     </span>
                                 </div>
@@ -353,8 +359,8 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                         key={et.value}
                                         onClick={() => handleEdgeChange('edgeType', et.value as EdgeSettings['edgeType'])}
                                         className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${edgeSettings.edgeType === et.value
-                                                ? 'bg-blue-600 border-blue-500 text-white'
-                                                : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-500'
+                                            ? 'bg-blue-600 border-blue-500 text-white'
+                                            : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-500'
                                             }`}
                                     >
                                         {et.label}
@@ -368,14 +374,14 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                                 <span className="text-blue-400 font-mono mr-1">E7</span>Family Connector
                             </h3>
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="grid grid-cols-2 gap-1.5">
                                 {CONNECTOR_STYLES.map(cs => (
                                     <button
                                         key={cs.value}
                                         onClick={() => handleEdgeChange('connectorStyle', cs.value as EdgeSettings['connectorStyle'])}
                                         className={`px-2 py-1.5 text-xs rounded-lg border transition-colors ${edgeSettings.connectorStyle === cs.value
-                                                ? 'bg-blue-600 border-blue-500 text-white'
-                                                : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-500'
+                                            ? 'bg-blue-600 border-blue-500 text-white'
+                                            : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-500'
                                             }`}
                                     >
                                         {cs.label}

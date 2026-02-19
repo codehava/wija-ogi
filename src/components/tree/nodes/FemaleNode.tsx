@@ -27,12 +27,16 @@ interface FemaleNodeData {
     onPersonClick?: () => void;
     onHover?: (rect: DOMRect) => void;
     onHoverEnd?: () => void;
+    lodLevel?: number; // P3b: 0=shape only, 1=name, 2=full
+    isClone?: boolean;
+    cloneOf?: string;
 }
 
 function FemaleNodeComponent({ data }: NodeProps) {
     const d = data as unknown as FemaleNodeData;
     const shapeSize = d.shapeSize || 56;
     const hasTitle = !!d.person.title || !!d.person.reignTitle;
+    const lod = d.lodLevel ?? 2;
 
     return (
         <div
@@ -120,26 +124,28 @@ function FemaleNodeComponent({ data }: NodeProps) {
                 />
             </div>
 
-            {/* Text below shape — Lontara FIRST, then Latin */}
-            <div className="text-center w-full px-1" style={{ maxWidth: 140 }}>
-                {/* Reign Title badge */}
-                {d.person.reignTitle && (
-                    <div className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 mb-0.5 leading-tight">
-                        👑 {d.person.reignTitle}
-                    </div>
-                )}
-                {(d.scriptMode === 'lontara' || d.scriptMode === 'both') && d.lontaraFullName && (
-                    <div className="text-teal-700 font-lontara leading-tight text-[11px]">
-                        {d.lontaraFullName}
-                    </div>
-                )}
-                {(d.scriptMode === 'latin' || d.scriptMode === 'both') && (
-                    <div className={`font-medium leading-tight text-stone-700 ${d.displayName.length > 25 ? 'text-[10px]' : 'text-xs'
-                        }`}>
-                        {d.displayName}
-                    </div>
-                )}
-            </div>
+            {/* Text below shape — hidden at LOD 0, name-only at LOD 1, full at LOD 2 */}
+            {lod >= 1 && (
+                <div className="text-center w-full px-1" style={{ maxWidth: 140 }}>
+                    {/* Reign Title badge — only at full LOD */}
+                    {lod >= 2 && d.person.reignTitle && (
+                        <div className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 mb-0.5 leading-tight">
+                            👑 {d.person.reignTitle}
+                        </div>
+                    )}
+                    {lod >= 2 && (d.scriptMode === 'lontara' || d.scriptMode === 'both') && d.lontaraFullName && (
+                        <div className="text-teal-700 font-lontara leading-tight text-[11px]">
+                            {d.lontaraFullName}
+                        </div>
+                    )}
+                    {(d.scriptMode === 'latin' || d.scriptMode === 'both') && (
+                        <div className={`font-medium leading-tight text-stone-700 ${d.displayName.length > 25 ? 'text-[10px]' : 'text-xs'
+                            }`}>
+                            {d.displayName}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Handle: bottom */}
             <Handle

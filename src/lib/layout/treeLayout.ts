@@ -1,8 +1,15 @@
 import { Person, Relationship } from '@/types';
 
-interface NodePosition {
+export interface NodePosition {
     x: number;
     y: number;
+    isClone?: boolean;   // R11: this node is a clone ghost
+    cloneOf?: string;    // R11: original person ID this is a clone of
+}
+
+export interface LayoutResult {
+    positions: Map<string, NodePosition>;
+    clones: Map<string, string>;  // clonePersonId → originalPersonId
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -108,6 +115,7 @@ export interface LayoutConfig {
     orphanGap: number;  // L6
     treeGapMultiplier: number;  // L7
     groupGapMultiplier: number; // L8
+    siblingStackThreshold: number; // L9: max children before grid layout
 }
 
 export interface LayoutRules {
@@ -123,6 +131,8 @@ export interface LayoutRules {
     cycleBreaking: 'off' | 'clone' | 'crosslink'; // R11: pedigree collapse handling
     multiSpouseMode: 'default' | 'chronological' | 'childCount'; // R12: multi-spouse grouping
     generationAlignment: 'strict' | 'loose'; // R13: generation Y alignment mode
+    siblingStacking: boolean;       // R14: grid layout for large sibling sets
+    groupPacking: boolean;          // R15: bin-pack disconnected groups
 }
 
 export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
@@ -134,6 +144,7 @@ export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
     orphanGap: 80,    // L6: gap before orphan section
     treeGapMultiplier: 1.2,  // L7: multiplier for cross-lineage tree gap
     groupGapMultiplier: 3,   // L8: multiplier for unrelated group gap
+    siblingStackThreshold: 6,  // L9: grid layout threshold
 };
 
 export const DEFAULT_LAYOUT_RULES: LayoutRules = {
@@ -149,6 +160,8 @@ export const DEFAULT_LAYOUT_RULES: LayoutRules = {
     cycleBreaking: 'off',
     multiSpouseMode: 'chronological',
     generationAlignment: 'strict',
+    siblingStacking: true,
+    groupPacking: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -177,9 +190,10 @@ export function calculateTreeLayout(
     generationMap?: Map<string, number>,
     configOverride?: Partial<LayoutConfig>,
     rulesOverride?: Partial<LayoutRules>
-): Map<string, NodePosition> {
+): LayoutResult {
     const posMap = new Map<string, NodePosition>();
-    if (persons.length === 0) return posMap;
+    const cloneMap = new Map<string, string>();   // R11 clones
+    if (persons.length === 0) return { positions: posMap, clones: cloneMap };
 
     const personsMap = new Map(persons.map(p => [p.personId, p]));
     const config = { ...DEFAULT_LAYOUT_CONFIG, ...configOverride };
@@ -516,6 +530,86 @@ export function calculateTreeLayout(
             return ownWidth;
         }
 
+        // ─── R14: SIBLING STACKING (Grid Layout) ─────────────────────────
+        // When there are many children, arrange them in a multi-row grid
+        // instead of a single long horizontal row.
+        const useGrid = rules.siblingStacking &&
+            children.length > config.siblingStackThreshold;
+
+        if (useGrid) {
+            const cols = Math.ceil(Math.sqrt(children.length));
+            const rows = Math.ceil(children.length / cols);
+
+            // Layout each child subtree to determine its width
+            const childWidths: number[] = [];
+            for (const childCid of children) {
+                const cw = layoutSubtree(childCid, 0); // temporary x=0
+                childWidths.push(cw);
+            }
+
+            // Find the max width per column for uniform grid
+            const colWidths: number[] = new Array(cols).fill(0);
+            for (let i = 0; i < children.length; i++) {
+                const col = i % cols;
+                colWidths[col] = Math.max(colWidths[col], childWidths[i]);
+            }
+
+            // Total grid width = sum of column widths + gaps
+            const gridWidth = colWidths.reduce((s, w) => s + w, 0) +
+                (cols - 1) * config.nodeSep;
+
+            // Row height = rankSep (same as generation gap)
+            const rowHeight = config.rankSep * 0.65;
+
+            // Place each child in its grid cell
+            const childCenters: number[] = [];
+            for (let i = 0; i < children.length; i++) {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+
+                // Calculate column start X
+                let colX = x;
+                for (let c = 0; c < col; c++) {
+                    colX += colWidths[c] + config.nodeSep;
+                }
+
+                const childCid = children[i];
+                const childPos = clusterPositions.get(childCid);
+                if (childPos) {
+                    // Shift from temp position to actual grid cell
+                    const targetX = colX + colWidths[col] / 2;
+                    const deltaX = targetX - childPos.x;
+                    const deltaY = row * rowHeight;
+                    // Shift X
+                    shiftSubtree(childCid, deltaX);
+                    // Shift Y for extra rows
+                    if (deltaY !== 0) {
+                        shiftSubtreeY(childCid, deltaY);
+                    }
+                    childCenters.push(targetX);
+                }
+            }
+
+            const totalWidth = Math.max(ownWidth, gridWidth);
+            const gridMidpoint = x + gridWidth / 2;
+
+            if (ownWidth > gridWidth) {
+                const parentCenter = x + ownWidth / 2;
+                const shift = parentCenter - gridMidpoint;
+                for (const childCid of children) {
+                    shiftSubtree(childCid, shift);
+                }
+                clusterPositions.set(cid, { x: parentCenter, y });
+            } else if (rules.centerParent) {
+                clusterPositions.set(cid, { x: gridMidpoint, y });
+            } else {
+                clusterPositions.set(cid, { x: x + ownWidth / 2, y });
+            }
+
+            return totalWidth;
+        }
+
+        // ─── Default: Single-row layout (original Walker's) ──────────────
         // Recursively layout all children left-to-right
         let childX = x;
         const childCenters: number[] = [];
@@ -569,6 +663,20 @@ export function calculateTreeLayout(
         }
     };
 
+    // Shift a cluster and ALL its descendants by deltaY (for R14 grid stacking)
+    const shiftSubtreeY = (cid: string, deltaY: number) => {
+        const pos = clusterPositions.get(cid);
+        if (pos) {
+            pos.y += deltaY;
+        }
+        const ch = clusterChildren.get(cid);
+        if (ch) {
+            for (const childCid of ch) {
+                shiftSubtreeY(childCid, deltaY);
+            }
+        }
+    };
+
     // ═══════════════════════════════════════════════════════════════════════════
     // 6. LAYOUT ROOT TREES SIDE BY SIDE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -593,10 +701,13 @@ export function calculateTreeLayout(
     }
 
     // Find cross-lineage connections (spouses from different root trees)
+    // R11 Clone mode: Instead of connecting trees, clone the spouse into the receiving tree
     const rootConnections = new Map<string, Set<string>>();
     for (const rootCid of rootClusters) {
         rootConnections.set(rootCid, new Set());
     }
+
+    const clonedPairs = new Set<string>(); // track "personA|personB" pairs already cloned
 
     visiblePersons.forEach(person => {
         const cid = personToCluster.get(person.personId);
@@ -609,8 +720,58 @@ export function calculateTreeLayout(
             const spouseRoot = clusterToRoot.get(spouseCid);
 
             if (myRoot && spouseRoot && myRoot !== spouseRoot) {
-                rootConnections.get(myRoot)?.add(spouseRoot);
-                rootConnections.get(spouseRoot)?.add(myRoot);
+                // R11 Clone mode: create a ghost clone instead of connecting trees
+                if (rules.cycleBreaking === 'clone') {
+                    const pairKey = [person.personId, spouseId].sort().join('|');
+                    if (clonedPairs.has(pairKey)) return;
+                    clonedPairs.add(pairKey);
+
+                    // Clone the spouse into person's tree (the person who has children in this tree)
+                    const spouse = personsMap.get(spouseId);
+                    if (!spouse) return;
+
+                    const clonePersonId = `clone-${spouseId}-in-${cid}`;
+                    const cloneClusterId = `clone-cluster-${spouseId}-for-${cid}`;
+
+                    // Create a single-member clone cluster
+                    clusters.set(cloneClusterId, {
+                        members: [{ ...spouse, personId: clonePersonId }],
+                        w: NODE_WIDTH,
+                        h: NODE_HEIGHT
+                    });
+
+                    // Map clone to its cluster
+                    personToCluster.set(clonePersonId, cloneClusterId);
+                    clustersInGraph.add(cloneClusterId);
+
+                    // Make the clone cluster a child-less sibling attached to the same parent as `cid`
+                    const parentOfLocal = clusterParent.get(cid);
+                    if (parentOfLocal) {
+                        clusterParent.set(cloneClusterId, parentOfLocal);
+                        const siblings = clusterChildren.get(parentOfLocal);
+                        if (siblings) {
+                            // Insert clone right after the local cluster
+                            const localIdx = siblings.indexOf(cid);
+                            siblings.splice(localIdx + 1, 0, cloneClusterId);
+                        }
+                    }
+
+                    // Assign clone to same root tree
+                    clusterToRoot.set(cloneClusterId, myRoot);
+
+                    // Assign same generation as the local cluster
+                    const localGen = clusterGen.get(cid);
+                    if (localGen !== undefined) {
+                        clusterGen.set(cloneClusterId, localGen);
+                    }
+
+                    // Record in clone map for rendering
+                    cloneMap.set(clonePersonId, spouseId);
+                } else {
+                    // Default: connect root trees for grouping
+                    rootConnections.get(myRoot)?.add(spouseRoot);
+                    rootConnections.get(spouseRoot)?.add(myRoot);
+                }
             }
         });
     });
@@ -651,17 +812,87 @@ export function calculateTreeLayout(
     }
 
     // Layout each group — related trees close, unrelated trees far
-    let globalX = 0;
     const GROUP_GAP = Math.round(config.nodeSep * (config.groupGapMultiplier ?? 3));   // L8
     const TREE_GAP = Math.round(config.nodeSep * (config.treeGapMultiplier ?? 1.2));   // L7
 
-    for (const group of rootGroups) {
-        let groupX = globalX;
+    // First pass: layout each group to determine bounding boxes
+    interface GroupBBox { groupIdx: number; w: number; h: number; trees: string[]; }
+    const groupBoxes: GroupBBox[] = [];
+
+    for (let gi = 0; gi < rootGroups.length; gi++) {
+        const group = rootGroups[gi];
+        let groupX = 0;
         for (const rootCid of group) {
             const w = layoutSubtree(rootCid, groupX);
             groupX += w + TREE_GAP;
         }
-        globalX = groupX - TREE_GAP + GROUP_GAP;
+        const groupWidth = groupX - TREE_GAP;
+
+        // Calculate group height from cluster positions
+        let maxY = 0;
+        const computeMaxY = (cid: string) => {
+            const pos = clusterPositions.get(cid);
+            const cl = clusters.get(cid);
+            if (pos && cl) {
+                maxY = Math.max(maxY, pos.y + cl.h / 2);
+            }
+            const ch = clusterChildren.get(cid);
+            if (ch) ch.forEach(c => computeMaxY(c));
+        };
+        group.forEach(r => computeMaxY(r));
+
+        groupBoxes.push({ groupIdx: gi, w: groupWidth, h: maxY, trees: group });
+    }
+
+    // R15: Bin-pack groups into rows for balanced aspect ratio
+    if (rules.groupPacking && groupBoxes.length > 1) {
+        // Estimate target width: aim for roughly square/16:9 aspect ratio
+        const totalArea = groupBoxes.reduce((s, g) => s + g.w * Math.max(g.h, 200), 0);
+        const targetWidth = Math.max(
+            Math.sqrt(totalArea * (16 / 9)),
+            groupBoxes[0].w + GROUP_GAP  // at least fit the largest group
+        );
+
+        // Simple row-based packing
+        let curRowX = 0;
+        let curRowY = 0;
+        let curRowMaxH = 0;
+
+        for (const box of groupBoxes) {
+            // Would this group exceed the target width? Start new row
+            if (curRowX > 0 && curRowX + box.w > targetWidth) {
+                curRowY += curRowMaxH + GROUP_GAP;
+                curRowX = 0;
+                curRowMaxH = 0;
+            }
+
+            // Shift all clusters in this group to their packed position
+            // Currently they are at x=0..groupWidth, y based on generation
+            // We need to shift by (curRowX - 0, curRowY - 0)
+            const shiftX = curRowX;
+            const shiftY = curRowY;
+
+            for (const rootCid of box.trees) {
+                if (shiftX !== 0) shiftSubtree(rootCid, shiftX);
+                if (shiftY !== 0) shiftSubtreeY(rootCid, shiftY);
+            }
+
+            curRowX += box.w + GROUP_GAP;
+            curRowMaxH = Math.max(curRowMaxH, box.h);
+        }
+    } else {
+        // Original linear layout: place groups side by side
+        let globalXOffset = 0;
+        for (let gi = 0; gi < groupBoxes.length; gi++) {
+            const box = groupBoxes[gi];
+            // Groups are already laid out starting from x=0, shift them
+            if (globalXOffset !== 0) {
+                for (const rootCid of box.trees) {
+                    shiftSubtree(rootCid, globalXOffset);
+                }
+            }
+            globalXOffset += box.w + GROUP_GAP;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -767,9 +998,11 @@ export function calculateTreeLayout(
 
         data.members.forEach((member, index) => {
             const memberX = startX + (index * (NODE_WIDTH + config.spouseGap));
+            const originalId = cloneMap.get(member.personId);
             posMap.set(member.personId, {
                 x: memberX,
-                y: centerPos.y - (NODE_HEIGHT / 2)
+                y: centerPos.y - (NODE_HEIGHT / 2),
+                ...(originalId ? { isClone: true, cloneOf: originalId } : {})
             });
         });
     });
@@ -826,5 +1059,5 @@ export function calculateTreeLayout(
         }
     }
 
-    return posMap;
+    return { positions: posMap, clones: cloneMap };
 }

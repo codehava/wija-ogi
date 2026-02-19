@@ -32,7 +32,8 @@ import { TreeSearch } from './TreeSearch';
 import { MaleNode } from './nodes/MaleNode';
 import { FemaleNode } from './nodes/FemaleNode';
 import { JunctionNode } from './nodes/JunctionNode';
-import { calculateTreeLayout, calculateSimplePosition, ViewportInfo, LayoutConfig, LayoutRules } from '@/lib/layout/treeLayout';
+import { BusBarEdge } from './edges/BusBarEdge';
+import { calculateTreeLayout, calculateSimplePosition, ViewportInfo, LayoutConfig, LayoutRules, LayoutResult } from '@/lib/layout/treeLayout';
 import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
 import LayoutSettingsPanel, { EdgeSettings, DEFAULT_EDGE_SETTINGS } from './LayoutSettingsPanel';
 
@@ -69,6 +70,11 @@ const nodeTypes = {
     junction: JunctionNode,
 };
 
+// Custom edge types for React Flow
+const edgeTypes = {
+    busbar: BusBarEdge,
+};
+
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -102,11 +108,13 @@ function FamilyTreeInner({
     const [isExporting, setIsExporting] = useState(false);
     const [exportPaperSize, setExportPaperSize] = useState<'A4' | 'A3' | 'A2' | 'A1' | 'A0'>('A3');
     const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+    const [lodLevel, setLodLevel] = useState<number>(2); // P3b: 0=shape, 1=name, 2=full
 
     // Refs
-    const initialLayoutRef = useRef<Map<string, { x: number; y: number }> | null>(null);
+    const initialLayoutRef = useRef<LayoutResult | null>(null);
     const prevPersonCount = useRef(0);
     const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+    const clonesRef = useRef<Map<string, string>>(new Map());  // R11 clone mappings
     const layoutConfigRef = useRef<Partial<LayoutConfig>>({});
     const layoutRulesRef = useRef<Partial<LayoutRules>>({});
     const edgeSettingsRef = useRef<EdgeSettings>({ ...DEFAULT_EDGE_SETTINGS });
@@ -151,11 +159,12 @@ function FamilyTreeInner({
         if (initialLayoutRef.current) return initialLayoutRef.current;
         const hasArrangedPositions = persons.some(p => p.position?.fixed === true);
         if (hasArrangedPositions) {
-            initialLayoutRef.current = new Map();
+            initialLayoutRef.current = { positions: new Map(), clones: new Map() };
             return initialLayoutRef.current;
         }
         const genMap = calculateMultiRootGenerations(personsMap);
         initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships, genMap, layoutConfigRef.current, layoutRulesRef.current);
+        clonesRef.current = initialLayoutRef.current.clones;
         return initialLayoutRef.current;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -230,6 +239,7 @@ function FamilyTreeInner({
                     isHighlighted: currentHighlighted.has(person.personId),
                     isOnAncestryPath: currentAncestryPath.has(person.personId),
                     hasAncestryActive: currentAncestryPath.size > 0,
+                    lodLevel,
                     onHover: (rect: DOMRect) => {
                         setHoveredPerson({ person, x: rect.right + 8, y: rect.top });
                     },
@@ -237,6 +247,53 @@ function FamilyTreeInner({
                 },
             });
         });
+
+        // ── R11: Build clone ghost nodes ──
+        for (const [cloneId, originalId] of clonesRef.current) {
+            const pos = posMap.get(cloneId);
+            if (!pos) continue;
+            const original = personsMap.get(originalId);
+            if (!original) continue;
+
+            const displayName = [original.firstName, original.middleName, original.lastName]
+                .filter(Boolean).join(' ') || original.fullName || original.firstName || 'N/A';
+            const lontaraFullName = original.lontaraName
+                ? [original.lontaraName.first, original.lontaraName.middle, original.lontaraName.last].filter(Boolean).join(' ')
+                : '';
+
+            rfNodes.push({
+                id: cloneId,
+                type: original.gender === 'female' ? 'female' : 'male',
+                position: { x: pos.x, y: pos.y },
+                style: { opacity: 0.45, filter: 'grayscale(0.6)' },
+                data: {
+                    label: `${displayName} ⧉`,
+                    person: {
+                        personId: cloneId,
+                        firstName: original.firstName,
+                        fullName: original.fullName,
+                        gender: original.gender,
+                        photoUrl: original.photoUrl,
+                        lontaraName: original.lontaraName,
+                        biography: original.biography,
+                        title: original.title,
+                        reignTitle: original.reignTitle,
+                    },
+                    displayName: `${displayName} ⧉`,
+                    lontaraFullName,
+                    shapeSize: currentAdaptiveSizes.shapeSize,
+                    scriptMode: currentScriptMode,
+                    isSelected: false,
+                    isHighlighted: false,
+                    isOnAncestryPath: false,
+                    hasAncestryActive: false,
+                    isClone: true,
+                    cloneOf: originalId,
+                    onHover: () => { },
+                    onHoverEnd: () => { },
+                },
+            });
+        }
 
         // ── Build spouse edges + junction nodes ──
         // Single Bezier curve from husband to wife.
@@ -304,11 +361,13 @@ function FamilyTreeInner({
 
             // E7: Determine edge type based on connector style
             const connectorStyle = edgeSettingsRef.current.connectorStyle;
-            let parentChildEdgeType = edgeSettingsRef.current.edgeType;
-            if (connectorStyle === 'fork') {
-                parentChildEdgeType = 'step';        // Right-angle brackets (classic genealogy)
+            let parentChildEdgeType: string = edgeSettingsRef.current.edgeType;
+            if (connectorStyle === 'busbar') {
+                parentChildEdgeType = 'busbar';      // Orthogonal bus-bar (custom)
+            } else if (connectorStyle === 'fork') {
+                parentChildEdgeType = 'step';         // Right-angle brackets
             } else if (connectorStyle === 'elbow') {
-                parentChildEdgeType = 'smoothstep';  // Manhattan routing with rounded corners
+                parentChildEdgeType = 'smoothstep';   // Manhattan with rounded corners
             }
 
             const edgeStyle = {
@@ -350,6 +409,100 @@ function FamilyTreeInner({
             });
         });
 
+        // ── P3a: Edge Bundling (E8) ──
+        // When enabled, merge parent-child edges from same source that target
+        // children at similar X positions into fewer, thicker bundled edges.
+        if (edgeSettingsRef.current.edgeBundling) {
+            const bundleThreshold = 60; // px proximity for bundling
+            // Group edges by source node
+            const edgesBySource = new Map<string, Edge[]>();
+            const nonChildEdges: Edge[] = [];
+
+            for (const edge of rfEdges) {
+                if (edge.id.startsWith('child-')) {
+                    const group = edgesBySource.get(edge.source) ?? [];
+                    group.push(edge);
+                    edgesBySource.set(edge.source, group);
+                } else {
+                    nonChildEdges.push(edge);
+                }
+            }
+
+            const bundledEdges: Edge[] = [...nonChildEdges];
+
+            for (const [sourceId, edges] of edgesBySource) {
+                if (edges.length <= 2) {
+                    // Too few to bundle — keep as-is
+                    bundledEdges.push(...edges);
+                    continue;
+                }
+
+                // Sort by target X position
+                const withPos = edges.map(e => ({
+                    edge: e,
+                    targetX: posMap.get(e.target)?.x ?? 0,
+                })).sort((a, b) => a.targetX - b.targetX);
+
+                // Greedily merge nearby edges
+                let i = 0;
+                while (i < withPos.length) {
+                    const bundleStart = i;
+                    let bundleEndX = withPos[i].targetX;
+
+                    // Extend bundle while next child is within threshold
+                    while (i + 1 < withPos.length &&
+                        withPos[i + 1].targetX - bundleEndX < bundleThreshold) {
+                        i++;
+                        bundleEndX = withPos[i].targetX;
+                    }
+
+                    const bundleSize = i - bundleStart + 1;
+
+                    if (bundleSize >= 3) {
+                        // Create a single bundled edge to the median child
+                        const medianIdx = bundleStart + Math.floor(bundleSize / 2);
+                        const medianEdge = withPos[medianIdx].edge;
+
+                        bundledEdges.push({
+                            ...medianEdge,
+                            id: `bundle-${sourceId}-${bundleStart}`,
+                            style: {
+                                ...medianEdge.style,
+                                strokeWidth: Math.min(
+                                    (medianEdge.style?.strokeWidth as number ?? 1.8) + bundleSize * 0.3,
+                                    6
+                                ),
+                                opacity: 0.7,
+                            },
+                        });
+
+                        // Also add thin individual edges for non-median children
+                        for (let j = bundleStart; j <= i; j++) {
+                            if (j === medianIdx) continue;
+                            bundledEdges.push({
+                                ...withPos[j].edge,
+                                style: {
+                                    ...withPos[j].edge.style,
+                                    strokeWidth: 0.6,
+                                    opacity: 0.3,
+                                    strokeDasharray: '3,3',
+                                },
+                            });
+                        }
+                    } else {
+                        // Not enough to bundle
+                        for (let j = bundleStart; j <= i; j++) {
+                            bundledEdges.push(withPos[j].edge);
+                        }
+                    }
+                    i++;
+                }
+            }
+
+            rfEdges.length = 0;
+            rfEdges.push(...bundledEdges);
+        }
+
         return { rfNodes, rfEdges };
     }, [persons]);
 
@@ -373,7 +526,8 @@ function FamilyTreeInner({
                     }
                 });
             } else {
-                const dagrePositions = getInitialDagreLayout();
+                const layoutResult = getInitialDagreLayout();
+                const dagrePositions = layoutResult.positions;
                 persons.forEach(p => {
                     const pos = dagrePositions.get(p.personId);
                     if (pos) {
@@ -546,7 +700,9 @@ function FamilyTreeInner({
         setTimeout(async () => {
             try {
                 const genMap = calculateMultiRootGenerations(personsMap);
-                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships, genMap, layoutConfigRef.current, layoutRulesRef.current);
+                const layoutResult = calculateTreeLayout(persons, collapsedIds, relationships, genMap, layoutConfigRef.current, layoutRulesRef.current);
+                const newPositions = layoutResult.positions;
+                clonesRef.current = layoutResult.clones;
                 positionsRef.current = newPositions;
 
                 const { rfNodes, rfEdges } = buildNodesAndEdges(
@@ -985,7 +1141,14 @@ function FamilyTreeInner({
                 onNodeClick={handleNodeClick}
                 onNodeDragStop={handleNodeDragStop}
                 onPaneClick={handlePaneClick}
+                onMoveEnd={(_, viewport) => {
+                    // P3b: LOD — compute detail level from zoom
+                    const zoom = viewport.zoom;
+                    const newLod = zoom < 0.25 ? 0 : zoom < 0.5 ? 1 : 2;
+                    if (newLod !== lodLevel) setLodLevel(newLod);
+                }}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.15 }}
                 minZoom={0.05}
