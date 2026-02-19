@@ -99,13 +99,38 @@ export function calculateSimplePosition(
 // L8: GROUP_GAP  — Horizontal gap between completely unrelated tree groups
 //                  = orphanGap (separated clearly from each other)
 //
-const LAYOUT_CONFIG = {
+export interface LayoutConfig {
+    rankSep: number;    // L1
+    nodeSep: number;    // L2
+    spouseGap: number;  // L3
+    margin: number;     // L4
+    minGap: number;     // L5
+    orphanGap: number;  // L6
+}
+
+export interface LayoutRules {
+    sortByBirthDate: boolean;    // R3: sort children by birth date
+    centerParent: boolean;       // R4: center parent above children
+    crossLineageGrouping: boolean; // R7: group cross-lineage trees
+    overlapResolution: boolean;  // R6: per-row overlap fix
+    spouseOrdering: boolean;     // R2: husband-wife ordering rules
+}
+
+export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
     rankSep: 120,     // L1: vertical gap between generations
     nodeSep: 20,      // L2: horizontal gap between sibling clusters
     spouseGap: 20,    // L3: gap between spouses in a cluster
     margin: 30,       // L4: canvas margin
     minGap: 15,       // L5: minimum gap for collision resolution
     orphanGap: 80,    // L6: gap before orphan section
+};
+
+export const DEFAULT_LAYOUT_RULES: LayoutRules = {
+    sortByBirthDate: true,
+    centerParent: true,
+    crossLineageGrouping: true,
+    overlapResolution: true,
+    spouseOrdering: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -131,12 +156,16 @@ export function calculateTreeLayout(
     persons: Person[],
     collapsedIds: Set<string> = new Set(),
     relationships: Relationship[] = [],
-    generationMap?: Map<string, number>
+    generationMap?: Map<string, number>,
+    configOverride?: Partial<LayoutConfig>,
+    rulesOverride?: Partial<LayoutRules>
 ): Map<string, NodePosition> {
     const posMap = new Map<string, NodePosition>();
     if (persons.length === 0) return posMap;
 
     const personsMap = new Map(persons.map(p => [p.personId, p]));
+    const config = { ...DEFAULT_LAYOUT_CONFIG, ...configOverride };
+    const rules = { ...DEFAULT_LAYOUT_RULES, ...rulesOverride };
 
     // --- 1. Identify Visible Nodes ---
     const visibleIds = new Set<string>();
@@ -172,7 +201,6 @@ export function calculateTreeLayout(
     }
 
     const visiblePersons = persons.filter(p => visibleIds.has(p.personId));
-    const config = LAYOUT_CONFIG;
 
     // Pre-build relationship lookup map — O(1) instead of O(n) per lookup
     const relMap = new Map<string, Relationship>();
@@ -230,7 +258,7 @@ export function calculateTreeLayout(
         // - 1 wife: [Husband] - [Wife]
         // - 2 wives: [Wife 1] - [Husband] - [Wife 2] (centered)
         // - 3+ wives: [Husband] - [Wife 1] - [Wife 2] - ... (sequential)
-        if (wifeCount === 2 && husband) {
+        if (rules.spouseOrdering && wifeCount === 2 && husband) {
             wives.sort((a, b) => {
                 const orderA = getMarriageOrder(husband, a);
                 const orderB = getMarriageOrder(husband, b);
@@ -238,7 +266,7 @@ export function calculateTreeLayout(
             });
             members.length = 0;
             members.push(wives[0], husband, wives[1]);
-        } else {
+        } else if (rules.spouseOrdering) {
             members.sort((a, b) => {
                 if (a.gender === 'male' && b.gender !== 'male') return -1;
                 if (a.gender !== 'male' && b.gender === 'male') return 1;
@@ -261,6 +289,7 @@ export function calculateTreeLayout(
 
     // Sort children by birthDate or birthOrder (eldest first = left)
     const sortChildIds = (childIds: string[]): string[] => {
+        if (!rules.sortByBirthDate) return [...childIds]; // R3 disabled: no sorting
         return [...childIds].sort((a, b) => {
             const childA = personsMap.get(a);
             const childB = personsMap.get(b);
@@ -469,9 +498,12 @@ export function calculateTreeLayout(
                 shiftSubtree(childCid, shift);
             }
             clusterPositions.set(cid, { x: parentCenter, y });
-        } else {
+        } else if (rules.centerParent) {
             // Children wider: parent centers above children
             clusterPositions.set(cid, { x: childrenMidpoint, y });
+        } else {
+            // R4 disabled: parent at left edge of children
+            clusterPositions.set(cid, { x: x + ownWidth / 2, y });
         }
 
         return finalWidth;
@@ -537,27 +569,34 @@ export function calculateTreeLayout(
         });
     });
 
-    // BFS to group connected root trees
+    // BFS to group connected root trees (or skip if R7 disabled)
     const visitedRoots = new Set<string>();
     const rootGroups: string[][] = [];
 
-    for (const rootCid of rootClusters) {
-        if (visitedRoots.has(rootCid)) continue;
-        const group: string[] = [];
-        const bfs = [rootCid];
-        while (bfs.length > 0) {
-            const r = bfs.shift()!;
-            if (visitedRoots.has(r)) continue;
-            visitedRoots.add(r);
-            group.push(r);
-            const connected = rootConnections.get(r);
-            if (connected) {
-                for (const conn of connected) {
-                    if (!visitedRoots.has(conn)) bfs.push(conn);
+    if (rules.crossLineageGrouping) {
+        for (const rootCid of rootClusters) {
+            if (visitedRoots.has(rootCid)) continue;
+            const group: string[] = [];
+            const bfs = [rootCid];
+            while (bfs.length > 0) {
+                const r = bfs.shift()!;
+                if (visitedRoots.has(r)) continue;
+                visitedRoots.add(r);
+                group.push(r);
+                const connected = rootConnections.get(r);
+                if (connected) {
+                    for (const conn of connected) {
+                        if (!visitedRoots.has(conn)) bfs.push(conn);
+                    }
                 }
             }
+            rootGroups.push(group);
         }
-        rootGroups.push(group);
+    } else {
+        // R7 disabled: each root is its own group
+        for (const rootCid of rootClusters) {
+            rootGroups.push([rootCid]);
+        }
     }
 
     // Largest group first
@@ -582,7 +621,7 @@ export function calculateTreeLayout(
     // ═══════════════════════════════════════════════════════════════════════════
     // Walker's algorithm guarantees no overlap within a single root tree,
     // but cross-lineage clusters may cause overlaps between trees.
-    {
+    if (rules.overlapResolution) {
         const byRow = new Map<number, string[]>();
         for (const [cid, pos] of clusterPositions) {
             const ry = Math.round(pos.y / 10) * 10;

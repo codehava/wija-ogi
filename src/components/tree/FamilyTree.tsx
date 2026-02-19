@@ -32,8 +32,9 @@ import { TreeSearch } from './TreeSearch';
 import { MaleNode } from './nodes/MaleNode';
 import { FemaleNode } from './nodes/FemaleNode';
 import { JunctionNode } from './nodes/JunctionNode';
-import { calculateTreeLayout, calculateSimplePosition, ViewportInfo } from '@/lib/layout/treeLayout';
+import { calculateTreeLayout, calculateSimplePosition, ViewportInfo, LayoutConfig, LayoutRules } from '@/lib/layout/treeLayout';
 import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
+import LayoutSettingsPanel from './LayoutSettingsPanel';
 
 export interface FamilyTreeProps {
     persons: Person[];
@@ -106,6 +107,8 @@ function FamilyTreeInner({
     const initialLayoutRef = useRef<Map<string, { x: number; y: number }> | null>(null);
     const prevPersonCount = useRef(0);
     const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+    const layoutConfigRef = useRef<Partial<LayoutConfig>>({});
+    const layoutRulesRef = useRef<Partial<LayoutRules>>({});
 
     // Adaptive sizes
     const adaptiveSizes = useMemo(() => getAdaptiveSizes(persons.length), [persons.length]);
@@ -151,7 +154,7 @@ function FamilyTreeInner({
             return initialLayoutRef.current;
         }
         const genMap = calculateMultiRootGenerations(personsMap);
-        initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships, genMap);
+        initialLayoutRef.current = calculateTreeLayout(persons, collapsedIds, relationships, genMap, layoutConfigRef.current, layoutRulesRef.current);
         return initialLayoutRef.current;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -533,7 +536,7 @@ function FamilyTreeInner({
         setTimeout(async () => {
             try {
                 const genMap = calculateMultiRootGenerations(personsMap);
-                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships, genMap);
+                const newPositions = calculateTreeLayout(persons, collapsedIds, relationships, genMap, layoutConfigRef.current, layoutRulesRef.current);
                 positionsRef.current = newPositions;
 
                 const { rfNodes, rfEdges } = buildNodesAndEdges(
@@ -1060,6 +1063,17 @@ function FamilyTreeInner({
                     </div>
                 </div>
             </div>
+
+            {/* Layout Settings Panel */}
+            <LayoutSettingsPanel
+                onApply={(config, rules) => {
+                    layoutConfigRef.current = config;
+                    layoutRulesRef.current = rules;
+                    // Trigger re-layout
+                    initialLayoutRef.current = null;
+                    handleAutoArrange();
+                }}
+            />
 
         </div>
     );
