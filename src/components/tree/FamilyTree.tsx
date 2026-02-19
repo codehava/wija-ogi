@@ -34,7 +34,7 @@ import { FemaleNode } from './nodes/FemaleNode';
 import { JunctionNode } from './nodes/JunctionNode';
 import { calculateTreeLayout, calculateSimplePosition, ViewportInfo, LayoutConfig, LayoutRules } from '@/lib/layout/treeLayout';
 import { calculateMultiRootGenerations } from '@/lib/generation/calculator';
-import LayoutSettingsPanel from './LayoutSettingsPanel';
+import LayoutSettingsPanel, { EdgeSettings, DEFAULT_EDGE_SETTINGS } from './LayoutSettingsPanel';
 
 export interface FamilyTreeProps {
     persons: Person[];
@@ -109,6 +109,7 @@ function FamilyTreeInner({
     const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
     const layoutConfigRef = useRef<Partial<LayoutConfig>>({});
     const layoutRulesRef = useRef<Partial<LayoutRules>>({});
+    const edgeSettingsRef = useRef<EdgeSettings>({ ...DEFAULT_EDGE_SETTINGS });
 
     // Adaptive sizes
     const adaptiveSizes = useMemo(() => getAdaptiveSizes(persons.length), [persons.length]);
@@ -263,8 +264,8 @@ function FamilyTreeInner({
                     target: rightId,
                     sourceHandle: 'right',
                     targetHandle: 'left',
-                    type: 'default', // Bezier curve — one smooth unbroken line
-                    style: { stroke: '#dc2626', strokeWidth: 2 },
+                    type: edgeSettingsRef.current.edgeType,
+                    style: { stroke: edgeSettingsRef.current.spouseColor, strokeWidth: edgeSettingsRef.current.spouseWidth },
                 });
 
                 // Invisible junction node at midpoint (only for child edge routing)
@@ -302,9 +303,9 @@ function FamilyTreeInner({
                 parentIds.some(pid => currentAncestryPath.has(pid));
 
             const edgeStyle = {
-                stroke: isOnPath ? '#f59e0b' : '#0d9488',
-                strokeWidth: isOnPath ? 3 : 1.8,
-                opacity: currentAncestryPath.size > 0 ? (isOnPath ? 1 : 0.25) : 0.65,
+                stroke: isOnPath ? '#f59e0b' : edgeSettingsRef.current.parentChildColor,
+                strokeWidth: isOnPath ? 3 : edgeSettingsRef.current.parentChildWidth,
+                opacity: currentAncestryPath.size > 0 ? (isOnPath ? 1 : 0.25) : edgeSettingsRef.current.parentChildOpacity,
             };
 
             // If child has 2 parents that form a couple, connect from junction
@@ -320,7 +321,7 @@ function FamilyTreeInner({
                         target: person.personId,
                         sourceHandle: 'bottom',
                         targetHandle: 'top',
-                        type: 'default',
+                        type: edgeSettingsRef.current.edgeType,
                         style: edgeStyle,
                     });
                     return;
@@ -335,7 +336,7 @@ function FamilyTreeInner({
                 target: person.personId,
                 sourceHandle: 'bottom',
                 targetHandle: 'top',
-                type: 'default',
+                type: edgeSettingsRef.current.edgeType,
                 style: edgeStyle,
             });
         });
@@ -1066,9 +1067,10 @@ function FamilyTreeInner({
 
             {/* Layout Settings Panel */}
             <LayoutSettingsPanel
-                onApply={(config, rules) => {
+                onApply={(config, rules, edge) => {
                     layoutConfigRef.current = config;
                     layoutRulesRef.current = rules;
+                    edgeSettingsRef.current = edge;
                     // Trigger re-layout
                     initialLayoutRef.current = null;
                     handleAutoArrange();

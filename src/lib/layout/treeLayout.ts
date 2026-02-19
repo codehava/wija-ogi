@@ -106,6 +106,8 @@ export interface LayoutConfig {
     margin: number;     // L4
     minGap: number;     // L5
     orphanGap: number;  // L6
+    treeGapMultiplier: number;  // L7
+    groupGapMultiplier: number; // L8
 }
 
 export interface LayoutRules {
@@ -114,6 +116,9 @@ export interface LayoutRules {
     crossLineageGrouping: boolean; // R7: group cross-lineage trees
     overlapResolution: boolean;  // R6: per-row overlap fix
     spouseOrdering: boolean;     // R2: husband-wife ordering rules
+    largestGroupFirst: boolean;  // R5: largest root group placed first
+    showOrphans: boolean;        // R8: show orphan nodes in grid
+    normalizePositions: boolean; // R9: normalize coordinates to top-left
 }
 
 export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
@@ -123,6 +128,8 @@ export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
     margin: 30,       // L4: canvas margin
     minGap: 15,       // L5: minimum gap for collision resolution
     orphanGap: 80,    // L6: gap before orphan section
+    treeGapMultiplier: 1.2,  // L7: multiplier for cross-lineage tree gap
+    groupGapMultiplier: 3,   // L8: multiplier for unrelated group gap
 };
 
 export const DEFAULT_LAYOUT_RULES: LayoutRules = {
@@ -131,6 +138,9 @@ export const DEFAULT_LAYOUT_RULES: LayoutRules = {
     crossLineageGrouping: true,
     overlapResolution: true,
     spouseOrdering: true,
+    largestGroupFirst: true,
+    showOrphans: true,
+    normalizePositions: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -599,13 +609,15 @@ export function calculateTreeLayout(
         }
     }
 
-    // Largest group first
-    rootGroups.sort((a, b) => b.length - a.length);
+    // Largest group first (R5)
+    if (rules.largestGroupFirst) {
+        rootGroups.sort((a, b) => b.length - a.length);
+    }
 
     // Layout each group — related trees close, unrelated trees far
     let globalX = 0;
-    const GROUP_GAP = config.nodeSep * 3;              // L8: unrelated tree groups (60px)
-    const TREE_GAP = Math.round(config.nodeSep * 1.2); // L7: cross-lineage trees (24px)
+    const GROUP_GAP = Math.round(config.nodeSep * (config.groupGapMultiplier ?? 3));   // L8
+    const TREE_GAP = Math.round(config.nodeSep * (config.treeGapMultiplier ?? 1.2));   // L7
 
     for (const group of rootGroups) {
         let groupX = globalX;
@@ -675,51 +687,55 @@ export function calculateTreeLayout(
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 8. HANDLE ORPHANS (no parent AND no child connections — grid layout)
+    // 8. HANDLE ORPHANS — R8 (no parent AND no child connections — grid layout)
     // ═══════════════════════════════════════════════════════════════════════════
-    const orphansY = currentMaxY + config.orphanGap;
-    let orphanCurrentX = 50;
-    let orphanRow = 0;
-    const MAX_ORPHANS_PER_ROW = 8;
-    let orphansInCurrentRow = 0;
+    if (rules.showOrphans) {
+        const orphansY = currentMaxY + config.orphanGap;
+        let orphanCurrentX = 50;
+        let orphanRow = 0;
+        const MAX_ORPHANS_PER_ROW = 8;
+        let orphansInCurrentRow = 0;
 
-    clusters.forEach((data, id) => {
-        if (!clustersInGraph.has(id)) {
-            const startX = orphanCurrentX;
-            const rowY = orphansY + orphanRow * (NODE_HEIGHT + 80);
-            data.members.forEach((member, index) => {
-                const memberX = startX + (index * (NODE_WIDTH + config.spouseGap));
-                posMap.set(member.personId, {
-                    x: memberX,
-                    y: rowY
+        clusters.forEach((data, id) => {
+            if (!clustersInGraph.has(id)) {
+                const startX = orphanCurrentX;
+                const rowY = orphansY + orphanRow * (NODE_HEIGHT + 80);
+                data.members.forEach((member, index) => {
+                    const memberX = startX + (index * (NODE_WIDTH + config.spouseGap));
+                    posMap.set(member.personId, {
+                        x: memberX,
+                        y: rowY
+                    });
                 });
-            });
-            orphanCurrentX += data.w + config.nodeSep;
-            orphansInCurrentRow++;
-            if (orphansInCurrentRow >= MAX_ORPHANS_PER_ROW) {
-                orphanCurrentX = 50;
-                orphanRow++;
-                orphansInCurrentRow = 0;
+                orphanCurrentX += data.w + config.nodeSep;
+                orphansInCurrentRow++;
+                if (orphansInCurrentRow >= MAX_ORPHANS_PER_ROW) {
+                    orphanCurrentX = 50;
+                    orphanRow++;
+                    orphansInCurrentRow = 0;
+                }
             }
-        }
-    });
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 9. NORMALIZE — shift everything so top-left starts at (50, 50)
-    // ═══════════════════════════════════════════════════════════════════════════
-    let minX = Infinity;
-    let minY = Infinity;
-    posMap.forEach(pos => {
-        minX = Math.min(minX, pos.x);
-        minY = Math.min(minY, pos.y);
-    });
-
-    if (minX !== Infinity) {
-        const offsetX = 50 - minX;
-        const offsetY = 50 - minY;
-        posMap.forEach((pos, id) => {
-            posMap.set(id, { x: pos.x + offsetX, y: pos.y + offsetY });
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 9. NORMALIZE — R9: shift everything so top-left starts at (margin, margin)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (rules.normalizePositions) {
+        let minX = Infinity;
+        let minY = Infinity;
+        posMap.forEach(pos => {
+            minX = Math.min(minX, pos.x);
+            minY = Math.min(minY, pos.y);
+        });
+
+        if (minX !== Infinity) {
+            const offsetX = config.margin - minX;
+            const offsetY = config.margin - minY;
+            posMap.forEach((pos, id) => {
+                posMap.set(id, { x: pos.x + offsetX, y: pos.y + offsetY });
+            });
+        }
     }
 
     return posMap;
