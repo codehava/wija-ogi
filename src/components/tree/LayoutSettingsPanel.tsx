@@ -19,6 +19,8 @@ export interface EdgeSettings {
     spouseColor: string;          // E4: spouse edge color
     spouseWidth: number;          // E5: spouse stroke width
     edgeType: 'default' | 'straight' | 'step' | 'smoothstep'; // E6: edge curve type
+    connectorStyle: 'individual' | 'fork' | 'elbow'; // E7: family connector style
+    edgeBundling: boolean;        // E8: edge bundling
 }
 
 export const DEFAULT_EDGE_SETTINGS: EdgeSettings = {
@@ -28,6 +30,8 @@ export const DEFAULT_EDGE_SETTINGS: EdgeSettings = {
     spouseColor: '#dc2626',
     spouseWidth: 2,
     edgeType: 'default',
+    connectorStyle: 'individual',
+    edgeBundling: false,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -78,22 +82,63 @@ const SPACING_SETTINGS: SliderSetting[] = [
     { key: 'groupGapMultiplier', label: 'Unrelated group gap', code: 'L8', min: 1, max: 10, step: 0.5, unit: '×' },
 ];
 
-interface RuleSetting {
+// Toggle rules (boolean)
+interface ToggleRule {
+    type: 'toggle';
     key: keyof LayoutRules;
     label: string;
     code: string;
     description: string;
 }
 
+// Selector rules (string enum)
+interface SelectorRule {
+    type: 'selector';
+    key: keyof LayoutRules;
+    label: string;
+    code: string;
+    description: string;
+    options: { value: string; label: string }[];
+}
+
+type RuleSetting = ToggleRule | SelectorRule;
+
 const RULE_SETTINGS: RuleSetting[] = [
-    { key: 'spouseOrdering', label: 'Spouse ordering', code: 'R2', description: 'Husband-wife layout rules' },
-    { key: 'sortByBirthDate', label: 'Sort by birth date', code: 'R3', description: 'Children ordered by age' },
-    { key: 'centerParent', label: 'Center parent', code: 'R4', description: 'Parent centered above children' },
-    { key: 'largestGroupFirst', label: 'Largest group first', code: 'R5', description: 'Biggest family tree placed first' },
-    { key: 'overlapResolution', label: 'Overlap fix', code: 'R6', description: 'Resolve node overlap' },
-    { key: 'crossLineageGrouping', label: 'Cross-lineage grouping', code: 'R7', description: 'Group related trees together' },
-    { key: 'showOrphans', label: 'Show orphans', code: 'R8', description: 'Show unlinked persons in grid' },
-    { key: 'normalizePositions', label: 'Normalize positions', code: 'R9', description: 'Shift tree to top-left origin' },
+    { type: 'toggle', key: 'spouseOrdering', label: 'Spouse ordering', code: 'R2', description: 'Husband-wife layout rules' },
+    { type: 'toggle', key: 'sortByBirthDate', label: 'Sort by birth date', code: 'R3', description: 'Children ordered by age' },
+    { type: 'toggle', key: 'centerParent', label: 'Center parent', code: 'R4', description: 'Parent centered above children' },
+    { type: 'toggle', key: 'largestGroupFirst', label: 'Largest group first', code: 'R5', description: 'Biggest family tree placed first' },
+    { type: 'toggle', key: 'overlapResolution', label: 'Overlap fix', code: 'R6', description: 'Resolve node overlap' },
+    { type: 'toggle', key: 'crossLineageGrouping', label: 'Cross-lineage grouping', code: 'R7', description: 'Group related trees together' },
+    { type: 'toggle', key: 'showOrphans', label: 'Show orphans', code: 'R8', description: 'Show unlinked persons in grid' },
+    { type: 'toggle', key: 'normalizePositions', label: 'Normalize positions', code: 'R9', description: 'Shift tree to top-left origin' },
+    { type: 'toggle', key: 'compactApportioning', label: 'Compact apportioning', code: 'R10', description: 'Proportionally fill gaps between subtrees' },
+    {
+        type: 'selector', key: 'cycleBreaking', label: 'Cycle breaking', code: 'R11',
+        description: 'Handle cousin/family marriages',
+        options: [
+            { value: 'off', label: 'Off' },
+            { value: 'clone', label: 'Clone Node' },
+            { value: 'crosslink', label: 'Cross Link' },
+        ],
+    },
+    {
+        type: 'selector', key: 'multiSpouseMode', label: 'Multi-spouse mode', code: 'R12',
+        description: 'Spouse ordering strategy',
+        options: [
+            { value: 'default', label: 'Default' },
+            { value: 'chronological', label: 'Chronological' },
+            { value: 'childCount', label: 'By Child Count' },
+        ],
+    },
+    {
+        type: 'selector', key: 'generationAlignment', label: 'Generation alignment', code: 'R13',
+        description: 'Y-level alignment for same generation',
+        options: [
+            { value: 'strict', label: 'Strict' },
+            { value: 'loose', label: 'Loose' },
+        ],
+    },
 ];
 
 const EDGE_TYPES = [
@@ -101,6 +146,12 @@ const EDGE_TYPES = [
     { value: 'straight', label: 'Straight' },
     { value: 'step', label: 'Step' },
     { value: 'smoothstep', label: 'Smooth Step' },
+] as const;
+
+const CONNECTOR_STYLES = [
+    { value: 'individual', label: 'Individual' },
+    { value: 'fork', label: 'Fork' },
+    { value: 'elbow', label: 'Elbow' },
 ] as const;
 
 const COLOR_PRESETS = [
@@ -130,6 +181,10 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
 
     const handleRuleToggle = useCallback((key: keyof LayoutRules) => {
         setRules(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    const handleRuleSelect = useCallback((key: keyof LayoutRules, value: string) => {
+        setRules(prev => ({ ...prev, [key]: value }));
     }, []);
 
     const handleEdgeChange = useCallback(<K extends keyof EdgeSettings>(key: K, value: EdgeSettings[K]) => {
@@ -162,7 +217,7 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
     const tabs: { id: TabId; label: string; count: number }[] = [
         { id: 'spacing', label: 'Spacing', count: SPACING_SETTINGS.length },
         { id: 'rules', label: 'Rules', count: RULE_SETTINGS.length },
-        { id: 'edges', label: 'Edges', count: 6 },
+        { id: 'edges', label: 'Edges', count: 8 },
     ];
 
     return (
@@ -256,16 +311,29 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                     </div>
                                     <p className="text-[10px] text-zinc-500 mt-0.5">{setting.description}</p>
                                 </div>
-                                <button
-                                    onClick={() => handleRuleToggle(setting.key)}
-                                    className={`ml-2 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${rules[setting.key] ? 'bg-blue-500' : 'bg-zinc-600'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${rules[setting.key] ? 'translate-x-4' : 'translate-x-0.5'
+
+                                {setting.type === 'toggle' ? (
+                                    <button
+                                        onClick={() => handleRuleToggle(setting.key)}
+                                        className={`ml-2 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${rules[setting.key] ? 'bg-blue-500' : 'bg-zinc-600'
                                             }`}
-                                    />
-                                </button>
+                                    >
+                                        <span
+                                            className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${rules[setting.key] ? 'translate-x-4' : 'translate-x-0.5'
+                                                }`}
+                                        />
+                                    </button>
+                                ) : (
+                                    <select
+                                        value={rules[setting.key] as string}
+                                        onChange={(e) => handleRuleSelect(setting.key, e.target.value)}
+                                        className="ml-2 bg-zinc-700 border border-zinc-600 rounded-md px-2 py-1 text-xs text-zinc-200 flex-shrink-0 outline-none focus:border-blue-500"
+                                    >
+                                        {setting.options.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -274,7 +342,7 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                 {/* ─── EDGES TAB ─── */}
                 {activeTab === 'edges' && (
                     <div className="space-y-4">
-                        {/* Edge Type */}
+                        {/* Edge Type (E6) */}
                         <div>
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                                 <span className="text-blue-400 font-mono mr-1">E6</span>Edge Type
@@ -292,6 +360,50 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                         {et.label}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+
+                        {/* Connector Style (E7) */}
+                        <div className="pt-2 border-t border-zinc-700">
+                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                                <span className="text-blue-400 font-mono mr-1">E7</span>Family Connector
+                            </h3>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {CONNECTOR_STYLES.map(cs => (
+                                    <button
+                                        key={cs.value}
+                                        onClick={() => handleEdgeChange('connectorStyle', cs.value as EdgeSettings['connectorStyle'])}
+                                        className={`px-2 py-1.5 text-xs rounded-lg border transition-colors ${edgeSettings.connectorStyle === cs.value
+                                                ? 'bg-blue-600 border-blue-500 text-white'
+                                                : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:border-zinc-500'
+                                            }`}
+                                    >
+                                        {cs.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Edge Bundling (E8) */}
+                        <div className="pt-2 border-t border-zinc-700">
+                            <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-800">
+                                <div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-blue-400 font-mono text-xs">E8</span>
+                                        <span className="text-xs text-zinc-200">Edge Bundling</span>
+                                    </div>
+                                    <p className="text-[10px] text-zinc-500 mt-0.5">Merge nearby edges to reduce clutter</p>
+                                </div>
+                                <button
+                                    onClick={() => handleEdgeChange('edgeBundling', !edgeSettings.edgeBundling)}
+                                    className={`ml-2 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${edgeSettings.edgeBundling ? 'bg-blue-500' : 'bg-zinc-600'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${edgeSettings.edgeBundling ? 'translate-x-4' : 'translate-x-0.5'
+                                            }`}
+                                    />
+                                </button>
                             </div>
                         </div>
 
@@ -323,7 +435,7 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                 </div>
                             </div>
 
-                            {/* Width */}
+                            {/* Width + Opacity */}
                             <div className="mb-2">
                                 <div className="flex justify-between items-center mb-1">
                                     <label className="text-xs text-zinc-300">
@@ -340,8 +452,6 @@ export default function LayoutSettingsPanel({ onApply }: LayoutSettingsPanelProp
                                     className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-blue-500"
                                 />
                             </div>
-
-                            {/* Opacity */}
                             <div>
                                 <div className="flex justify-between items-center mb-1">
                                     <label className="text-xs text-zinc-300">

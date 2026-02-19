@@ -302,6 +302,15 @@ function FamilyTreeInner({
                 currentAncestryPath.has(person.personId) &&
                 parentIds.some(pid => currentAncestryPath.has(pid));
 
+            // E7: Determine edge type based on connector style
+            const connectorStyle = edgeSettingsRef.current.connectorStyle;
+            let parentChildEdgeType = edgeSettingsRef.current.edgeType;
+            if (connectorStyle === 'fork') {
+                parentChildEdgeType = 'step';        // Right-angle brackets (classic genealogy)
+            } else if (connectorStyle === 'elbow') {
+                parentChildEdgeType = 'smoothstep';  // Manhattan routing with rounded corners
+            }
+
             const edgeStyle = {
                 stroke: isOnPath ? '#f59e0b' : edgeSettingsRef.current.parentChildColor,
                 strokeWidth: isOnPath ? 3 : edgeSettingsRef.current.parentChildWidth,
@@ -314,14 +323,14 @@ function FamilyTreeInner({
                 const junctionId = coupleJunctions.get(coupleKey);
 
                 if (junctionId) {
-                    // Connect: junction → child (Bezier curve)
+                    // Connect: junction → child
                     rfEdges.push({
                         id: `child-${coupleKey}-${person.personId}`,
                         source: junctionId,
                         target: person.personId,
                         sourceHandle: 'bottom',
                         targetHandle: 'top',
-                        type: edgeSettingsRef.current.edgeType,
+                        type: parentChildEdgeType,
                         style: edgeStyle,
                     });
                     return;
@@ -336,7 +345,7 @@ function FamilyTreeInner({
                 target: person.personId,
                 sourceHandle: 'bottom',
                 targetHandle: 'top',
-                type: edgeSettingsRef.current.edgeType,
+                type: parentChildEdgeType,
                 style: edgeStyle,
             });
         });

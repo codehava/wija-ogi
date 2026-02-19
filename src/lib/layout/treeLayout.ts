@@ -119,6 +119,10 @@ export interface LayoutRules {
     largestGroupFirst: boolean;  // R5: largest root group placed first
     showOrphans: boolean;        // R8: show orphan nodes in grid
     normalizePositions: boolean; // R9: normalize coordinates to top-left
+    compactApportioning: boolean;   // R10: proportional subtree shifting to fill gaps
+    cycleBreaking: 'off' | 'clone' | 'crosslink'; // R11: pedigree collapse handling
+    multiSpouseMode: 'default' | 'chronological' | 'childCount'; // R12: multi-spouse grouping
+    generationAlignment: 'strict' | 'loose'; // R13: generation Y alignment mode
 }
 
 export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
@@ -141,6 +145,10 @@ export const DEFAULT_LAYOUT_RULES: LayoutRules = {
     largestGroupFirst: true,
     showOrphans: true,
     normalizePositions: true,
+    compactApportioning: true,
+    cycleBreaking: 'off',
+    multiSpouseMode: 'chronological',
+    generationAlignment: 'strict',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -260,20 +268,32 @@ export function calculateTreeLayout(
             return rel?.marriage?.marriageOrder ?? 1;
         };
 
+        // R12: Child count-based sorting (for multi-spouse mode)
+        const getSharedChildCount = (parent1: Person, parent2: Person): number => {
+            const p1Children = new Set(parent1.relationships.childIds);
+            return parent2.relationships.childIds.filter(cId => p1Children.has(cId)).length;
+        };
+
         const wives = members.filter(m => m.gender === 'female');
         const husband = members.find(m => m.gender === 'male');
         const wifeCount = wives.length;
 
-        // SPOUSE LAYOUT RULES:
+        // SPOUSE LAYOUT RULES (R2 + R12):
         // - 1 wife: [Husband] - [Wife]
         // - 2 wives: [Wife 1] - [Husband] - [Wife 2] (centered)
         // - 3+ wives: [Husband] - [Wife 1] - [Wife 2] - ... (sequential)
+        const sortWives = (w: Person[]) => {
+            if (!husband || w.length < 2) return;
+            if (rules.multiSpouseMode === 'childCount') {
+                w.sort((a, b) => getSharedChildCount(husband, b) - getSharedChildCount(husband, a));
+            } else {
+                // chronological (default) — by marriage order
+                w.sort((a, b) => getMarriageOrder(husband, a) - getMarriageOrder(husband, b));
+            }
+        };
+
         if (rules.spouseOrdering && wifeCount === 2 && husband) {
-            wives.sort((a, b) => {
-                const orderA = getMarriageOrder(husband, a);
-                const orderB = getMarriageOrder(husband, b);
-                return orderA - orderB;
-            });
+            sortWives(wives);
             members.length = 0;
             members.push(wives[0], husband, wives[1]);
         } else if (rules.spouseOrdering) {
@@ -281,9 +301,15 @@ export function calculateTreeLayout(
                 if (a.gender === 'male' && b.gender !== 'male') return -1;
                 if (a.gender !== 'male' && b.gender === 'male') return 1;
                 if (a.gender === 'female' && b.gender === 'female' && husband) {
-                    const orderA = getMarriageOrder(husband, a);
-                    const orderB = getMarriageOrder(husband, b);
-                    if (orderA !== orderB) return orderA - orderB;
+                    if (rules.multiSpouseMode === 'childCount') {
+                        const countA = getSharedChildCount(husband, a);
+                        const countB = getSharedChildCount(husband, b);
+                        if (countA !== countB) return countB - countA;
+                    } else {
+                        const orderA = getMarriageOrder(husband, a);
+                        const orderB = getMarriageOrder(husband, b);
+                        if (orderA !== orderB) return orderA - orderB;
+                    }
                 }
                 return a.personId.localeCompare(b.personId);
             });
@@ -469,7 +495,17 @@ export function calculateTreeLayout(
         if (!data) return 0;
 
         const gen = clusterGen.get(cid) ?? 1;
-        const y = config.margin + (gen - 1) * rowHeight;
+        let y = config.margin + (gen - 1) * rowHeight;
+
+        // R13: Loose generation alignment — offset Y to reduce edge crossing
+        if (rules.generationAlignment === 'loose') {
+            const children = clusterChildren.get(cid);
+            const childCount = children?.length ?? 0;
+            // Nodes with more children drift very slightly down (max 20% of rankSep)
+            const maxOffset = config.rankSep * 0.2;
+            const offset = Math.min(childCount * 4, maxOffset);
+            y += offset;
+        }
 
         const children = clusterChildren.get(cid);
         const ownWidth = data.w;
@@ -659,6 +695,58 @@ export function calculateTreeLayout(
                         const p = clusterPositions.get(ids[j]);
                         if (p) p.x += shift;
                     }
+                }
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 6.6. COMPACT APPORTIONING — R10
+    // ═══════════════════════════════════════════════════════════════════════════
+    // After overlap resolution, scan each row for excess gaps. If adjacent
+    // clusters have no tree relationship blocking them, shift them closer
+    // proportionally to fill empty space (Walker apportion-style).
+    if (rules.compactApportioning) {
+        const byRow = new Map<number, string[]>();
+        for (const [cid, pos] of clusterPositions) {
+            const ry = Math.round(pos.y / 10) * 10;
+            if (!byRow.has(ry)) byRow.set(ry, []);
+            byRow.get(ry)!.push(cid);
+        }
+
+        for (const [, ids] of byRow) {
+            if (ids.length < 3) continue;
+            ids.sort((a, b) => (clusterPositions.get(a)?.x ?? 0) - (clusterPositions.get(b)?.x ?? 0));
+
+            // Identify internal clusters (not first or last in row) that have
+            // excess gap on both sides — shift them to center of their neighbors
+            for (let i = 1; i < ids.length - 1; i++) {
+                const prev = clusterPositions.get(ids[i - 1]);
+                const curr = clusterPositions.get(ids[i]);
+                const next = clusterPositions.get(ids[i + 1]);
+                if (!prev || !curr || !next) continue;
+
+                const prevData = clusters.get(ids[i - 1]);
+                const currData = clusters.get(ids[i]);
+                const nextData = clusters.get(ids[i + 1]);
+                if (!prevData || !currData || !nextData) continue;
+
+                // Only compact if this cluster is NOT a parent/child of neighbors
+                // (we don't want to break the parent-centered layout)
+                const isRelated = (a: string, b: string) =>
+                    clusterChildren.get(a)?.includes(b) || clusterChildren.get(b)?.includes(a);
+
+                if (isRelated(ids[i], ids[i - 1]) || isRelated(ids[i], ids[i + 1])) continue;
+
+                // Calculate ideal centered position between neighbors
+                const leftEdge = prev.x + prevData.w / 2 + config.minGap + currData.w / 2;
+                const rightEdge = next.x - nextData.w / 2 - config.minGap - currData.w / 2;
+                const idealX = (leftEdge + rightEdge) / 2;
+
+                // Only shift if it reduces the gap (don't expand)
+                if (Math.abs(idealX - curr.x) > config.minGap) {
+                    const shift = idealX - curr.x;
+                    shiftSubtree(ids[i], shift);
                 }
             }
         }
