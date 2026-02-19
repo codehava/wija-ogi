@@ -239,7 +239,6 @@ function FamilyTreeInner({
                     isHighlighted: currentHighlighted.has(person.personId),
                     isOnAncestryPath: currentAncestryPath.has(person.personId),
                     hasAncestryActive: currentAncestryPath.size > 0,
-                    lodLevel,
                     onHover: (rect: DOMRect) => {
                         setHoveredPerson({ person, x: rect.right + 8, y: rect.top });
                     },
@@ -1133,49 +1132,55 @@ function FamilyTreeInner({
             </div>
 
             {/* React Flow Canvas */}
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={handleNodesChange}
-                onEdgesChange={onEdgesChange}
-                onNodeClick={handleNodeClick}
-                onNodeDragStop={handleNodeDragStop}
-                onPaneClick={handlePaneClick}
-                onMoveEnd={(_, viewport) => {
-                    // P3b: LOD — compute detail level from zoom
-                    const zoom = viewport.zoom;
-                    const newLod = zoom < 0.25 ? 0 : zoom < 0.5 ? 1 : 2;
-                    if (newLod !== lodLevel) setLodLevel(newLod);
-                }}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                fitView
-                fitViewOptions={{ padding: 0.15 }}
-                minZoom={0.05}
-                maxZoom={3}
-                attributionPosition="bottom-right"
-                defaultEdgeOptions={{
-                    type: 'default', // Bezier curves
-                }}
-                style={{ background: '#fafaf9' }}
-                proOptions={{ hideAttribution: true }}
-            >
-                <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#d6d3d1" />
-                <Controls
-                    position="bottom-right"
-                    showInteractive={false}
-                    className="m-2 md:m-4" // Responsive margin
-                />
-                <MiniMap
-                    nodeColor={minimapNodeColor}
-                    nodeStrokeWidth={2}
-                    zoomable
-                    pannable
-                    position="bottom-right"
-                    style={{ width: 120, height: 80, marginBottom: 50, marginRight: 10 }}
-                    className="hidden md:block" // Hide minimap on mobile
-                />
-            </ReactFlow>
+            <div className={`w-full h-full ${lodLevel === 0 ? 'lod-shape-only' : lodLevel === 1 ? 'lod-name-only' : ''}`}>
+                <style>{`
+                .lod-shape-only .node-text-detail { display: none !important; }
+                .lod-name-only .node-text-extra { display: none !important; }
+            `}</style>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={handleNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodeClick={handleNodeClick}
+                    onNodeDragStop={handleNodeDragStop}
+                    onPaneClick={handlePaneClick}
+                    onMoveEnd={(_, viewport) => {
+                        // P3b: LOD — compute detail level from zoom
+                        const zoom = viewport.zoom;
+                        const newLod = zoom < 0.1 ? 0 : zoom < 0.2 ? 1 : 2;
+                        if (newLod !== lodLevel) setLodLevel(newLod);
+                    }}
+                    nodeTypes={nodeTypes}
+                    edgeTypes={edgeTypes}
+                    fitView
+                    fitViewOptions={{ padding: 0.15 }}
+                    minZoom={0.05}
+                    maxZoom={3}
+                    attributionPosition="bottom-right"
+                    defaultEdgeOptions={{
+                        type: 'default', // Bezier curves
+                    }}
+                    style={{ background: '#fafaf9' }}
+                    proOptions={{ hideAttribution: true }}
+                >
+                    <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#d6d3d1" />
+                    <Controls
+                        position="bottom-right"
+                        showInteractive={false}
+                        className="m-2 md:m-4" // Responsive margin
+                    />
+                    <MiniMap
+                        nodeColor={minimapNodeColor}
+                        nodeStrokeWidth={2}
+                        zoomable
+                        pannable
+                        position="bottom-right"
+                        style={{ width: 120, height: 80, marginBottom: 50, marginRight: 10 }}
+                        className="hidden md:block" // Hide minimap on mobile
+                    />
+                </ReactFlow>
+            </div>
 
             {/* Hover Tooltip - Hidden on mobile or handled differently? 
                 React Flow doesn't hover on touch usually. 
