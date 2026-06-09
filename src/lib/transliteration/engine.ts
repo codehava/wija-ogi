@@ -65,7 +65,7 @@ const VOKAL_SET = new Set(['a', 'i', 'u', 'e', 'é', 'o', 'ə']);
 const KONSONAN_SET = new Set(Object.keys(KONSONAN));
 
 // Kluster yang konsonan pertama dapat vokal /a/ (v3)
-const VOKAL_A_CLUSTER = new Set(['bd']);
+const VOKAL_A_CLUSTER = new Set(['bd', 'lt']);
 
 // Kluster N khusus
 // Default: n sebelum konsonan dihilangkan, KECUALI:
@@ -79,9 +79,9 @@ const W_MENJADI_U = true;  // Flag untuk aturan W+konsonan→U
 
 // Prefiks nama yang 'e'-nya adalah pepet (ə) jika diikuti konsonan
 // HANYA berlaku di AWAL KATA untuk menghindari over-detection
-// Contoh: Sekanyili, Belajar, Temanggung, Keluarga, Pemalang, Mesin, Dewa
+// Contoh: Temanggung, Pemalang, Mesin, Dewa (se, be, ke, ne dikecualikan)
 // NOTE: Untuk memaksa e-taling, gunakan 'é' (misal: Déwa)
-const PEPET_PREFIX = new Set(['se', 'be', 'de', 'ke', 'te', 'pe', 'me', 're', 'le', 'ne', 'we', 'ge']);
+const PEPET_PREFIX = new Set(['de', 'te', 'pe', 'me', 're', 'le', 'we', 'ge']);
 
 // Konsonan akhir yang diabaikan (sesuai standar Lontara Bugis)
 // Konsonan yang TIDAK dilafalkan di akhir kata dalam bahasa Bugis
@@ -119,6 +119,10 @@ function normalisasi(text: string): string {
 
     // X → KS
     result = result.replace(/x/g, 'ks');
+
+    // Kluster nasal ganda (ngng → ng, nyny → ny)
+    result = result.replace(/ngng/g, 'ng');
+    result = result.replace(/nyny/g, 'ny');
 
     // Konsonan ganda → tunggal (mm→m, ss→s, ll→l, dll)
     result = result.replace(/(.)\1+/g, '$1');
@@ -323,12 +327,32 @@ export function transliterateLatin(text: string): TransliterationResult {
                     continue;
                 }
 
+                // Kluster di mana konsonan pertama diabaikan (misal: mb -> b, rm -> m, bt -> t)
+                const skipFirstSet = new Set(['mb', 'rm', 'bt']);
+                if (skipFirstSet.has(twoChars)) {
+                    const first = twoChars[0];
+                    details.push({ latin: first, lontara: '', type: 'consonant', note: `${first} sebelum ${twoChars[1]} dihilangkan` });
+                    i++;
+                    continue;
+                }
+
                 // Cek VOKAL_A_CLUSTER: konsonan pertama dapat /a/
                 if (VOKAL_A_CLUSTER.has(twoChars)) {
                     const first = twoChars[0];
                     const aksara = KONSONAN[first];
                     result += aksara;
                     details.push({ latin: first + 'a', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /a/` });
+                    i++;
+                    continue;
+                }
+
+                // Cek VOKAL_E_CLUSTER: konsonan pertama dapat /e/ (taling)
+                const VOKAL_E_CLUSTER = new Set(['hm', 'mr']);
+                if (VOKAL_E_CLUSTER.has(twoChars)) {
+                    const first = twoChars[0];
+                    const aksara = KONSONAN[first] + getVokalDiakritik('e');
+                    result += aksara;
+                    details.push({ latin: first + 'e', lontara: aksara, type: 'consonant', note: `${first} sebelum ${twoChars[1]} dapat /e/ (taling)` });
                     i++;
                     continue;
                 }
